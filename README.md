@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # StudyHack.AI Course Compiler v5.5
 
 Bản v5.5 tập trung sửa lỗi upload/Gemini khó debug:
@@ -63,3 +64,7 @@ http://127.0.0.1:3000/api/health
 ## Lưu ý API key
 
 Gemini API key của Google thường bắt đầu bằng `AIza...`. Nếu key không đúng, backend sẽ fallback demo và hiện `debug.api_key_looks_like_google_key=false`.
+=======
+# DTTH-Hackathon-2026---AI-Course-Generator
+Dự án sinh khoá học tự động của Dự Tuyển 2025
+>>>>>>> 7ce86bc1afcc5f6696649a7c530d3161cb1a38d5
