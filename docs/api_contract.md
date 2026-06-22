@@ -568,57 +568,108 @@ POST /api/generate-slides
 
 ### 4.6. Generate Mind Map
 
-Tạo bản đồ tư duy từ nội dung tài liệu.
+Tạo bản đồ tư duy dạng cây từ nội dung tài liệu. Mind map được tổ chức theo cấu trúc **node** đệ quy với các trường `name` và `children`.
 
 ```
-POST /api/generate-mindmap
+POST /api/generate-mindmap/{course_id}
 ```
 
-**Request Body** (`GenerateMindmapRequest`):
+**Path Parameters**:
+| Name | Type | Description |
+|------|------|-------------|
+| course_id | string | ID của course |
+
+> **Lưu ý**: Endpoint này không nhận request body. Chỉ cần truyền `course_id` trên URL.
+
+**Response** — trả về trực tiếp cấu trúc mind map dạng JSON (không wrap trong object `MindmapResponse`):
 ```json
 {
-  "course_id": "abc123",
-  "max_depth": 3
-}
-```
-
-| Field | Type | Constraints | Description |
-|-------|------|-------------|-------------|
-| course_id | string | required | ID của course |
-| max_depth | integer | 2-5, optional, default 3 | Độ sâu tối đa của mind map |
-
-**Response** (`MindmapResponse`):
-```json
-{
-  "course_id": "abc123",
-  "mindmap": {
-    "central_topic": "Vật lý đại cương",
-    "branches": [
-      {
-        "title": "Cơ học",
-        "children": [
-          {"title": "Động lực học", "children": []},
-          {"title": "Công và năng lượng", "children": []}
-        ]
-      },
-      {
-        "title": "Nhiệt học",
-        "children": []
-      }
-    ]
-  },
-  "citations": [
-    {"page": 3, "source": "tailieu.pdf", "chunk_id": "chunk_10"},
-    {"page": 20, "source": "tailieu.pdf", "chunk_id": "chunk_50"}
+  "name": "Vật lí: Đối tượng, Phương pháp và Vai trò",
+  "children": [
+    {
+      "name": "Đối tượng Nghiên cứu Vật lí",
+      "children": [
+        {
+          "name": "Nguồn gốc thuật ngữ",
+          "children": [
+            { "name": "Tiếng Hy Lạp “physiko”", "children": [] },
+            { "name": "Kiến thức về tự nhiên", "children": [] }
+          ]
+        },
+        {
+          "name": "Phạm vi nghiên cứu",
+          "children": [
+            { "name": "Dạng vận động vật chất (chất, trường)", "children": [] },
+            { "name": "Năng lượng", "children": [] }
+          ]
+        },
+        {
+          "name": "Các lĩnh vực chính",
+          "children": [
+            { "name": "Cơ học, Điện học, Điện từ học", "children": [] },
+            { "name": "Quang học, Âm học, Nhiệt học", "children": [] },
+            { "name": "Nhiệt động lực học", "children": [] },
+            { "name": "Vật lí nguyên tử và hạt nhân", "children": [] },
+            { "name": "Vật lí lượng tử", "children": [] },
+            { "name": "Thuyết tương đối", "children": [] }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Phương pháp Nghiên cứu Vật lí",
+      "children": [
+        {
+          "name": "Phương pháp thực nghiệm",
+          "children": [
+            { "name": "Đặc điểm", "children": [] },
+            { "name": "Người tiên phong", "children": [] },
+            { "name": "Tầm quan trọng SGK", "children": [] }
+          ]
+        },
+        {
+          "name": "Phương pháp mô hình",
+          "children": [
+            { "name": "Định nghĩa", "children": [] },
+            { "name": "Các loại mô hình", "children": [] },
+            { "name": "Quy trình", "children": [] }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Vai trò của Vật lí",
+      "children": [
+        { "name": "Đối với Khoa học", "children": [] },
+        { "name": "Đối với Kĩ thuật và Công nghệ", "children": [] },
+        { "name": "Đối với Cuộc sống", "children": [] }
+      ]
+    }
   ]
 }
 ```
 
+**Cấu trúc node**:
+| Field | Type | Description |
+|-------|------|-------------|
+| name | string | Tiêu đề của node |
+| children | array[Node] | Mảng các node con (cùng cấu trúc), `[]` nếu là node lá |
+
+**Trường `citations`**: Endpoint này KHÔNG trả về `citations` riêng — citations được embed trong quá trình tạo nội dung gốc của LLM.
+
+**Status Codes**:
+- `200`: OK, trả về JSON mind map
+- `404`: Không tìm thấy course
+- `500`: Lỗi xử lý
+
 ---
 
-### 4.7. Custom Prompt
+### 4.7. Custom Prompt (Optimized — Modular Prompt Engineering)
 
-Xử lý prompt tùy chỉnh của người dùng.
+Xử lý prompt tùy chỉnh của người dùng với hệ thống prompt 3 lớp:
+1. **CORE**: System prompt cốt định (chống ảo giác, kiểm soát ngôn ngữ, độ dài)
+2. **FORMAT**: Tự động phân loại prompt → 5 format: TABLE, LIST, EXPLAIN, JSON, CODE
+3. **FEW-SHOT**: 4 ví dụ mẫu giúp LLM hiểu đúng format đầu ra
 
 ```
 POST /api/custom-prompt
@@ -641,13 +692,56 @@ POST /api/custom-prompt
 ```json
 {
   "course_id": "abc123",
-  "result": "Nội dung AI trả lời theo prompt...",
+  "prompt": "Tóm tắt tài liệu này trong 5 ý chính dành cho học sinh cấp 3",
+  "prompt_type": "LIST",
+  "result": "- Ý chính 1: ...\n- Ý chính 2: ...\n- Ý chính 3: ...\n- Ý chính 4: ...\n- Ý chính 5: ...",
   "citations": [
     {"page": 1, "source": "tailieu.pdf", "chunk_id": "chunk_1"},
     {"page": 3, "source": "tailieu.pdf", "chunk_id": "chunk_9"}
   ]
 }
 ```
+
+**Cơ chế phân loại prompt tự động**:
+
+| Loại | Từ khóa kích hoạt | Format output | Temperature |
+|------|-------------------|---------------|-------------|
+| `TABLE` | "bảng", "so sánh", "đối chiếu", "thống kê", "tổng hợp" | Markdown table | 0.1 |
+| `LIST` | "danh sách", "liệt kê", "các bước", "quy trình", "các ý chính" | Ordered/Unordered list | 0.2 |
+| `EXPLAIN` | (default) — "giải thích", "phân tích", "trình bày" | Markdown sections | 0.3 |
+| `JSON` | "json", "cấu trúc dữ liệu", "machine-readable", "parse" | Raw JSON array/object | 0.1 |
+| `CODE` | "code", "ví dụ code", "implementation", "chạy thử" | Code block with language | 0.2 |
+
+**Ví dụ các loại prompt**:
+
+```json
+// TABLE — Prompt: "So sánh cơ học cổ điển và cơ học lượng tử"
+{
+  "prompt_type": "TABLE",
+  "result": "| Tiêu chí | Cơ học cổ điển | Cơ học lượng tử |\n|----------|----------------|-----------------|\n| Đối tượng | Vật vĩ mô | Hạt vi mô |\n| Nguyên lý | Xác định | Bất định |\n| ... | ... | ... |"
+}
+
+// JSON — Prompt: "Xuất các công thức vật lý dưới dạng JSON"
+{
+  "prompt_type": "JSON",
+  "result": "[{\"name\": \"Định luật II Newton\", \"formula\": \"F = ma\"}, {\"name\": \"Công thức năng lượng\", \"formula\": \"E = mc^2\"}]"
+}
+
+// CODE — Prompt: "Viết code Python minh họa chuyển động ném ngang"
+{
+  "prompt_type": "CODE",
+  "result": "```python\nimport math\n\ndef projectile_motion(v0, theta, t):\n    g = 9.81\n    x = v0 * math.cos(theta) * t\n    y = v0 * math.sin(theta) * t - 0.5 * g * t**2\n    return x, y\n```"
+}
+```
+
+**Xử lý prompt mơ hồ**: Nếu prompt không rõ ràng, AI tự chọn format EXPLAIN và kết thúc câu trả lời bằng gợi ý: *"> 💡 Bạn có muốn tôi trình bày theo một format khác (bảng, danh sách, tóm tắt ngắn) không?"*
+
+**Status Codes**:
+- `200`: OK
+- `404`: Không tìm thấy course
+- `500`: Lỗi xử lý
+
+**Async version**: `POST /api/custom-prompt-async/{course_id}` → trả về `TaskResponse`
 
 ---
 
@@ -745,13 +839,14 @@ Các endpoints bất đồng bộ — trả về `task_id` để polling. Phù h
 
 | Method | Endpoint | Task Type |
 |--------|----------|-----------|
-| POST | `/api/generate-course-async` | course |
-| POST | `/api/generate-summary-async` | summary |
-| POST | `/api/generate-flashcards-async` | flashcards |
-| POST | `/api/generate-quiz-async` | quiz |
-| POST | `/api/generate-slides-async` | slides |
-| POST | `/api/generate-mindmap-async` | mindmap |
-| POST | `/api/custom-prompt-async` | custom_prompt |
+| POST | `/api/generate-podcast-async/{course_id}` | podcast |
+| POST | `/api/generate-study-guide-async/{course_id}` | study_guide |
+| POST | `/api/generate-summary-async/{course_id}` | summary |
+| POST | `/api/generate-flashcards-async/{course_id}` | flashcards |
+| POST | `/api/generate-syllabus-async/{course_id}` | syllabus |
+| POST | `/api/generate-questions-async/{course_id}` | questions |
+| POST | `/api/generate-slides-async/{course_id}` | slides |
+| POST | `/api/generate-mindmap-async/{course_id}` | mindmap |
 
 **Request Body**: Giống hệt sync version tương ứng.
 
@@ -908,30 +1003,31 @@ GET /api/course/{course_id}/stats
 |--------|----------|-------|
 | POST | `/api/chat` | Chat với course (RAG) |
 
-### 8.4. Generate — Sync (10)
+### 8.4. Generate — Sync (8)
 
 | Method | Endpoint | Mô tả |
 |--------|----------|-------|
-| POST | `/api/generate-course` | Tạo khóa học |
+| POST | `/api/generate-podcast` | Tạo podcast script |
+| POST | `/api/generate-study-guide` | Tạo study guide |
 | POST | `/api/generate-summary` | Tạo tóm tắt |
 | POST | `/api/generate-flashcards` | Tạo flashcards |
-| POST | `/api/generate-quiz` | Tạo câu hỏi MCQ |
-| POST | `/api/generate-slides` | Tạo slides |
-| POST | `/api/generate-mindmap` | Tạo mind map |
-| POST | `/api/custom-prompt` | Xử lý prompt tùy chỉnh |
-| POST | `/api/generate-study-guide` | Tạo study guide |
 | POST | `/api/generate-syllabus` | Tạo syllabus |
-| POST | `/api/generate-podcast` | Tạo podcast script |
+| POST | `/api/generate-questions` | Tạo câu hỏi MCQ (body: topic, quantity) |
+| POST | `/api/generate-slides` | Tạo slides (body: topic, num_slides) |
+| POST | `/api/generate-mindmap` | Tạo mind map |
+| POST | `/api/custom-prompt` | Xử lý prompt tùy chỉnh (modular prompt eng.) |
 
-### 8.5. Generate — Async (7)
+### 8.5. Generate — Async (9)
 
 | Method | Endpoint | Mô tả |
 |--------|----------|-------|
-| POST | `/api/generate-course-async` | Course background |
+| POST | `/api/generate-podcast-async` | Podcast background |
+| POST | `/api/generate-study-guide-async` | Study guide background |
 | POST | `/api/generate-summary-async` | Summary background |
 | POST | `/api/generate-flashcards-async` | Flashcards background |
-| POST | `/api/generate-quiz-async` | Quiz background |
-| POST | `/api/generate-slides-async` | Slides background |
+| POST | `/api/generate-syllabus-async` | Syllabus background |
+| POST | `/api/generate-questions-async` | Questions background (query params) |
+| POST | `/api/generate-slides-async` | Slides background (query params) |
 | POST | `/api/generate-mindmap-async` | Mind map background |
 | POST | `/api/custom-prompt-async` | Custom prompt background |
 
@@ -957,7 +1053,7 @@ GET /api/course/{course_id}/stats
 | GET | `/api/course/{course_id}/files` | List tất cả files |
 | GET | `/api/course/{course_id}/stats` | Thống kê course |
 
-**Tổng cộng**: **36 endpoints** (4 + 2 + 1 + 10 + 7 + 1 + 11).
+**Tổng cộng**: **37 endpoints** (4 + 2 + 1 + 9 + 9 + 1 + 11).
 
 ---
 
