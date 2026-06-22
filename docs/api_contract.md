@@ -615,35 +615,6 @@ POST /api/generate-mindmap/{course_id}
           ]
         }
       ]
-    },
-    {
-      "name": "Phương pháp Nghiên cứu Vật lí",
-      "children": [
-        {
-          "name": "Phương pháp thực nghiệm",
-          "children": [
-            { "name": "Đặc điểm", "children": [] },
-            { "name": "Người tiên phong", "children": [] },
-            { "name": "Tầm quan trọng SGK", "children": [] }
-          ]
-        },
-        {
-          "name": "Phương pháp mô hình",
-          "children": [
-            { "name": "Định nghĩa", "children": [] },
-            { "name": "Các loại mô hình", "children": [] },
-            { "name": "Quy trình", "children": [] }
-          ]
-        }
-      ]
-    },
-    {
-      "name": "Vai trò của Vật lí",
-      "children": [
-        { "name": "Đối với Khoa học", "children": [] },
-        { "name": "Đối với Kĩ thuật và Công nghệ", "children": [] },
-        { "name": "Đối với Cuộc sống", "children": [] }
-      ]
     }
   ]
 }
@@ -712,28 +683,6 @@ POST /api/custom-prompt
 | `JSON` | "json", "cấu trúc dữ liệu", "machine-readable", "parse" | Raw JSON array/object | 0.1 |
 | `CODE` | "code", "ví dụ code", "implementation", "chạy thử" | Code block with language | 0.2 |
 
-**Ví dụ các loại prompt**:
-
-```json
-// TABLE — Prompt: "So sánh cơ học cổ điển và cơ học lượng tử"
-{
-  "prompt_type": "TABLE",
-  "result": "| Tiêu chí | Cơ học cổ điển | Cơ học lượng tử |\n|----------|----------------|-----------------|\n| Đối tượng | Vật vĩ mô | Hạt vi mô |\n| Nguyên lý | Xác định | Bất định |\n| ... | ... | ... |"
-}
-
-// JSON — Prompt: "Xuất các công thức vật lý dưới dạng JSON"
-{
-  "prompt_type": "JSON",
-  "result": "[{\"name\": \"Định luật II Newton\", \"formula\": \"F = ma\"}, {\"name\": \"Công thức năng lượng\", \"formula\": \"E = mc^2\"}]"
-}
-
-// CODE — Prompt: "Viết code Python minh họa chuyển động ném ngang"
-{
-  "prompt_type": "CODE",
-  "result": "```python\nimport math\n\ndef projectile_motion(v0, theta, t):\n    g = 9.81\n    x = v0 * math.cos(theta) * t\n    y = v0 * math.sin(theta) * t - 0.5 * g * t**2\n    return x, y\n```"
-}
-```
-
 **Xử lý prompt mơ hồ**: Nếu prompt không rõ ràng, AI tự chọn format EXPLAIN và kết thúc câu trả lời bằng gợi ý: *"> 💡 Bạn có muốn tôi trình bày theo một format khác (bảng, danh sách, tóm tắt ngắn) không?"*
 
 **Status Codes**:
@@ -741,7 +690,7 @@ POST /api/custom-prompt
 - `404`: Không tìm thấy course
 - `500`: Lỗi xử lý
 
-**Async version**: `POST /api/custom-prompt-async/{course_id}` → trả về `TaskResponse`
+**Lưu kết quả**: Mỗi lần chạy thành công sẽ lưu cặp file vào `custom_prompts/course_{id}/{timestamp}.json` và `.md`.
 
 ---
 
@@ -839,16 +788,17 @@ Các endpoints bất đồng bộ — trả về `task_id` để polling. Phù h
 
 | Method | Endpoint | Task Type |
 |--------|----------|-----------|
-| POST | `/api/generate-podcast-async/{course_id}` | podcast |
-| POST | `/api/generate-study-guide-async/{course_id}` | study_guide |
-| POST | `/api/generate-summary-async/{course_id}` | summary |
-| POST | `/api/generate-flashcards-async/{course_id}` | flashcards |
-| POST | `/api/generate-syllabus-async/{course_id}` | syllabus |
-| POST | `/api/generate-questions-async/{course_id}` | questions |
-| POST | `/api/generate-slides-async/{course_id}` | slides |
-| POST | `/api/generate-mindmap-async/{course_id}` | mindmap |
+| POST | `/api/generate-course-async` | course |
+| POST | `/api/generate-summary-async` | summary |
+| POST | `/api/generate-flashcards-async` | flashcards |
+| POST | `/api/generate-quiz-async` | quiz |
+| POST | `/api/generate-slides-async` | slides |
+| POST | `/api/generate-mindmap-async` | mindmap |
+| POST | `/api/custom-prompt-async` | custom_prompt |
 
-**Request Body**: Giống hệt sync version tương ứng.
+**Request Body**: 
+- `custom_prompt-async` nhận `prompt` qua **query parameter** (không phải body).
+- Các async khác nhận body giống sync version.
 
 **Response** (`TaskResponse`):
 ```json
@@ -926,6 +876,7 @@ Truy xuất nội dung đã được generate từ trước (đã lưu vào ổ 
 | GET | `/api/course/{course_id}/study-guide` | Lấy study guide |
 | GET | `/api/course/{course_id}/syllabus` | Lấy syllabus đã lưu |
 | GET | `/api/course/{course_id}/audio` | Lấy podcast script |
+| GET | `/api/course/{course_id}/custom-prompts` | Lấy lịch sử custom prompt |
 | GET | `/api/course/{course_id}/files` | List tất cả files đã generate |
 | GET | `/api/course/{course_id}/stats` | Thống kê course |
 
@@ -977,6 +928,34 @@ GET /api/course/{course_id}/stats
 }
 ```
 
+### 7.3. List Custom Prompt History
+
+```
+GET /api/course/{course_id}/custom-prompts
+```
+
+**Response**:
+```json
+{
+  "course_id": "abc123",
+  "custom_prompts": [
+    {
+      "filename": "20260622_212020.json",
+      "prompt": "Tóm tắt tài liệu này trong 5 ý chính",
+      "prompt_type": "LIST",
+      "created_at": "2026-06-22T21:20:20"
+    },
+    {
+      "filename": "20260622_213659.json",
+      "prompt": "So sánh cơ học cổ điển và lượng tử",
+      "prompt_type": "TABLE",
+      "created_at": "2026-06-22T21:36:59"
+    }
+  ],
+  "total": 2
+}
+```
+
 ---
 
 ## 8. Tổng hợp Endpoints
@@ -1003,31 +982,30 @@ GET /api/course/{course_id}/stats
 |--------|----------|-------|
 | POST | `/api/chat` | Chat với course (RAG) |
 
-### 8.4. Generate — Sync (8)
+### 8.4. Generate — Sync (10)
 
 | Method | Endpoint | Mô tả |
 |--------|----------|-------|
-| POST | `/api/generate-podcast` | Tạo podcast script |
-| POST | `/api/generate-study-guide` | Tạo study guide |
+| POST | `/api/generate-course` | Tạo khóa học |
 | POST | `/api/generate-summary` | Tạo tóm tắt |
 | POST | `/api/generate-flashcards` | Tạo flashcards |
-| POST | `/api/generate-syllabus` | Tạo syllabus |
-| POST | `/api/generate-questions` | Tạo câu hỏi MCQ (body: topic, quantity) |
-| POST | `/api/generate-slides` | Tạo slides (body: topic, num_slides) |
+| POST | `/api/generate-quiz` | Tạo câu hỏi MCQ |
+| POST | `/api/generate-slides` | Tạo slides |
 | POST | `/api/generate-mindmap` | Tạo mind map |
-| POST | `/api/custom-prompt` | Xử lý prompt tùy chỉnh (modular prompt eng.) |
+| POST | `/api/custom-prompt` | Xử lý prompt tùy chỉnh |
+| POST | `/api/generate-study-guide` | Tạo study guide |
+| POST | `/api/generate-syllabus` | Tạo syllabus |
+| POST | `/api/generate-podcast` | Tạo podcast script |
 
-### 8.5. Generate — Async (9)
+### 8.5. Generate — Async (7)
 
 | Method | Endpoint | Mô tả |
 |--------|----------|-------|
-| POST | `/api/generate-podcast-async` | Podcast background |
-| POST | `/api/generate-study-guide-async` | Study guide background |
+| POST | `/api/generate-course-async` | Course background |
 | POST | `/api/generate-summary-async` | Summary background |
 | POST | `/api/generate-flashcards-async` | Flashcards background |
-| POST | `/api/generate-syllabus-async` | Syllabus background |
-| POST | `/api/generate-questions-async` | Questions background (query params) |
-| POST | `/api/generate-slides-async` | Slides background (query params) |
+| POST | `/api/generate-quiz-async` | Quiz background |
+| POST | `/api/generate-slides-async` | Slides background |
 | POST | `/api/generate-mindmap-async` | Mind map background |
 | POST | `/api/custom-prompt-async` | Custom prompt background |
 
@@ -1050,10 +1028,11 @@ GET /api/course/{course_id}/stats
 | GET | `/api/course/{course_id}/study-guide` | Lấy study guide |
 | GET | `/api/course/{course_id}/syllabus` | Lấy syllabus |
 | GET | `/api/course/{course_id}/audio` | Lấy podcast script |
+| GET | `/api/course/{course_id}/custom-prompts` | Lấy lịch sử custom prompt |
 | GET | `/api/course/{course_id}/files` | List tất cả files |
 | GET | `/api/course/{course_id}/stats` | Thống kê course |
 
-**Tổng cộng**: **37 endpoints** (4 + 2 + 1 + 9 + 9 + 1 + 11).
+**Tổng cộng**: **37 endpoints** (4 + 2 + 1 + 10 + 7 + 1 + 12).
 
 ---
 
