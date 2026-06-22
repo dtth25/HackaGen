@@ -27,7 +27,7 @@ load_dotenv("api_key.env")
 # ─── Directory Constants ───────────────────────────────────────────────────────
 
 UPLOAD_DIR = "uploads"
-INDEX_DIR = "faiss_indices"
+INDEX_DIR = "indices"
 QUESTIONS_DIR = "questions"
 CACHE_DIR = "cache"
 AUDIO_DIR = "audio"
@@ -37,6 +37,13 @@ MINDMAPS_DIR = "mindmaps"
 
 for d in [UPLOAD_DIR, INDEX_DIR, QUESTIONS_DIR, CACHE_DIR, AUDIO_DIR, GUIDES_DIR, FLASHCARDS_DIR, MINDMAPS_DIR]:
     os.makedirs(d, exist_ok=True)
+
+# ─── Milvus Configuration ─────────────────────────────────────────────────────
+
+MILVUS_HOST = os.getenv("MILVUS_HOST", "localhost")
+MILVUS_PORT = os.getenv("MILVUS_PORT", "19530")
+MILVUS_ALIAS = "default"
+MILVUS_COLLECTION_PREFIX = "course"
 
 # ─── Model Configuration ───────────────────────────────────────────────────────
 
@@ -57,7 +64,7 @@ def generate_course_id() -> str:
 def get_course_path(course_id: str) -> Dict[str, str]:
     """Get all file paths for a course."""
     return {
-        "faiss": os.path.join(INDEX_DIR, f"course_{course_id}"),
+        "milvus_meta": os.path.join(INDEX_DIR, f"milvus_{course_id}.json"),
         "questions": os.path.join(QUESTIONS_DIR, f"course_{course_id}_questions.json"),
         "syllabus": os.path.join(QUESTIONS_DIR, f"course_{course_id}_syllabus.json"),
         "meta": os.path.join(QUESTIONS_DIR, f"course_{course_id}_meta.json"),
