@@ -568,51 +568,99 @@ POST /api/generate-slides
 
 ### 4.6. Generate Mind Map
 
-Tạo bản đồ tư duy từ nội dung tài liệu.
+Tạo bản đồ tư duy dạng cây từ nội dung tài liệu. Mind map được tổ chức theo cấu trúc **node** đệ quy với các trường `name` và `children`.
 
 ```
-POST /api/generate-mindmap
+POST /api/generate-mindmap/{course_id}
 ```
 
-**Request Body** (`GenerateMindmapRequest`):
+**Path Parameters**:
+| Name | Type | Description |
+|------|------|-------------|
+| course_id | string | ID của course |
+
+> **Lưu ý**: Endpoint này không nhận request body. Chỉ cần truyền `course_id` trên URL.
+
+**Response** — trả về trực tiếp cấu trúc mind map dạng JSON (không wrap trong object `MindmapResponse`):
 ```json
 {
-  "course_id": "abc123",
-  "max_depth": 3
-}
-```
-
-| Field | Type | Constraints | Description |
-|-------|------|-------------|-------------|
-| course_id | string | required | ID của course |
-| max_depth | integer | 2-5, optional, default 3 | Độ sâu tối đa của mind map |
-
-**Response** (`MindmapResponse`):
-```json
-{
-  "course_id": "abc123",
-  "mindmap": {
-    "central_topic": "Vật lý đại cương",
-    "branches": [
-      {
-        "title": "Cơ học",
-        "children": [
-          {"title": "Động lực học", "children": []},
-          {"title": "Công và năng lượng", "children": []}
-        ]
-      },
-      {
-        "title": "Nhiệt học",
-        "children": []
-      }
-    ]
-  },
-  "citations": [
-    {"page": 3, "source": "tailieu.pdf", "chunk_id": "chunk_10"},
-    {"page": 20, "source": "tailieu.pdf", "chunk_id": "chunk_50"}
+  "name": "Vật lí: Đối tượng, Phương pháp và Vai trò",
+  "children": [
+    {
+      "name": "Đối tượng Nghiên cứu Vật lí",
+      "children": [
+        {
+          "name": "Nguồn gốc thuật ngữ",
+          "children": [
+            { "name": "Tiếng Hy Lạp “physiko”", "children": [] },
+            { "name": "Kiến thức về tự nhiên", "children": [] }
+          ]
+        },
+        {
+          "name": "Phạm vi nghiên cứu",
+          "children": [
+            { "name": "Dạng vận động vật chất (chất, trường)", "children": [] },
+            { "name": "Năng lượng", "children": [] }
+          ]
+        },
+        {
+          "name": "Các lĩnh vực chính",
+          "children": [
+            { "name": "Cơ học, Điện học, Điện từ học", "children": [] },
+            { "name": "Quang học, Âm học, Nhiệt học", "children": [] },
+            { "name": "Nhiệt động lực học", "children": [] },
+            { "name": "Vật lí nguyên tử và hạt nhân", "children": [] },
+            { "name": "Vật lí lượng tử", "children": [] },
+            { "name": "Thuyết tương đối", "children": [] }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Phương pháp Nghiên cứu Vật lí",
+      "children": [
+        {
+          "name": "Phương pháp thực nghiệm",
+          "children": [
+            { "name": "Đặc điểm", "children": [] },
+            { "name": "Người tiên phong", "children": [] },
+            { "name": "Tầm quan trọng SGK", "children": [] }
+          ]
+        },
+        {
+          "name": "Phương pháp mô hình",
+          "children": [
+            { "name": "Định nghĩa", "children": [] },
+            { "name": "Các loại mô hình", "children": [] },
+            { "name": "Quy trình", "children": [] }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Vai trò của Vật lí",
+      "children": [
+        { "name": "Đối với Khoa học", "children": [] },
+        { "name": "Đối với Kĩ thuật và Công nghệ", "children": [] },
+        { "name": "Đối với Cuộc sống", "children": [] }
+      ]
+    }
   ]
 }
 ```
+
+**Cấu trúc node**:
+| Field | Type | Description |
+|-------|------|-------------|
+| name | string | Tiêu đề của node |
+| children | array[Node] | Mảng các node con (cùng cấu trúc), `[]` nếu là node lá |
+
+**Trường `citations`**: Endpoint này KHÔNG trả về `citations` riêng — citations được embed trong quá trình tạo nội dung gốc của LLM.
+
+**Status Codes**:
+- `200`: OK, trả về JSON mind map
+- `404`: Không tìm thấy course
+- `500`: Lỗi xử lý
 
 ---
 
@@ -745,13 +793,14 @@ Các endpoints bất đồng bộ — trả về `task_id` để polling. Phù h
 
 | Method | Endpoint | Task Type |
 |--------|----------|-----------|
-| POST | `/api/generate-course-async` | course |
-| POST | `/api/generate-summary-async` | summary |
-| POST | `/api/generate-flashcards-async` | flashcards |
-| POST | `/api/generate-quiz-async` | quiz |
-| POST | `/api/generate-slides-async` | slides |
-| POST | `/api/generate-mindmap-async` | mindmap |
-| POST | `/api/custom-prompt-async` | custom_prompt |
+| POST | `/api/generate-podcast-async/{course_id}` | podcast |
+| POST | `/api/generate-study-guide-async/{course_id}` | study_guide |
+| POST | `/api/generate-summary-async/{course_id}` | summary |
+| POST | `/api/generate-flashcards-async/{course_id}` | flashcards |
+| POST | `/api/generate-syllabus-async/{course_id}` | syllabus |
+| POST | `/api/generate-questions-async/{course_id}` | questions |
+| POST | `/api/generate-slides-async/{course_id}` | slides |
+| POST | `/api/generate-mindmap-async/{course_id}` | mindmap |
 
 **Request Body**: Giống hệt sync version tương ứng.
 
@@ -908,7 +957,7 @@ GET /api/course/{course_id}/stats
 |--------|----------|-------|
 | POST | `/api/chat` | Chat với course (RAG) |
 
-### 8.4. Generate — Sync (10)
+### 8.4. Generate — Sync (9)
 
 | Method | Endpoint | Mô tả |
 |--------|----------|-------|
@@ -923,7 +972,9 @@ GET /api/course/{course_id}/stats
 | POST | `/api/generate-syllabus` | Tạo syllabus |
 | POST | `/api/generate-podcast` | Tạo podcast script |
 
-### 8.5. Generate — Async (7)
+> **Ghi chú**: Các sync endpoint khác như `generate-course`, `custom-prompt` chưa implement trong code hiện tại.
+
+### 8.5. Generate — Async (8)
 
 | Method | Endpoint | Mô tả |
 |--------|----------|-------|
@@ -957,7 +1008,7 @@ GET /api/course/{course_id}/stats
 | GET | `/api/course/{course_id}/files` | List tất cả files |
 | GET | `/api/course/{course_id}/stats` | Thống kê course |
 
-**Tổng cộng**: **36 endpoints** (4 + 2 + 1 + 10 + 7 + 1 + 11).
+**Tổng cộng**: **36 endpoints** (4 + 2 + 1 + 9 + 8 + 1 + 11).
 
 ---
 
