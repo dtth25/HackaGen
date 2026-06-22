@@ -256,39 +256,40 @@ NGỮ CẢNH:
 {context}
 """
 MINDMAP_PROMPT = """\
-BẠN LÀ MỘT CHUYÊN GIA TỔ CHỨC KIẾN THỨC CẤP CAO.
+BẠN LÀ MỘT KỸ SƯ DỮ LIỆU VÀ CHUYÊN GIA TỔ CHỨC KIẾN THỨC.
 
-NẰM LÒNG QUY TẮC PHỦ ĐỊNH (BẮT BUỘC):
+NẰM LÒNG QUY TẮC PHỦ ĐỊNH (TUYỆT ĐỐI BẮT BUỘC):
 - TUYỆT ĐỐI KHÔNG trích xuất tên riêng của người (Ví dụ: Vũ Văn Hùng, Bùi Gia Thịnh, Nguyễn Văn Thu, v.v.). Nhánh nào chứa tên tác giả sẽ bị coi là PHẾ PHẨM.
 - TUYỆT ĐỐI KHÔNG liệt kê danh sách các Chương/Mục lục râu ria của sách vào sơ đồ. Chỉ tập trung vào phương pháp luận và kiến thức cốt lõi.
 
-MỤC TIÊU: Đọc hiểu toàn bộ [CONTEXT] được cung cấp, trích xuất các thông tin cốt lõi và hệ thống hóa chúng thành một sơ đồ tư duy (mindmap) logic, phân cấp rõ ràng.
+MỤC TIÊU: Đọc hiểu toàn bộ [CONTEXT] được cung cấp, trích xuất thông tin cốt lõi và hệ thống hóa thành cấu trúc Mindmap khớp chuẩn xác với Schema yêu cầu.
 
-CÁC QUY TẮC BẮT BUỘC (KHÔNG ĐƯỢC VI PHẠM):
+CÁC QUY TẮC BẮT BUỘC:
 1. ĐỊNH DẠNG ĐẦU RA: Bắt buộc CHỈ trả về duy nhất một chuỗi RAW JSON hợp lệ. TUYỆT ĐỐI KHÔNG bọc JSON trong các thẻ markdown (như ```json hay ```) và KHÔNG sinh thêm bất kỳ lời chào, giải thích hay văn bản nào khác.
-2. CẤU TRÚC JSON: Phải là một cấu trúc cây. Mỗi Node bắt buộc chứa đúng 2 khóa: "name" (chuỗi văn bản) và "children" (mảng chứa các Node con, mảng rỗng [] nếu là node lá).
-3. ĐỘ SÂU (DEPTH): Tối thiểu 3 cấp độ (Chủ đề trung tâm -> Nhánh chính -> Nhánh phụ). Có thể sâu hơn tùy theo mức độ chi tiết của ngữ cảnh.
-4. RÀNG BUỘC NỘI DUNG VÀ KHÁI NIỆM CỐT LÕI:
-   - GIỚI HẠN TỪ: Giá trị của "name" TUYỆT ĐỐI KHÔNG QUÁ 10 TỪ. Ưu tiên sử dụng từ khóa hoặc cụm từ tóm tắt cực kỳ súc tích.
-   - CHỐNG BỊA ĐẶT (HALLUCINATION): Chỉ trích xuất và sắp xếp thông tin có sẵn trong [CONTEXT]. Tuyệt đối không suy diễn hoặc tự thêm kiến thức bên ngoài.
-   - LOẠI BỎ CHI TIẾT PHỤ TRỢ: Tuyệt đối KHÔNG đưa các thông tin mang tính chất tra cứu cá nhân hoặc số liệu lặt vặt vào sơ đồ (Ví dụ: danh sách tên tác giả biên soạn, ngày tháng năm sinh/mất của các nhà khoa học, thông tin nhà xuất bản,...). Chỉ tập trung vào khái niệm, phương pháp, bản chất và cấu trúc kiến thức.
+2. CẤU TRÚC JSON (BẮT BUỘC TUÂN THỦ TỪNG KEY):
+   - Nút gốc (Root) bắt buộc phải có 2 khóa: "central_topic" (chuỗi tiêu đề lớn) và "branches" (mảng chứa các nhánh con chính).
+   - Mỗi Node con bên trong mảng bắt buộc chứa đúng 2 khóa: "title" (chuỗi văn bản tóm tắt) và "children" (mảng chứa các Node con cấp thấp hơn, mảng rỗng [] nếu là nút lá tận cùng).
+3. ĐỘ SÂU tối đa theo cấu trúc: Tối đa là {max_depth} cấp.
+4. RÀNG BUỘC NỘI DUNG:
+   - GIỚI HẠN TỪ: Giá trị của "central_topic" và "title" TUYỆT ĐỐI KHÔNG QUÁ 10 TỪ. Ưu tiên sử dụng từ khóa súc tích.
+   - CHỐNG BỊA ĐẶT (HALLUCINATION): Chỉ trích xuất thông tin có sẵn trong [CONTEXT]. Không tự biên soạn hay suy diễn kiến thức bên ngoài.
 
-VÍ DỤ ĐỊNH DẠNG (BẮT BUỘC TUÂN THỦ):
+VÍ DỤ ĐỊNH DẠNG ĐẦU RA BẮT BUỘC:
 {{
-  "name": "Chủ đề trung tâm",
-  "children": [
+  "central_topic": "Chủ đề trung tâm",
+  "branches": [
     {{
-      "name": "Nhánh chính 1",
+      "title": "Nhánh chính 1",
       "children": [
         {{
-          "name": "Nhánh phụ 1.1",
+          "title": "Ý phụ 1.1",
           "children": []
         }},
         {{
-          "name": "Nhánh phụ 1.2",
+          "title": "Ý phụ 1.2",
           "children": [
             {{
-              "name": "Chi tiết 1.2.1",
+              "title": "Chi tiết 1.2.1",
               "children": []
             }}
           ]

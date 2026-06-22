@@ -162,6 +162,10 @@ class GenerateSlidesRequest(BaseModel):
         if not v or not v.strip():
             raise ValueError("Chủ đề không được để trống.")
         return sanitize_input(v)
+    
+class GenerateMindmapRequest(BaseModel):
+    course_id: str
+    max_depth: int = Field(default=3, ge=2, le=5)
 
 
 class GenerateSlidesResponse(BaseModel):
@@ -645,17 +649,17 @@ async def generate_slides(req: GenerateSlidesRequest):
     except Exception as e:
         raise HTTPException(500, f"[{_timestamp()}] Lỗi tạo slides: {str(e)}")
     
-@app.post("/generate-mindmap/{course_id}")
-async def generate_mindmap_sync(course_id: str):
+@app.post("/generate-mindmap")
+async def generate_mindmap_api(req: GenerateMindmapRequest):
     """
     Tạo bản đồ tư duy và trả về kết quả ngay lập tức (Sync).
     Sử dụng cho tài liệu ngắn hoặc khi muốn lấy data nhanh.
     """
-    rag = get_course(course_id)
+    rag = get_course(req.course_id)
     try:
         # Gọi trực tiếp hàm tạo từ MindmapGenerator
-        mindmap_data = rag.get_mindmap_generator().generate_mindmap()
-        return mindmap_data
+        result = rag.get_mindmap_generator().generate_mindmap(max_depth=req.max_depth)
+        return result
     except Exception as e:
         raise HTTPException(500, f"Lỗi tạo bản đồ tư duy: {str(e)}")
     
