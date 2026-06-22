@@ -15,7 +15,7 @@ from typing import List, Optional, Tuple, Dict, Any
 
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import FAISS
+from langchain_milvus import Milvus
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
@@ -40,6 +40,10 @@ from backend.core.config import (
     BATCH_SIZE,
     RETRY_DELAY,
     MAX_RETRY_DELAY,
+    MILVUS_HOST,
+    MILVUS_PORT,
+    MILVUS_ALIAS,
+    MILVUS_COLLECTION_PREFIX,
     logger,
 )
 from backend.core.prompts import (
@@ -52,7 +56,12 @@ from backend.core.prompts import (
     SUMMARY_PROMPT,
     FLASHCARDS_PROMPT,
 )
-from backend.vector_db.faiss_manager import create_or_load_faiss, load_existing_faiss
+from backend.vector_db.milvus_manager import (
+    create_or_load_milvus,
+    load_existing_milvus,
+    list_milvus_courses,
+    _drop_collection,
+)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -76,8 +85,8 @@ class RAGChains:
         self.audio_chain = None
         self.guide_chain = None
         self.flashcard_chain = None
-        self.vectorstore: Optional[FAISS] = None
-        self.faiss_path = get_course_path(course_id)["faiss"]
+        self.vectorstore: Optional[Milvus] = None
+        self.milvus_meta_path = get_course_path(course_id)["milvus_meta"]
         self.summary_chain = None
 
     def get_resource_generator(self):
@@ -118,13 +127,13 @@ class RAGChains:
         self.initialise_chains_only()
         return self
 
-    def _init_vectorstore(self) -> FAISS:
-        """Create or load FAISS vectorstore."""
-        return create_or_load_faiss(self.faiss_path, self.pdf_path, self.course_id)
+    def _init_vectorstore(self) -> Milvus:
+        """Create or load Milvus vectorstore."""
+        return create_or_load_milvus(self.course_id, self.pdf_path)
 
-    def _load_existing_vectorstore(self) -> Optional[FAISS]:
-        """Load existing FAISS index from disk."""
-        return load_existing_faiss(self.faiss_path)
+    def _load_existing_vectorstore(self) -> Optional[Milvus]:
+        """Load existing Milvus collection from the database."""
+        return load_existing_milvus(self.course_id)
 
     # ── Chain Builders ──────────────────────────────────────────────────────
 
@@ -317,23 +326,21 @@ class CourseManager:
         self._scan_existing_courses()
 
     def _scan_existing_courses(self):
-        """Scan INDEX_DIR and register course IDs (no FAISS loaded)."""
-        if not os.path.exists(INDEX_DIR):
-            return
-        found = 0
-        for name in sorted(os.listdir(INDEX_DIR)):
-            if name.startswith("course_") and os.path.isdir(
-                os.path.join(INDEX_DIR, name)
-            ):
-                cid = name.replace("course_", "", 1)
+        """Scan Milvus collections and register course IDs."""
+        try:
+            found = 0
+            for cid in list_milvus_courses():
                 self._all_course_ids.add(cid)
                 found += 1
 
-        if found:
-            logger.info(
-                f"[LazyLoad] Registered {found} courses. "
-                f"FAISS loads on-demand (max cache: {self._max_cached})."
-            )
+            if found:
+                logger.info(
+                    f"[LazyLoad] Registered {found} courses from Milvus. "
+                    f"Collections load on-demand (max cache: {self._max_cached})."
+                )
+        except Exception as e:
+            logger.warning(f"[LazyLoad] Could not scan Milvus collections: {e}")
+            logger.info("[LazyLoad] Milvus may not be running yet. Courses will load on-demand.")
 
     def _evict_lru_course(self):
         """Remove least recently used course from cache."""
@@ -376,7 +383,7 @@ class CourseManager:
                 rag = RAGChains(course_id, pdf_path)
                 rag.vectorstore = rag._load_existing_vectorstore()
                 if rag.vectorstore is None:
-                    logger.warning(f"[LazyLoad] Course '{course_id}' has no valid FAISS.")
+                    logger.warning(f"[LazyLoad] Course '{course_id}' has no valid Milvus collection.")
                     return None
                 rag.initialise_chains_only()
                 self._courses[course_id] = rag
@@ -473,13 +480,19 @@ class CourseManager:
         return self._ensure_course_loaded(course_id)
 
     def remove_course(self, course_id: str):
-        """Remove course from cache and disk."""
+        """Remove course from cache, disk, and Milvus collection."""
         with self._lock:
             if course_id in self._courses:
                 del self._courses[course_id]
             if course_id in self._lru:
                 del self._lru[course_id]
             self._all_course_ids.discard(course_id)
+
+        # Drop Milvus collection
+        try:
+            _drop_collection(course_id)
+        except Exception as e:
+            logger.warning(f"[Remove] Failed to drop Milvus collection for '{course_id}': {e}")
 
         paths = get_course_path(course_id)
         for p in paths.values():

@@ -47,7 +47,7 @@ rate_limit_store: OrderedDict[str, list] = OrderedDict()
 async def lifespan(app: FastAPI):
     """Startup and shutdown lifecycle."""
     global course_manager
-    print(f"[{_timestamp()}] Khởi tạo CourseManager (scan FAISS indices)...")
+    print(f"[{_timestamp()}] Khởi tạo CourseManager (scan Milvus collections)...")
     course_manager = CourseManager()
     courses = course_manager.list_courses()
     print(f"[{_timestamp()}] Đã phục hồi {len(courses)} khóa học: {courses}")
@@ -393,14 +393,18 @@ async def list_all_courses_with_meta():
     seen_ids = set()
 
     if os.path.exists(INDEX_DIR):
-        for name in os.listdir(INDEX_DIR):
-            if name.startswith("course_") and os.path.isdir(os.path.join(INDEX_DIR, name)):
-                cid = name.replace("course_", "", 1)
-                if cid in seen_ids:
-                    continue
-                seen_ids.add(cid)
-                info = _build_course_info(cid)
-                courses.append(info)
+        import glob
+        for milvus_meta in glob.glob(os.path.join(INDEX_DIR, "milvus_*.json")):
+            try:
+                with open(milvus_meta, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    cid = data.get("course_id", "")
+                    if cid and cid not in seen_ids:
+                        seen_ids.add(cid)
+                        info = _build_course_info(cid)
+                        courses.append(info)
+            except Exception:
+                pass
 
     for cid in course_manager.list_courses():
         if cid not in seen_ids:
