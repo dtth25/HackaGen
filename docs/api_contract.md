@@ -571,71 +571,55 @@ POST /api/generate-slides
 Tạo bản đồ tư duy dạng cây từ nội dung tài liệu. Mind map được tổ chức theo cấu trúc **node** đệ quy với các trường `name` và `children`.
 
 ```
-POST /api/generate-mindmap/{course_id}
+POST /api/generate-mindmap
 ```
 
-**Path Parameters**:
-| Name | Type | Description |
-|------|------|-------------|
-| course_id | string | ID của course |
-
-> **Lưu ý**: Endpoint này không nhận request body. Chỉ cần truyền `course_id` trên URL.
-
-**Response** — trả về trực tiếp cấu trúc mind map dạng JSON (không wrap trong object `MindmapResponse`):
+**Request Body** (`GenerateMindmapRequest`):
 ```json
 {
-  "name": "Vật lí: Đối tượng, Phương pháp và Vai trò",
-  "children": [
-    {
-      "name": "Đối tượng Nghiên cứu Vật lí",
-      "children": [
-        {
-          "name": "Nguồn gốc thuật ngữ",
-          "children": [
-            { "name": "Tiếng Hy Lạp “physiko”", "children": [] },
-            { "name": "Kiến thức về tự nhiên", "children": [] }
-          ]
-        },
-        {
-          "name": "Phạm vi nghiên cứu",
-          "children": [
-            { "name": "Dạng vận động vật chất (chất, trường)", "children": [] },
-            { "name": "Năng lượng", "children": [] }
-          ]
-        },
-        {
-          "name": "Các lĩnh vực chính",
-          "children": [
-            { "name": "Cơ học, Điện học, Điện từ học", "children": [] },
-            { "name": "Quang học, Âm học, Nhiệt học", "children": [] },
-            { "name": "Nhiệt động lực học", "children": [] },
-            { "name": "Vật lí nguyên tử và hạt nhân", "children": [] },
-            { "name": "Vật lí lượng tử", "children": [] },
-            { "name": "Thuyết tương đối", "children": [] }
-          ]
-        }
-      ]
-    }
+  "course_id": "abc123",
+  "max_depth": 3
+}
+```
+
+
+| Field | Type | Constraints | Description |
+|-------|------|-------------|-------------|
+| course_id | string | required | ID của course |
+| max_depth | integer | 2-5, optional, default 3 | Độ sâu tối đa của mind map |
+
+
+**Response** (`MindmapResponse`):
+```json
+{
+  "course_id": "abc123",
+  "mindmap": {
+    "central_topic": "Vật lý đại cương",
+    "branches": [
+      {
+        "title": "Cơ học",
+        "children": [
+          {"title": "Động lực học", "children": []},
+          {"title": "Công và năng lượng", "children": []}
+        ]
+      },
+      {
+        "title": "Nhiệt học",
+        "children": []
+      }
+    ]
+  },
+  "citations": [
+    {"page": 3, "source": "tailieu.pdf", "chunk_id": "chunk_10"},
+    {"page": 20, "source": "tailieu.pdf", "chunk_id": "chunk_50"}
   ]
 }
 ```
 
-**Cấu trúc node**:
-| Field | Type | Description |
-|-------|------|-------------|
-| name | string | Tiêu đề của node |
-| children | array[Node] | Mảng các node con (cùng cấu trúc), `[]` nếu là node lá |
-
-**Trường `citations`**: Endpoint này KHÔNG trả về `citations` riêng — citations được embed trong quá trình tạo nội dung gốc của LLM.
-
-**Status Codes**:
-- `200`: OK, trả về JSON mind map
-- `404`: Không tìm thấy course
-- `500`: Lỗi xử lý
 
 ---
 
-### 4.7. Custom Prompt (Optimized — Modular Prompt Engineering)
+### 4.7. Custom Prompt 
 
 Xử lý prompt tùy chỉnh của người dùng với hệ thống prompt 3 lớp:
 1. **CORE**: System prompt cốt định (chống ảo giác, kiểm soát ngôn ngữ, độ dài)
@@ -796,9 +780,7 @@ Các endpoints bất đồng bộ — trả về `task_id` để polling. Phù h
 | POST | `/api/generate-mindmap-async` | mindmap |
 | POST | `/api/custom-prompt-async` | custom_prompt |
 
-**Request Body**: 
-- `custom_prompt-async` nhận `prompt` qua **query parameter** (không phải body).
-- Các async khác nhận body giống sync version.
+**Request Body**: Giống hệt sync version tương ứng.
 
 **Response** (`TaskResponse`):
 ```json
