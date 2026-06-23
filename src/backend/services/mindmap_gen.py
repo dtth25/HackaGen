@@ -26,8 +26,8 @@ class MindmapGenerator:
         for doc in docs:
             citations.append({
                 "page": doc.metadata.get("page", "N/A"),
-                "source": os.path.basename(doc.metadata.get("source", "unknown")),
-                "chunk_id": f"chunk_{hash(doc.page_content) % 10000}"
+                "source": os.path.basename(doc.metadata.get("source_file", doc.metadata.get("source", "unknown"))),
+                "chunk_id": doc.metadata.get("chunk_id", f"chunk_{hash(doc.page_content) % 10000}")
             })
         llm = get_llm(temperature=0.2)
         prompt = ChatPromptTemplate.from_messages([

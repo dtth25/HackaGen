@@ -35,8 +35,6 @@ from backend.core.prompts import (
     STUDY_GUIDE_PROMPT,
     CONTINUE_GUIDE_PROMPT,
 )
-
-
 class ResourceGenerator:
     """
     Generates learning resources (Quiz, Flashcard, Slide, Summary, Podcast, Study Guide)
@@ -57,8 +55,8 @@ class ResourceGenerator:
         return [
             {
                 "page": d.metadata.get("page", 1),
-                "source": os.path.basename(d.metadata.get("source", "unknown.pdf")),
-                "chunk_id": f"chunk_{hash(d.page_content) % 1000}"
+                "source": os.path.basename(d.metadata.get("source_file", d.metadata.get("source", "unknown"))),
+                "chunk_id": d.metadata.get("chunk_id", f"chunk_{hash(d.page_content) % 1000}")
             } for d in docs[:3]
         ]
         
@@ -96,10 +94,61 @@ class ResourceGenerator:
     def generate_flashcards_v2(self, count: int):
         retriever = self.vectorstore.as_retriever(search_kwargs={"k": 15})
         docs = retriever.invoke("khái niệm định nghĩa")
-        prompt = ChatPromptTemplate.from_template(FLASHCARDS_V2_PROMPT)
-        chain = prompt | get_llm(temperature=0.3) | StrOutputParser()
-        res = chain.invoke({"context": format_docs(docs), "count": count})
-        return {"flashcards": json.loads(extract_json(res)), "citations": self._get_citations(docs)}
+        citations = self._get_citations(docs)
+
+        try:
+            prompt = ChatPromptTemplate.from_template(FLASHCARDS_V2_PROMPT)
+            chain = prompt | get_llm(temperature=0.3) | StrOutputParser()
+            res = chain.invoke({"context": format_docs(docs), "count": count})
+            flashcards = json.loads(extract_json(res))
+            if not isinstance(flashcards, list) or not flashcards:
+                raise ValueError("LLM did not return a non-empty flashcard array.")
+            return {"flashcards": flashcards[:count], "citations": citations}
+        except Exception as e:
+            logger.warning("Flashcard LLM generation failed, using fallback: %s", e)
+            return {
+                "flashcards": self._build_fallback_flashcards(docs, count),
+                "citations": citations,
+            }
+
+    def _build_fallback_flashcards(self, docs, count: int):
+        """Build simple citation-backed flashcards when LLM output is unavailable."""
+        cards = []
+        for doc in docs:
+            text = re.sub(r"===.*?===", " ", doc.page_content, flags=re.DOTALL)
+            text = re.sub(r"\s+", " ", text).strip()
+            if not text:
+                continue
+            answer = text[:280].strip()
+            if len(answer) < 40:
+                continue
+            page = doc.metadata.get("page", "?")
+            source = os.path.basename(
+                doc.metadata.get("source_file", doc.metadata.get("source", "unknown"))
+            )
+            cards.append(
+                {
+                    "question": f"Ý chính cần ghi nhớ ở trang {page} là gì?",
+                    "answer": answer,
+                    "citation": {
+                        "page": page,
+                        "source": source,
+                        "chunk_id": doc.metadata.get("chunk_id", ""),
+                    },
+                }
+            )
+            if len(cards) >= count:
+                break
+
+        if cards:
+            return cards
+        return [
+            {
+                "question": "Tài liệu này cần được ôn tập như thế nào?",
+                "answer": "Hãy xem lại các phần chính trong tài liệu và tạo câu hỏi theo từng khái niệm quan trọng.",
+                "citation": {"page": "?", "source": "unknown", "chunk_id": ""},
+            }
+        ]
 
     # 4.4 Quiz
     def generate_quiz_v2(self, topic: str, quantity: int, difficulty: str):
@@ -134,8 +183,8 @@ class ResourceGenerator:
     
     
 
-    def generate_podcast_script(self) -> list:
-        """Generate podcast dialogue script."""
+    def generate_podcast_script(self) -> dict:
+        """Generate podcast dialogue script with citations."""
         self.rag._require_ready()
         try:
             logger.info(" -> Đang tạo kịch bản podcast (LLM)...")
@@ -167,7 +216,12 @@ class ResourceGenerator:
             with open(script_path, "w", encoding="utf-8") as f:
                 json.dump(script, f, indent=2, ensure_ascii=False)
 
-            return script
+            # Retrieve relevant docs for citations
+            retriever = self.vectorstore.as_retriever(search_kwargs={"k": 5})
+            docs = retriever.invoke("nội dung podcast tổng quan")
+            citations = self._get_citations(docs)
+
+            return {"script": script, "citations": citations}
         except Exception as e:
             logger.error(f"[PodcastScript] LỖI: {e}")
             raise
@@ -268,7 +322,7 @@ class ResourceGenerator:
                         combined += segment
                         combined += AudioSegment.silent(duration=600)
                         valid_count += 1
-                    except:
+                    except Exception:
                         logger.warning(f" -> File {chunk_file} bị lỗi decode, bỏ qua.")
 
             if valid_count == 0:
@@ -287,8 +341,8 @@ class ResourceGenerator:
     # STUDY GUIDE — Feature 6.8 [14]
     # ═══════════════════════════════════════════════════════════════════════════
 
-    def generate_study_guide(self) -> str:
-        """Generate structured study guide with auto-continue logic."""
+    def generate_study_guide(self) -> dict:
+        """Generate structured study guide with auto-continue logic and citations."""
         self.rag._require_ready()
 
         retriever = self.vectorstore.as_retriever(search_kwargs={"k": 15})
@@ -334,10 +388,10 @@ class ResourceGenerator:
         with open(guide_path, "w", encoding="utf-8") as f:
             f.write(guide_content)
 
-        return guide_content
+        citations = self._get_citations(docs)
+        return {"guide": guide_content, "citations": citations}
 
     # ═══════════════════════════════════════════════════════════════════════════
     # FLASHCARDS — Feature 6.9 [14]
     # ═══════════════════════════════════════════════════════════════════════════
 
-    

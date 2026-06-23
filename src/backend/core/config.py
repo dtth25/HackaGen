@@ -8,6 +8,7 @@ import uuid
 import hashlib
 import time
 import logging
+from pathlib import Path
 from typing import List, Dict, Any, Optional
 from collections import OrderedDict
 
@@ -22,7 +23,33 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-load_dotenv("api_key.env")
+_CONFIG_FILE = Path(__file__).resolve()
+_BACKEND_DIR = _CONFIG_FILE.parents[1]
+_SRC_DIR = _CONFIG_FILE.parents[2]
+_ROOT_DIR = _CONFIG_FILE.parents[3]
+_ENV_CANDIDATES = [
+    Path.cwd() / ".env",
+    Path.cwd() / "api_key.env",
+    _BACKEND_DIR / ".env",
+    _BACKEND_DIR / "api_key.env",
+    _SRC_DIR / ".env",
+    _SRC_DIR / "api_key.env",
+    _ROOT_DIR / ".env",
+    _ROOT_DIR / "api_key.env",
+]
+
+for env_path in _ENV_CANDIDATES:
+    if env_path.exists():
+        load_dotenv(env_path, override=False)
+
+_GOOGLE_API_KEY = (
+    os.getenv("GOOGLE_API_KEY")
+    or os.getenv("GEMINI_API_KEY")
+    or os.getenv("LLM_API_KEY")
+)
+
+if _GOOGLE_API_KEY and not os.getenv("GOOGLE_API_KEY"):
+    os.environ["GOOGLE_API_KEY"] = _GOOGLE_API_KEY
 
 # ─── Directory Constants ───────────────────────────────────────────────────────
 
@@ -38,12 +65,8 @@ MINDMAPS_DIR = "mindmaps"
 for d in [UPLOAD_DIR, INDEX_DIR, QUESTIONS_DIR, CACHE_DIR, AUDIO_DIR, GUIDES_DIR, FLASHCARDS_DIR, MINDMAPS_DIR]:
     os.makedirs(d, exist_ok=True)
 
-# ─── Milvus Configuration ─────────────────────────────────────────────────────
-
-MILVUS_HOST = os.getenv("MILVUS_HOST", "localhost")
-MILVUS_PORT = os.getenv("MILVUS_PORT", "19530")
-MILVUS_ALIAS = "default"
-MILVUS_COLLECTION_PREFIX = "course"
+# ─── Vector DB Configuration ───────────────────────────────────────────────────
+# Vector DB: FAISS (disk-based, no Docker).
 
 # ─── Model Configuration ───────────────────────────────────────────────────────
 
@@ -51,8 +74,25 @@ DEFAULT_MAX_CACHED_COURSES = 20
 BATCH_SIZE = 30         # Chunks per batch for embedding
 RETRY_DELAY = 10        # Seconds between batches
 MAX_RETRY_DELAY = 60    # Max delay on 429 errors
-EMBEDDING_MODEL = "gemini-embedding-2"
-LLM_MODEL = "gemini-2.5-flash"
+
+
+def _normalize_embedding_model(model_name: Optional[str]) -> str:
+    """Normalize Gemini embedding model names for LangChain batch embeddings."""
+    model = (model_name or "models/embedding-001").strip()
+    if model in {"gemini-embedding-2", "models/gemini-embedding-2"}:
+        logger.warning(
+            "EMBEDDING_MODEL=%s is not compatible with current LangChain batch "
+            "embedding flow. Falling back to models/embedding-001.",
+            model,
+        )
+        return "models/embedding-001"
+    if not model.startswith("models/"):
+        model = f"models/{model}"
+    return model
+
+
+EMBEDDING_MODEL = _normalize_embedding_model(os.getenv("EMBEDDING_MODEL"))
+LLM_MODEL = os.getenv("LLM_MODEL", "gemini-2.5-flash")
 
 # ─── Path Helpers ──────────────────────────────────────────────────────────────
 
@@ -64,7 +104,7 @@ def generate_course_id() -> str:
 def get_course_path(course_id: str) -> Dict[str, str]:
     """Get all file paths for a course."""
     return {
-        "milvus_meta": os.path.join(INDEX_DIR, f"milvus_{course_id}.json"),
+        "faiss_meta": os.path.join(INDEX_DIR, f"faiss_{course_id}.json"),
         "questions": os.path.join(QUESTIONS_DIR, f"course_{course_id}_questions.json"),
         "syllabus": os.path.join(QUESTIONS_DIR, f"course_{course_id}_syllabus.json"),
         "meta": os.path.join(QUESTIONS_DIR, f"course_{course_id}_meta.json"),
@@ -79,16 +119,31 @@ def get_course_path(course_id: str) -> Dict[str, str]:
 
 def get_embeddings() -> GoogleGenerativeAIEmbeddings:
     """Get Gemini embeddings instance."""
-    return GoogleGenerativeAIEmbeddings(model=EMBEDDING_MODEL)
+    api_key = _require_google_api_key()
+    return GoogleGenerativeAIEmbeddings(model=EMBEDDING_MODEL, google_api_key=api_key)
 
 
 def get_llm(temperature: float = 0.1, max_output_tokens: int = 8192) -> ChatGoogleGenerativeAI:
     """Get Gemini LLM instance."""
+    api_key = _require_google_api_key()
     return ChatGoogleGenerativeAI(
         model=LLM_MODEL,
+        google_api_key=api_key,
         temperature=temperature,
         max_output_tokens=max_output_tokens,
     )
+
+
+def _require_google_api_key() -> str:
+    """Return configured Gemini API key or raise an actionable error."""
+    api_key = os.getenv("GOOGLE_API_KEY")
+    if not api_key:
+        raise RuntimeError(
+            "Missing Gemini API key. Set GOOGLE_API_KEY in your shell or in one of: "
+            ".env, api_key.env, src/api_key.env, src/backend/.env. "
+            "Legacy aliases GEMINI_API_KEY and LLM_API_KEY are also accepted."
+        )
+    return api_key
 
 
 # ─── Utility Functions ─────────────────────────────────────────────────────────

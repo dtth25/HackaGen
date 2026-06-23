@@ -32,9 +32,7 @@ export default function PromptInput({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (prompt.trim()) {
-      onSubmit(prompt.trim());
-    }
+    onSubmit(prompt.trim());
   };
 
   return (
@@ -56,7 +54,7 @@ export default function PromptInput({
         </div>
         <Button
           type="submit"
-          disabled={disabled || !prompt.trim() || isLoading}
+          disabled={disabled || isLoading}
           className="shrink-0 self-end"
           size="lg"
         >

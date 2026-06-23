@@ -1,6 +1,7 @@
 # dependencies
 node_modules/
 src/frontend/node_modules/
+src/frontend/.npm-cache/
 
 # next.js build output
 .next/
@@ -10,12 +11,26 @@ out/
 # production build
 build/
 
+# Python / uv
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
 # env files
 .env
+api_key.env
+src/api_key.env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+
+# local runtime outputs
+runtime/
 
 # debug logs
 npm-debug.log*

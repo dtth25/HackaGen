@@ -69,7 +69,7 @@ def classify_prompt(user_prompt: str) -> Dict[str, Any]:
 def extract_citations(docs: List[Any]) -> List[Dict[str, Any]]:
     """
     Trích xuất citations từ danh sách document chunks.
-    Mỗi doc cần có metadata chứa page, source, chunk_id.
+    Mỗi doc cần có metadata chứa page, source_file, chunk_id.
     """
     citations = []
     seen_chunks = set()
@@ -86,7 +86,7 @@ def extract_citations(docs: List[Any]) -> List[Dict[str, Any]]:
 
         citation = {
             "page": meta.get("page", 0),
-            "source": meta.get("source", ""),
+            "source": meta.get("source_file", meta.get("source", "")),
             "chunk_id": chunk_id,
         }
         citations.append(citation)
