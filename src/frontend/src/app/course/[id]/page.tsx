@@ -91,9 +91,23 @@ export default async function CourseDetailPage({ params }: PageProps) {
       </Accordion>
 
       {/* Bottom action */}
-      <div className="flex gap-3">
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap gap-2">
+          <Link href={`/quiz/${id}`}>
+            <Button variant="default">📋 Làm quiz</Button>
+          </Link>
+          <Link href={`/flashcards/${id}`}>
+            <Button variant="outline">🎴 Flashcards</Button>
+          </Link>
+          <Link href={`/slides/${id}`}>
+            <Button variant="outline">📊 Slides</Button>
+          </Link>
+          <Link href={`/mindmap/${id}`}>
+            <Button variant="outline">🧠 Mind Map</Button>
+          </Link>
+        </div>
         <Link href="/course">
-          <Button variant="outline">Quay lại</Button>
+          <Button variant="ghost">Quay lại danh sách</Button>
         </Link>
       </div>
     </div>

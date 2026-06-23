@@ -3,7 +3,7 @@
  * Backend runs on port 8000 by default.
  */
 
-export const API_BASE_URL = "http://localhost:8000";
+export const API_BASE_URL = "http://localhost:8001";
 
 export const ENDPOINTS = {
   upload: `${API_BASE_URL}/api/upload`,
@@ -62,6 +62,42 @@ export interface CourseListResponse {
   total: number;
 }
 
+/* ── Course Generation Types ───────────────────────────── */
+
+/** Request body cho POST /api/generate-course */
+export interface GenerateCourseRequest {
+  file_id: string;
+  user_prompt?: string;
+}
+
+/** Response từ POST /api/generate-course */
+export interface GenerateCourseResponse {
+  course_title: string;
+  chapters: Array<{ id: number; title: string; lessons: string[] }>;
+  total_slides: number;
+  citations: Array<{ page: number; source: string; chunk_id: string }>;
+}
+
+/* ── Quiz Types ────────────────────────────────────────── */
+
+/** Một câu hỏi trong quiz */
+export interface QuizQuestion {
+  question: string;
+  options: string[];
+  correct: number;
+  explanation: string;
+}
+
+/** Response từ POST /api/generate-quiz */
+export interface QuizResponse {
+  course_id: string;
+  topic: string;
+  difficulty: string;
+  questions: QuizQuestion[];
+  total_questions: number;
+  citations?: Array<{ page: number; source: string; chunk_id: string }>;
+}
+
 /* ── Fetch helpers ─────────────────────────────────────── */
 
 /**
@@ -92,9 +128,71 @@ export async function getCourse(id: string): Promise<CourseResponse> {
 }
 
 /**
- * Upload files to backend.
+ * Generate course từ file đã upload.
+ * POST /api/generate-course
  */
-export async function uploadFiles(files: File[]): Promise<{ message: string }> {
+export async function generateCourse(
+  fileId: string,
+  userPrompt?: string
+): Promise<GenerateCourseResponse> {
+  const response = await fetch(ENDPOINTS.generateCourse, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      file_id: fileId,
+      user_prompt: userPrompt,
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(
+      err?.message || `Lỗi tạo khóa học: ${response.statusText}`
+    );
+  }
+
+  return response.json();
+}
+
+/**
+ * Generate quiz từ course.
+ * POST /api/generate-quiz
+ */
+export async function generateQuiz(
+  courseId: string,
+  topic: string = "Kiến thức tổng quát",
+  quantity: number = 10,
+  difficulty: string = "medium"
+): Promise<QuizResponse> {
+  const response = await fetch(ENDPOINTS.generateQuiz, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      course_id: courseId,
+      topic,
+      quantity,
+      difficulty,
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(err?.message || `Lỗi tạo quiz: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Upload files to backend.
+ * POST /api/upload
+ * Response: { file_id: string, pages: number, status: string }
+ */
+export async function uploadFiles(files: File[]): Promise<{
+  file_id: string;
+  pages: number;
+  status: string;
+}> {
   const formData = new FormData();
   files.forEach((file) => formData.append("files", file));
 

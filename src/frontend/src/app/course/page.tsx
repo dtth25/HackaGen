@@ -35,7 +35,7 @@ export default async function CourseListPage() {
           <p className="text-sm text-muted-foreground">
             Chưa có khóa học nào. Hãy upload tài liệu để bắt đầu!
           </p>
-          <Link href="/">
+          <Link href="/generate">
             <Button className="mt-4">Upload tài liệu</Button>
           </Link>
         </div>
