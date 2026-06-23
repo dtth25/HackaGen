@@ -43,3 +43,9 @@ export {
   SheetDescription,
 } from "@/components/ui/sheet";
 export { Toaster } from "@/components/ui/sonner";
+export {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
+} from "@/components/ui/accordion";
