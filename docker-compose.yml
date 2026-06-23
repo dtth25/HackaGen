@@ -1,0 +1,22 @@
+services:
+  backend:
+    container_name: ai-course-backend
+    build:
+      context: ./src
+      dockerfile: backend/Dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./.env
+    environment:
+      - PYTHONPATH=/app
+    volumes:
+      - ./runtime/uploads:/app/uploads
+      - ./runtime/indices:/app/indices
+      - ./runtime/questions:/app/questions
+      - ./runtime/guides:/app/guides
+      - ./runtime/flashcards:/app/flashcards
+      - ./runtime/mindmaps:/app/mindmaps
+      - ./runtime/audio:/app/audio
+      - ./runtime/tasks:/app/tasks
+      - ./runtime/custom_prompts:/app/custom_prompts
