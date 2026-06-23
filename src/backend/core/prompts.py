@@ -218,19 +218,41 @@ YÊU CẦU ĐẦU RA (CHỈ XUẤT RAW JSON):
 {{
   "title": "Tên khóa học (súc tích, hấp dẫn)",
   "description": "Mô tả tổng quan khóa học (2-3 câu)",
+  "estimated_duration": "Ví dụ: 4-6 giờ",
   "chapters": [
     {{
       "title": "Chương X: [Tên chương]",
+      "description": "Mục tiêu và nội dung chính của chương (1-2 câu)",
       "lessons": [
-        {{ "title": "Bài Y: [Tên bài học cụ thể]" }}
+        {{
+          "title": "Bài Y: [Tên bài học cụ thể]",
+          "duration": "20-30 phút",
+          "objectives": [
+            "Mục tiêu học tập cụ thể 1",
+            "Mục tiêu học tập cụ thể 2"
+          ],
+          "lecture": "Nội dung bài giảng 2-4 đoạn, diễn giải rõ ý từ tài liệu gốc. Không chỉ nêu outline.",
+          "key_points": [
+            "Ý chính cần ghi nhớ 1",
+            "Ý chính cần ghi nhớ 2",
+            "Ý chính cần ghi nhớ 3"
+          ],
+          "activity": "Hoạt động/thảo luận/bài tập ngắn để người học thực hành",
+          "assessment": [
+            "Câu hỏi kiểm tra nhanh 1",
+            "Câu hỏi kiểm tra nhanh 2"
+          ]
+        }}
       ]
     }}
   ]
 }}
 
 QUY TẮC:
-- Chia từ 4-8 chương.
-- Mỗi chương có 2-4 bài học nhỏ.
+- Chia từ 3-6 chương.
+- Mỗi chương có 2-3 bài học nhỏ.
+- Mỗi bài học PHẢI có nội dung giảng dạy trong trường "lecture", không được chỉ trả về title.
+- "lecture", "key_points", "activity", "assessment" phải bám sát dữ liệu trong [CONTEXT], không thêm kiến thức ngoài tài liệu.
 - Nội dung logic từ cơ bản đến nâng cao dựa trên tài liệu.
 
 [CONTEXT]:

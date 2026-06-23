@@ -1,21 +1,21 @@
-# Vector database package
+# Vector database package (FAISS)
 """
 Vector database abstraction layer.
-Currently using Milvus (Docker-based) for scalable vector search.
+Currently using FAISS (local, disk-based) for RAG and Citation.
 """
 
-from backend.vector_db.milvus_manager import (
-    create_or_load_milvus,
-    load_existing_milvus,
-    list_milvus_courses,
-    get_collection_stats,
-    _drop_collection,
+from backend.vector_db.faiss_manager import (
+    create_or_load_faiss,
+    load_existing_faiss,
+    list_faiss_courses,
+    get_index_stats,
+    _drop_index,
 )
 
 __all__ = [
-    "create_or_load_milvus",
-    "load_existing_milvus",
-    "list_milvus_courses",
-    "get_collection_stats",
-    "_drop_collection",
+    "create_or_load_faiss",
+    "load_existing_faiss",
+    "list_faiss_courses",
+    "get_index_stats",
+    "_drop_index",
 ]

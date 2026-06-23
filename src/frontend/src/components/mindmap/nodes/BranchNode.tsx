@@ -73,7 +73,7 @@ function BranchNode({ data, selected }: NodeProps<BranchNodeData>) {
                   className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] bg-black/5"
                   title={`${citation.source} - Page ${citation.page}`}
                 >
-                  📄 p.{citation.page}
+                  p.{citation.page}
                 </span>
               ))}
               {citations.length > 1 && (

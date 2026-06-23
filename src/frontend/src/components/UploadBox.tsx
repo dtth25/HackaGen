@@ -3,14 +3,13 @@
 import React, { useState, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { UploadCloud, FileText, FileWarning, Trash2, CheckCircle2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { validateFiles, ALLOWED_MIME_TYPES, MAX_FILE_SIZE } from "@/lib/validation";
-import { uploadFiles } from "@/lib/api";
+import { type UploadResponse, uploadFile } from "@/lib/api";
 
 const ACCEPTED_TYPES: Record<string, string[]> = {};
 for (const mime of ALLOWED_MIME_TYPES) {
@@ -26,7 +25,11 @@ interface FileItem {
   error?: string;
 }
 
-export default function UploadBox() {
+interface UploadBoxProps {
+  onUploaded?: (result: UploadResponse) => void;
+}
+
+export default function UploadBox({ onUploaded }: UploadBoxProps) {
   const [fileItems, setFileItems] = useState<FileItem[]>([]);
 
   const updateFileStatus = (fileName: string, updates: Partial<FileItem>) => {
@@ -43,15 +46,15 @@ export default function UploadBox() {
     // Show all validation errors as toasts
     errors.forEach((errMsg) => toast.error(errMsg));
 
-    // Add valid files
     if (validFiles.length > 0) {
-      const newItems: FileItem[] = validFiles.map((file) => ({
+      const [file] = validFiles;
+      const newItem: FileItem = {
         file,
         status: "idle" as UploadStatus,
         progress: 0,
-      }));
-      setFileItems((prev) => [...prev, ...newItems]);
-      toast.success(`${validFiles.length} file đã được thêm`);
+      };
+      setFileItems([newItem]);
+      toast.success(`Đã chọn "${file.name}"`);
     }
   }, []);
 
@@ -59,6 +62,8 @@ export default function UploadBox() {
     onDrop,
     accept: ACCEPTED_TYPES,
     maxSize: MAX_FILE_SIZE,
+    maxFiles: 1,
+    multiple: false,
   });
 
   const handleRemoveFile = (fileName: string) => {
@@ -71,11 +76,6 @@ export default function UploadBox() {
       toast.error("Không có file nào để tải lên");
       return;
     }
-
-    const formData = new FormData();
-    filesToUpload.forEach((item) => {
-      formData.append("files", item.file);
-    });
 
     // Mark all as uploading
     filesToUpload.forEach((item) => {
@@ -101,8 +101,7 @@ export default function UploadBox() {
 
       const progressInterval = simulateProgress();
 
-      // Actual API call to backend via lib/api.ts
-      const result = await uploadFiles(filesToUpload.map((item) => item.file));
+      const result = await uploadFile(filesToUpload[0].file);
 
       clearInterval(progressInterval);
 
@@ -111,7 +110,8 @@ export default function UploadBox() {
         updateFileStatus(item.file.name, { status: "success", progress: 100 });
       });
 
-      toast.success("Tải lên thành công! Khóa học đang được tạo...");
+      toast.success("Tải lên thành công! Khóa học đang được xử lý...");
+      onUploaded?.(result);
 
       // Optionally clear the list after success
       // setFileItems([]);
@@ -185,7 +185,7 @@ export default function UploadBox() {
         {fileItems.length > 0 && (
           <div className="mt-6">
             <h3 className="text-md font-semibold mb-3">
-              File đã chọn ({fileItems.length})
+              File đã chọn
             </h3>
             <ul className="space-y-2">
               {fileItems.map((item, index) => (

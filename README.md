@@ -1,69 +1,79 @@
 # DTTH-Hackathon-2026 AI Course Generator
 
-Biến tài liệu thô (PDF, DOCX, TXT) thành hệ sinh thái học tập đa phương tiện — bài học, tóm tắt, flashcards, mindmap — tự động bằng AI.
+Biến tài liệu thô (PDF, DOCX, TXT) thành nội dung học tập đa phương tiện: khóa học, tóm tắt, flashcards, quiz, slides, mind map, study guide, podcast script và custom prompt.
 
-## Tech Stack
+## Tech Stack Hiện Tại
 
 | Layer | Công nghệ |
 |-------|-----------|
-| Frontend | Next.js 14+ (App Router), Tailwind CSS |
-| Backend | FastAPI (Python 3.11+) |
-| Vector DB | Milvus (RAG + Citation) |
-| Memory | Zep (Session context) |
-| AI Model | Claude 3.5 Sonnet / GPT-4o |
+| Frontend | Next.js App Router, React 19, Tailwind CSS v4, shadcn/base-ui, lucide-react |
+| Backend | FastAPI, Python 3.11+, LangChain |
+| Dependency | `uv` cho backend, npm cho frontend |
+| Vector DB | FAISS local disk-based |
+| Persistence | Local filesystem JSON/generated files |
+| AI Model | Gemini `gemini-2.5-flash` |
+| Embedding | Gemini `models/embedding-001` via LangChain batch embeddings |
 
-## Cấu trúc thư mục
+## Cấu Trúc Thư Mục
 
 ```
-├── docs/                    # Tài liệu thiết kế
-│   ├── PRD.md               # Product Requirements Document
-│   ├── api_contract.md      # API Contract (v1.0)
-│   └── architecture_design.md   # Architecture & Data Flow
+├── docs/
+│   ├── PRD.md
+│   ├── api_contract.md
+│   └── architecture_design.md
 ├── src/
-│   ├── backend/             # FastAPI application
-│   │   ├── main.py          # Entry point
-│   │   └── services/        # Business logic
-│   ├── frontend/            # Next.js application
-│   └── shared/              # Shared types/constants
-├── tests/                   # Test suites
-├── AGENTS.md                # Agent orchestration protocol
-├── ROOT_CONTEXT.md          # Project context for AI agents
-└── .env.example             # Environment variables template
+│   ├── backend/
+│   │   ├── main.py
+│   │   ├── core/
+│   │   ├── services/
+│   │   └── vector_db/
+│   └── frontend/
+│       ├── src/app/
+│       ├── src/components/
+│       └── src/lib/
+├── AGENTS.md
+├── ROOT_CONTEXT.md
+├── docker-compose.yml
+└── .env.example
 ```
 
-## Quick Start
+## Backend Runbook
 
-### Prerequisites
-
-- Python 3.11+
-- Node.js 18+
-- Milvus (local hoặc cloud)
-- API key: của Google
-
-### Backend
+### One-time setup
 
 ```bash
-# Clone & cd vào project
 cd src/backend
-
-# Tạo virtual environment
-python -m venv .venv
-.venv\Scripts\activate   # Windows
-source .venv/bin/activate # Linux/Mac
-
-# Cài dependencies (dùng uv để tối ưu)
-pip install uv
-uv pip install -r requirements.txt
-
-# Copy env
-cp ../../.env.example .env
-# Sửa .env với API key của bạn
-
-# Chạy server
-uvicorn main:app --reload --port 8000
+uv sync --all-extras
 ```
 
-### Frontend
+Tạo environment cho Gemini:
+
+```bash
+# Option A: shell environment
+export GOOGLE_API_KEY="your_gemini_api_key_here"
+
+# Option B: từ repo root, tạo file được code hiện tại đọc khi chạy từ src/
+cp .env.example src/api_key.env
+```
+
+Trên Windows PowerShell:
+
+```powershell
+$env:GOOGLE_API_KEY="your_gemini_api_key_here"
+```
+
+### Every-time run
+
+Chạy từ thư mục `src` để import path `backend.main` khớp package hiện tại:
+
+```bash
+cd src
+uv run --project backend uvicorn backend.main:app --reload --port 8000
+```
+
+Backend chạy tại `http://localhost:8000`.
+
+## Frontend Runbook
 
 ```bash
 cd src/frontend
@@ -71,25 +81,45 @@ npm install
 npm run dev
 ```
 
-Mở `http://localhost:3000`
+Frontend chạy tại `http://localhost:3000`.
 
-### Kiểm tra
+## Docker Backend Option
+
+Docker chỉ là tùy chọn chạy backend. FAISS chạy local trong container, không cần Milvus/etcd/minio.
 
 ```bash
-# Backend health check
-curl http://localhost:8000/health
-
-# Upload tài liệu
-curl -X POST http://localhost:8000/api/upload -F "file=@document.pdf"
+cp .env.example .env
+# Sửa .env và điền GOOGLE_API_KEY
+docker compose up --build backend
 ```
+
+Runtime files khi chạy Docker được mount vào `runtime/`.
+
+## API Flow Hiện Tại
+
+1. `POST /api/upload` với multipart field **`file`** để tạo `course_id`.
+2. `GET /api/course/{course_id}/status` để poll đến khi `ready`.
+3. Gọi các endpoint generation/chat qua FastAPI.
+4. Mọi response AI phải có `citations`.
+
+Các route chính:
+- Health/management: `/api/health`, `/api/courses`, `/api/courses/all`, `DELETE /api/courses/{course_id}`.
+- Upload/status: `/api/upload`, `/api/course/{course_id}/status`.
+- AI sync: `/api/chat`, `/api/generate-course`, `/api/generate-summary`, `/api/generate-flashcards`, `/api/generate-quiz`, `/api/generate-slides`, `/api/generate-mindmap`, `/api/custom-prompt`.
+- AI async: `/api/generate-course-async`, `/api/generate-summary-async`, `/api/generate-flashcards-async`, `/api/generate-quiz-async`, `/api/generate-slides-async`, `/api/generate-mindmap-async`, `/api/custom-prompt-async/{course_id}`.
+- Saved content: `/api/course/{course_id}/summary`, `/flashcards`, `/questions`, `/slides`, `/mindmap`, `/study-guide`, `/audio`, `/files`, `/stats`.
+
+## Known Integration Gaps
+
+- Frontend upload UI hiện gửi field `files` nhiều file, trong khi backend `/api/upload` nhận một field `file`.
+- Một số trang frontend chi tiết như `/course/[id]`, `/quiz/[id]`, `/flashcards/[id]`, `/slides/[id]` vẫn là placeholder.
+- `src/frontend/src/app/layout.tsx` đang có duplicate imports cần dọn trong PR frontend riêng.
+- Chưa có test suite source-level trong repo.
 
 ## Non-Negotiable Gates
 
-1. **Citation-First:** Mọi output AI phải có trường `citations` trace được về chunk trong Milvus.
-2. **No-Auth v1:** Không login/thanh toán — tập trung Core AI Pipeline.
-3. **File validation:** Chỉ chấp nhận `.pdf`, `.docx`, `.txt`.
-4. **Backend call only:** Frontend không gọi LLM trực tiếp, mọi request qua FastAPI.
-
-## Development Workflow
-
-Xem chi tiết tại [`AGENTS.md`](AGENTS.md) — quy trình phối hợp giữa các vai (Lead, Backend, Frontend, QA).
+1. **Citation-First:** Mọi output AI phải có `citations: [{page, source, chunk_id}]`.
+2. **Traceability:** Citation phải trace được về chunk metadata trong FAISS/local index.
+3. **No-Auth v1:** Không login/thanh toán/phân quyền trong Hackathon version.
+4. **File validation:** Chỉ chấp nhận `.pdf`, `.docx`, `.txt`.
+5. **Backend-only AI:** Frontend không gọi LLM trực tiếp.

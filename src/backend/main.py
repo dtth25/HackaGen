@@ -29,11 +29,29 @@ from backend.core.config import (
 )
 from backend.services.course_gen import CourseManager
 
+# ─── CORS Configuration ────────────────────────────────────────────────────────
+
+# MVP runs without auth/cookies, so credentials are disabled and local dev can
+# use any browser origin without failing JSON preflight requests.
+ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv(
+    "ALLOWED_ORIGINS",
+    "http://localhost:3000,http://127.0.0.1:3000",
+    ).split(",")
+    if origin.strip()
+]
+ALLOW_ALL_ORIGINS = os.getenv("ALLOW_ALL_ORIGINS", "true").lower() in {
+    "1",
+    "true",
+    "yes",
+}
+
 # ─── Configuration ─────────────────────────────────────────────────────────────
 
 MAX_UPLOAD_SIZE = 50 * 1024 * 1024  # 50MB
-RATE_LIMIT_WINDOW = 60  # seconds
-RATE_LIMIT_MAX_REQUESTS = 30
+RATE_LIMIT_WINDOW = int(os.getenv("RATE_LIMIT_WINDOW", "60"))
+RATE_LIMIT_MAX_REQUESTS = int(os.getenv("RATE_LIMIT_MAX_REQUESTS", "300"))
 
 # ─── Global instances ──────────────────────────────────────────────────────────
 
@@ -47,7 +65,7 @@ rate_limit_store: OrderedDict[str, list] = OrderedDict()
 async def lifespan(app: FastAPI):
     """Startup and shutdown lifecycle."""
     global course_manager
-    print(f"[{_timestamp()}] Khởi tạo CourseManager (scan Milvus collections)...")
+    print(f"[{_timestamp()}] Khởi tạo CourseManager (scan FAISS indices)...")
     course_manager = CourseManager()
     courses = course_manager.list_courses()
     print(f"[{_timestamp()}] Đã phục hồi {len(courses)} khóa học: {courses}")
@@ -65,8 +83,8 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=["*"] if ALLOW_ALL_ORIGINS else ALLOWED_ORIGINS,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -77,6 +95,9 @@ app.add_middleware(
 @app.middleware("http")
 async def rate_limit_middleware(request: Request, call_next):
     """Simple in-memory rate limiter."""
+    if request.method == "OPTIONS" or request.url.path.endswith("/status"):
+        return await call_next(request)
+
     client_ip = request.client.host if request.client else "unknown"
     now = time.time()
 
@@ -89,10 +110,18 @@ async def rate_limit_middleware(request: Request, call_next):
     ]
 
     if len(rate_limit_store[client_ip]) >= RATE_LIMIT_MAX_REQUESTS:
-        return JSONResponse(
+        response = JSONResponse(
             status_code=429,
             content={"detail": "Rate limit exceeded. Vui lòng thử lại sau."}
         )
+        origin = request.headers.get("origin")
+        if ALLOW_ALL_ORIGINS:
+            response.headers["Access-Control-Allow-Origin"] = "*"
+        elif origin in ALLOWED_ORIGINS:
+            response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Methods"] = "*"
+        response.headers["Access-Control-Allow-Headers"] = "*"
+        return response
 
     rate_limit_store[client_ip].append(now)
 
@@ -127,6 +156,7 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     answer: str
     course_id: str
+    citations: list = Field(default_factory=list, description="Danh sách trích dẫn từ tài liệu gốc")
 
 class GenerateCourseRequest(BaseModel):
     course_id: str
@@ -173,6 +203,7 @@ class GenerateQuestionsResponse(BaseModel):
     topic: str
     questions: list
     total_questions: int
+    citations: list = Field(default_factory=list, description="Danh sách trích dẫn từ tài liệu gốc")
 
 
     
@@ -186,11 +217,13 @@ class GenerateSlidesResponse(BaseModel):
     topic: str
     latex_code: str
     filename: str
+    citations: list = Field(default_factory=list, description="Danh sách trích dẫn từ tài liệu gốc")
 
 
 class GenerateSyllabusResponse(BaseModel):
     course_id: str
     syllabus: list
+    citations: list = Field(default_factory=list, description="Danh sách trích dẫn từ tài liệu gốc")
 
 
 class UploadResponse(BaseModel):
@@ -210,24 +243,28 @@ class PodcastScriptResponse(BaseModel):
     course_id: str
     script: list
     estimated_duration: str
+    citations: list = Field(default_factory=list, description="Danh sách trích dẫn")
 
 
 class StudyGuideResponse(BaseModel):
     course_id: str
     guide: str
     filename: str
+    citations: list = Field(default_factory=list, description="Danh sách trích dẫn")
 
 
 class SummaryResponse(BaseModel):
     course_id: str
     summary: str
     filename: str
+    citations: list = Field(default_factory=list, description="Danh sách trích dẫn từ tài liệu gốc")
 
 
 class FlashcardsResponse(BaseModel):
     course_id: str
     flashcards: list
     total: int
+    citations: list = Field(default_factory=list, description="Danh sách trích dẫn từ tài liệu gốc")
 
 
 class TaskResponse(BaseModel):
@@ -318,7 +355,10 @@ def run_background_task(task_id: str, course_id: str, task_type: str, **kwargs):
         def handle_podcast():
             script = res_gen.generate_podcast_script()
             print(f"[{_timestamp()}] Khởi động TTS cho podcast...")
-            res_gen.generate_podcast_audio()
+            try:
+                res_gen.generate_podcast_audio()
+            except Exception as audio_error:
+                logger.warning("Podcast audio skipped: %s", audio_error)
             return script
 
         task_handlers = {
@@ -433,9 +473,9 @@ async def list_all_courses_with_meta():
 
     if os.path.exists(INDEX_DIR):
         import glob
-        for milvus_meta in glob.glob(os.path.join(INDEX_DIR, "milvus_*.json")):
+        for faiss_meta in glob.glob(os.path.join(INDEX_DIR, "faiss_*.json")):
             try:
-                with open(milvus_meta, "r", encoding="utf-8") as f:
+                with open(faiss_meta, "r", encoding="utf-8") as f:
                     data = json.load(f)
                     cid = data.get("course_id", "")
                     if cid and cid not in seen_ids:
@@ -453,7 +493,7 @@ async def list_all_courses_with_meta():
     return {"courses": courses, "total": len(courses)}
 
 
-@app.delete("/courses/{course_id}", response_model=StatusResponse)
+@app.delete("/api/courses/{course_id}", response_model=StatusResponse)
 async def delete_course(course_id: str):
     """Delete a course and all its data."""
     if not course_manager:
@@ -560,7 +600,17 @@ async def chat(req: ChatRequest):
     rag = get_course(req.course_id)
     try:
         answer = rag.ask(req.question)
-        return ChatResponse(answer=answer, course_id=req.course_id)
+        # Retrieve relevant docs for citations
+        retriever = rag.vectorstore.as_retriever(search_kwargs={"k": 3})
+        docs = retriever.invoke(req.question)
+        citations = []
+        for d in docs[:3]:
+            citations.append({
+                "page": d.metadata.get("page", 1),
+                "source": os.path.basename(d.metadata.get("source_file", d.metadata.get("source", "unknown"))),
+                "chunk_id": d.metadata.get("chunk_id", f"chunk_{hash(d.page_content) % 1000}")
+            })
+        return ChatResponse(answer=answer, course_id=req.course_id, citations=citations)
     except Exception as e:
         raise HTTPException(500, f"[{_timestamp()}] Lỗi chat: {str(e)}")
 
@@ -570,31 +620,63 @@ async def chat(req: ChatRequest):
 async def api_generate_course(req: GenerateCourseRequest):
     rag = get_course(req.course_id)
     result = rag.get_resource_generator().generate_course_structure(req.user_prompt, req.target_audience)
-    return {"course_id": req.course_id, **result}
+    return {
+        "course_id": req.course_id,
+        "course": result.get("course", {}),
+        "citations": result.get("citations", []),
+    }
 
 @app.post("/api/generate-summary")
 async def api_generate_summary(req: GenerateSummaryRequest):
     rag = get_course(req.course_id)
     result = rag.get_resource_generator().generate_summary_v2(req.type)
-    return {"course_id": req.course_id, "filename": "summary.md", **result}
+    return {
+        "course_id": req.course_id,
+        "filename": "summary.md",
+        "summary": result.get("summary", ""),
+        "citations": result.get("citations", []),
+    }
 
 @app.post("/api/generate-flashcards")
 async def api_generate_flashcards(req: GenerateFlashcardsRequest):
     rag = get_course(req.course_id)
-    result = rag.get_resource_generator().generate_flashcards_v2(req.count)
-    return {"course_id": req.course_id, "total": req.count, **result}
+    try:
+        result = rag.get_resource_generator().generate_flashcards_v2(req.count)
+        flashcards = result.get("flashcards", [])
+        return {
+            "course_id": req.course_id,
+            "total": len(flashcards),
+            "flashcards": flashcards,
+            "citations": result.get("citations", []),
+        }
+    except Exception as e:
+        logger.exception("Lỗi tạo flashcards")
+        raise HTTPException(500, f"[{_timestamp()}] Lỗi tạo flashcards: {str(e)}")
 
 @app.post("/api/generate-quiz")
 async def api_generate_quiz(req: GenerateQuizRequest):
     rag = get_course(req.course_id)
     result = rag.get_resource_generator().generate_quiz_v2(req.topic, req.quantity, req.difficulty)
-    return {"course_id": req.course_id, "topic": req.topic, "difficulty": req.difficulty, "total_questions": req.quantity, **result}
+    return {
+        "course_id": req.course_id,
+        "topic": req.topic,
+        "difficulty": req.difficulty,
+        "total_questions": req.quantity,
+        "questions": result.get("questions", []),
+        "citations": result.get("citations", []),
+    }
 
 @app.post("/api/generate-slides")
 async def api_generate_slides(req: GenerateSlidesRequest):
     rag = get_course(req.course_id)
     result = rag.get_resource_generator().generate_slides_v2(req.topic, req.num_slides)
-    return {"course_id": req.course_id, "topic": req.topic, "total_slides": req.num_slides, **result}
+    return {
+        "course_id": req.course_id,
+        "topic": req.topic,
+        "total_slides": req.num_slides,
+        "slides": result.get("slides", []),
+        "citations": result.get("citations", []),
+    }
 
 @app.post("/api/generate-podcast/{course_id}", response_model=PodcastScriptResponse)
 async def generate_podcast_endpoint(course_id: str):
@@ -602,14 +684,20 @@ async def generate_podcast_endpoint(course_id: str):
     rag = get_course(course_id)
     res_gen = rag.get_resource_generator()
     try:
-        script = res_gen.generate_podcast_script()
-        res_gen.generate_podcast_audio()
+        result = res_gen.generate_podcast_script()
+        script = result["script"]
+        citations = result.get("citations", [])
+        try:
+            res_gen.generate_podcast_audio()
+        except Exception as audio_error:
+            logger.warning("Podcast audio skipped: %s", audio_error)
         total_words = sum(len(entry.get("text", "").split()) for entry in script)
         duration = max(3, total_words // 150)
         return PodcastScriptResponse(
             course_id=course_id,
             script=script,
             estimated_duration=f"{duration} phút",
+            citations=citations,
         )
     except Exception as e:
         raise HTTPException(500, f"[{_timestamp()}] Lỗi tạo podcast: {str(e)}")
@@ -621,12 +709,13 @@ async def generate_study_guide_endpoint(course_id: str):
     rag = get_course(course_id)
     res_gen = rag.get_resource_generator()
     try:
-        guide = res_gen.generate_study_guide()
+        result = res_gen.generate_study_guide()
         filename = f"study_guide_{course_id}.md"
         return StudyGuideResponse(
             course_id=course_id,
-            guide=guide,
+            guide=result["guide"],
             filename=filename,
+            citations=result.get("citations", []),
         )
     except Exception as e:
         raise HTTPException(500, f"[{_timestamp()}] Lỗi tạo study guide: {str(e)}")
@@ -673,7 +762,7 @@ async def custom_prompt_sync(req: CustomPromptRequest):
 
 # ─── Generation Endpoints (Async) ─────────────────────────────────────────────
 
-@app.post("/custom-prompt-async/{course_id}", response_model=TaskResponse)
+@app.post("/api/custom-prompt-async/{course_id}", response_model=TaskResponse)
 async def custom_prompt_async(
     course_id: str,
     prompt: str = "Phân tích nội dung tài liệu",
@@ -697,7 +786,7 @@ async def custom_prompt_async(
     )
     return TaskResponse(task_id=task_id, status="processing")
 
-@app.post("/generate-podcast-async/{course_id}", response_model=TaskResponse)
+@app.post("/api/generate-podcast-async/{course_id}", response_model=TaskResponse)
 async def generate_podcast_async(course_id: str, background_tasks: BackgroundTasks):
     """Generate podcast in background."""
     course_mgr = _get_course_mgr()
@@ -707,7 +796,7 @@ async def generate_podcast_async(course_id: str, background_tasks: BackgroundTas
     return TaskResponse(task_id=task_id, status="processing")
 
 
-@app.post("/generate-study-guide-async/{course_id}", response_model=TaskResponse)
+@app.post("/api/generate-study-guide-async/{course_id}", response_model=TaskResponse)
 async def generate_study_guide_async(course_id: str, background_tasks: BackgroundTasks):
     """Generate study guide in background."""
     course_mgr = _get_course_mgr()
@@ -820,7 +909,7 @@ async def generate_mindmap_async(
 
 # ─── Task Polling ──────────────────────────────────────────────────────────────
 
-@app.get("/task/{task_id}")
+@app.get("/api/task/{task_id}")
 async def get_task_status(task_id: str):
     """Poll background task status."""
     task_dir = os.path.join("tasks", task_id)
@@ -841,7 +930,7 @@ async def get_task_status(task_id: str):
 
 # ─── Get Saved Content ─────────────────────────────────────────────────────────
 
-@app.get("/course/{course_id}/questions")
+@app.get("/api/course/{course_id}/questions")
 async def get_saved_questions(course_id: str):
     """Get all saved questions."""
     q_path = get_course_path(course_id)["questions"]
@@ -852,7 +941,7 @@ async def get_saved_questions(course_id: str):
     return {"course_id": course_id, "questions": questions, "total": len(questions)}
 
 
-@app.get("/course/{course_id}/syllabus")
+@app.get("/api/course/{course_id}/syllabus")
 async def get_saved_syllabus(course_id: str):
     """Get saved syllabus."""
     s_path = get_course_path(course_id)["syllabus"]
@@ -863,7 +952,7 @@ async def get_saved_syllabus(course_id: str):
     return {"course_id": course_id, "syllabus": syllabus}
 
 
-@app.get("/course/{course_id}/slides")
+@app.get("/api/course/{course_id}/slides")
 async def get_saved_slides(course_id: str):
     """List all saved slides."""
     slides_dir = os.path.join(QUESTIONS_DIR, f"course_{course_id}_slides")
@@ -885,7 +974,7 @@ async def get_saved_slides(course_id: str):
     return {"course_id": course_id, "slides": slides, "total": len(slides)}
 
 
-@app.get("/course/{course_id}/audio")
+@app.get("/api/course/{course_id}/audio")
 async def get_saved_audio_script(course_id: str):
     """Get saved podcast script."""
     audio_dir = get_course_path(course_id)["audio"]
@@ -897,7 +986,7 @@ async def get_saved_audio_script(course_id: str):
     return {"course_id": course_id, "script": script}
 
 
-@app.get("/course/{course_id}/study-guide")
+@app.get("/api/course/{course_id}/study-guide")
 async def get_saved_study_guide(course_id: str):
     """Get saved study guide."""
     guide_path = os.path.join(get_course_path(course_id)["guides"], "study_guide.md")
@@ -908,7 +997,7 @@ async def get_saved_study_guide(course_id: str):
     return {"course_id": course_id, "guide": content, "filename": "study_guide.md"}
 
 
-@app.get("/course/{course_id}/summary")
+@app.get("/api/course/{course_id}/summary")
 async def get_saved_summary(course_id: str):
     """Lấy bản tóm tắt đã lưu."""
     summary_path = os.path.join(get_course_path(course_id)["guides"], "summary.md")
@@ -922,7 +1011,7 @@ async def get_saved_summary(course_id: str):
     return {"course_id": course_id, "summary": content}
 
 
-@app.get("/course/{course_id}/flashcards")
+@app.get("/api/course/{course_id}/flashcards")
 async def get_saved_flashcards(course_id: str):
     """Get saved flashcards."""
     cards_path = get_course_path(course_id)["flashcards"]
@@ -932,7 +1021,7 @@ async def get_saved_flashcards(course_id: str):
         cards = json.load(f)
     return {"course_id": course_id, "flashcards": cards, "total": len(cards)}
 
-@app.get("/course/{course_id}/mindmap")
+@app.get("/api/course/{course_id}/mindmap")
 async def get_saved_mindmap(course_id: str):
     """Lấy dữ liệu bản đồ tư duy từ folder mindmaps."""
     # Lấy đường dẫn chuẩn từ config
@@ -946,7 +1035,7 @@ async def get_saved_mindmap(course_id: str):
         return json.load(f)
 
 
-@app.get("/course/{course_id}/files")
+@app.get("/api/course/{course_id}/files")
 async def get_course_files(course_id: str):
     """List all generated files for a course."""
     paths = get_course_path(course_id)
@@ -974,7 +1063,7 @@ async def get_course_files(course_id: str):
     return {"course_id": course_id, "files": files}
 
 
-@app.get("/course/{course_id}/stats")
+@app.get("/api/course/{course_id}/stats")
 async def get_course_stats(course_id: str):
     """Get detailed course statistics."""
     if not course_manager:
