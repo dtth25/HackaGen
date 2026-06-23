@@ -1,1 +1,0 @@
-{"course_id": "a80f1443062d", "pdf_path": "uploads\\1782194392_818982-H.pdf", "status": "failed", "created_at": 1782194392.9938679, "error": "Error embedding content: 404 models/embedding-001 is not found for API version v1beta, or is not supported for embedContent. Call ModelService.ListModels to see the list of available models and their supported methods."}

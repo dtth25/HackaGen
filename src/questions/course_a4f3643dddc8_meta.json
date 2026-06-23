@@ -1,1 +1,0 @@
-{"course_id": "a4f3643dddc8", "pdf_path": "uploads\\1782194130_vnoi-cup-23-final.pdf", "status": "failed", "created_at": 1782194130.3089166, "error": "Error embedding content: 404 models/embedding-001 is not found for API version v1beta, or is not supported for embedContent. Call ModelService.ListModels to see the list of available models and their supported methods."}

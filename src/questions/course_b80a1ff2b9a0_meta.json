@@ -1,1 +1,0 @@
-{"course_id": "b80a1ff2b9a0", "pdf_path": "uploads\\1782194429_Tài_Liệu_Yêu_Cầu_Sản_Phẩm.pdf", "status": "failed", "created_at": 1782194429.5212789, "error": "Error embedding content: 404 models/embedding-001 is not found for API version v1beta, or is not supported for embedContent. Call ModelService.ListModels to see the list of available models and their supported methods."}
