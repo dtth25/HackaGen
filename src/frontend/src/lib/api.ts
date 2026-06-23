@@ -23,80 +23,48 @@ export type Endpoint = keyof typeof ENDPOINTS;
 
 /* ── Types ─────────────────────────────────────────────── */
 
-/** Một bài học trong chapter */
-export interface Lesson {
-  title: string;
-}
-
-/** Một chapter trong course */
-export interface Chapter {
-  title: string;
-  lessons: Lesson[];
-}
-
-/** Course detail trả về từ GET /api/course/{course_id}/course */
-export interface CourseDetail {
-  title: string;
-  description?: string;
-  chapters: Chapter[];
-}
-
-/** Response từ GET /api/course/{course_id}/course */
-export interface CourseResponse {
-  course_id: string;
-  course: CourseDetail;
-  citations?: Array<{ page: number; source: string; chunk_id: string }>;
-}
-
-/** Một item trong danh sách courses (GET /api/courses/all) */
-export interface CourseListItem {
-  course_id: string;
-  status: string;
-  pdf_path?: string;
-  created_at?: string;
-}
-
-/** Response từ GET /api/courses/all */
-export interface CourseListResponse {
-  courses: CourseListItem[];
-  total: number;
-}
-
-/* ── Course Generation Types ───────────────────────────── */
-
-/** Request body cho POST /api/generate-course */
-export interface GenerateCourseRequest {
-  file_id: string;
-  user_prompt?: string;
-}
-
-/** Response từ POST /api/generate-course */
-export interface GenerateCourseResponse {
-  course_title: string;
-  chapters: Array<{ id: number; title: string; lessons: string[] }>;
-  total_slides: number;
-  citations: Array<{ page: number; source: string; chunk_id: string }>;
-}
-
-/* ── Quiz Types ────────────────────────────────────────── */
-
-/** Một câu hỏi trong quiz */
-export interface QuizQuestion {
-  question: string;
-  options: string[];
-  correct: number;
-  explanation: string;
-}
-
-/** Response từ POST /api/generate-quiz */
-export interface QuizResponse {
-  course_id: string;
-  topic: string;
-  difficulty: string;
-  questions: QuizQuestion[];
-  total_questions: number;
-  citations?: Array<{ page: number; source: string; chunk_id: string }>;
-}
+import type {
+  Lesson,
+  Chapter,
+  CourseDetail,
+  CourseResponse,
+  CourseListItem,
+  CourseListResponse,
+  GenerateCourseRequest,
+  GenerateCourseResponse,
+  QuizQuestion,
+  QuizResponse,
+  GenerateQuizRequest,
+  Flashcard,
+  GenerateFlashcardsRequest,
+  GenerateFlashcardsResponse,
+  GetFlashcardsResponse,
+  MindmapNode,
+  Mindmap,
+  GenerateMindmapRequest,
+  MindmapResponse,
+  PromptType,
+  CustomPromptRequest,
+  CustomPromptResponse,
+  CustomPromptHistoryItem,
+  CustomPromptHistoryResponse,
+  GenerateStudyGuideRequest,
+  StudyGuideResponse,
+  SyllabusItem,
+  GenerateSyllabusRequest,
+  SyllabusResponse,
+  PodcastScriptItem,
+  GeneratePodcastRequest,
+  PodcastScriptResponse,
+  TaskStatus,
+  TaskType,
+  TaskResponse,
+  TaskPollResponse,
+  Citation,
+  UploadResponse,
+  CourseStats,
+  CourseFiles,
+} from "@/shared/types";
 
 /* ── Fetch helpers ─────────────────────────────────────── */
 
@@ -164,15 +132,17 @@ export async function generateQuiz(
   quantity: number = 10,
   difficulty: string = "medium"
 ): Promise<QuizResponse> {
+  const requestBody: GenerateQuizRequest = {
+    course_id: courseId,
+    topic,
+    quantity,
+    difficulty,
+  };
+
   const response = await fetch(ENDPOINTS.generateQuiz, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      course_id: courseId,
-      topic,
-      quantity,
-      difficulty,
-    }),
+    body: JSON.stringify(requestBody),
   });
 
   if (!response.ok) {
@@ -188,11 +158,7 @@ export async function generateQuiz(
  * POST /api/upload
  * Response: { file_id: string, pages: number, status: string }
  */
-export async function uploadFiles(files: File[]): Promise<{
-  file_id: string;
-  pages: number;
-  status: string;
-}> {
+export async function uploadFiles(files: File[]): Promise<UploadResponse> {
   const formData = new FormData();
   files.forEach((file) => formData.append("files", file));
 

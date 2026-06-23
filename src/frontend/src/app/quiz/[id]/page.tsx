@@ -25,7 +25,8 @@ import {
   Label,
   Separator,
 } from "@/components/ui";
-import { generateQuiz, type QuizResponse } from "@/lib/api";
+import { generateQuiz } from "@/lib/api";
+import type { QuizResponse, QuizQuestion } from "@/shared/types";
 
 /* ── Helpers ───────────────────────────────────────────── */
 
@@ -59,6 +60,11 @@ export default function QuizPage() {
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [showResults, setShowResults] = useState(false);
 
+  /* Derived values */
+  const questions = quiz?.questions ?? [];
+  const totalQuestions = questions.length;
+  const currentQ = questions[currentQuestion];
+
   /* Fetch quiz on mount */
   useEffect(() => {
     async function fetchQuiz() {
@@ -81,10 +87,6 @@ export default function QuizPage() {
     fetchQuiz();
   }, [courseId]);
 
-  /* Derived values */
-  const questions = quiz?.questions ?? [];
-  const totalQuestions = questions.length;
-  const currentQ = questions[currentQuestion];
 
   const handleSelect = useCallback(
     (value: string) => {
@@ -222,7 +224,7 @@ export default function QuizPage() {
         {/* Review answers */}
         <div className="space-y-3">
           <h2 className="text-lg font-medium">Chi tiết câu trả lời</h2>
-          {questions.map((q, idx) => {
+          {questions.map((q: QuizQuestion, idx: number) => {
             const userAnswer = answers[idx];
             const isCorrect = userAnswer === q.correct;
             const isAnswered = userAnswer !== undefined;
@@ -255,7 +257,7 @@ export default function QuizPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-1 pb-3">
-                  {q.options.map((opt, oi) => {
+                  {q.options.map((opt: string, oi: number) => {
                     let optClass = "text-sm px-3 py-1.5 rounded-md";
                     if (oi === q.correct) {
                       optClass += " bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400";
@@ -351,7 +353,7 @@ export default function QuizPage() {
             onValueChange={handleSelect}
             className="gap-2"
           >
-            {currentQ.options.map((option, idx) => {
+            {currentQ.options.map((option: string, idx: number) => {
               const isSelected = answers[currentQuestion] === idx;
               const hasAnswer = answers[currentQuestion] !== undefined;
               const isCorrect = idx === currentQ.correct;
