@@ -47,12 +47,12 @@ function RootNode({ data, selected }: NodeProps<RootNodeData>) {
                   className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-white/20 backdrop-blur-sm"
                   title={`${citation.source} - Page ${citation.page}`}
                 >
-                  📄 p.{citation.page}
+                  p.{citation.page}
                 </span>
               ))}
               {citations.length > 2 && (
                 <span className="text-xs opacity-75">
-                  +{citations.length - 2} more
+                  +{citations.length - 2}
                 </span>
               )}
             </div>

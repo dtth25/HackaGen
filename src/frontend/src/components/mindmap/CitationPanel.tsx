@@ -15,18 +15,18 @@ function CitationPanel({ citations, nodeLabel, onClose }: CitationPanelProps) {
     return (
       <div className="w-80 bg-white border border-gray-200 rounded-xl shadow-lg p-5">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold text-gray-900 text-sm">Citations</h3>
+          <h3 className="text-sm font-semibold text-gray-900">Trích dẫn</h3>
           <button
             onClick={onClose}
             className="p-1 rounded-md hover:bg-gray-100 transition-colors"
-            aria-label="Close panel"
+            aria-label="Đóng"
           >
             <X className="w-4 h-4 text-gray-500" />
           </button>
         </div>
 
         <div className="text-sm text-gray-500 italic">
-          No citations available for this node
+          Chưa có trích dẫn cho nút này
         </div>
       </div>
     );
@@ -36,7 +36,7 @@ function CitationPanel({ citations, nodeLabel, onClose }: CitationPanelProps) {
     <div className="w-80 bg-white border border-gray-200 rounded-xl shadow-lg p-5">
       <div className="flex items-center justify-between mb-3">
         <div>
-          <h3 className="font-semibold text-gray-900 text-sm">Citations</h3>
+          <h3 className="text-sm font-semibold text-gray-900">Trích dẫn</h3>
           <p className="text-xs text-gray-500 mt-0.5 truncate max-w-[200px]">
             {nodeLabel}
           </p>
@@ -44,7 +44,7 @@ function CitationPanel({ citations, nodeLabel, onClose }: CitationPanelProps) {
         <button
           onClick={onClose}
           className="p-1 rounded-md hover:bg-gray-100 transition-colors"
-          aria-label="Close panel"
+          aria-label="Đóng"
         >
           <X className="w-4 h-4 text-gray-500" />
         </button>
@@ -73,13 +73,6 @@ function CitationPanel({ citations, nodeLabel, onClose }: CitationPanelProps) {
             </div>
           </div>
         ))}
-      </div>
-
-      <div className="mt-4 pt-3 border-t border-gray-100">
-        <p className="text-[10px] text-gray-400 leading-relaxed">
-          These citations reference specific pages and chunks in the original
-          document. Click on a citation to view more details.
-        </p>
       </div>
     </div>
   );

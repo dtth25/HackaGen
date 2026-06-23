@@ -62,7 +62,12 @@ class ResourceGenerator:
 
     def _clean_doc_text(self, doc, max_chars: int = 320) -> str:
         """Return compact text from a retrieved chunk for deterministic fallbacks."""
-        text = re.sub(r"===.*?===", " ", doc.page_content, flags=re.DOTALL)
+        text = doc.page_content
+        text = re.sub(r"===\s*BẮT ĐẦU.*?===", " ", text, flags=re.IGNORECASE | re.DOTALL)
+        text = re.sub(r"===\s*KẾT THÚC.*?===", " ", text, flags=re.IGNORECASE | re.DOTALL)
+        text = re.sub(r"\[MÃ ĐỊNH DANH TRANG:\s*\d+\]", " ", text, flags=re.IGNORECASE)
+        text = re.sub(r"\bNỘI DUNG:\s*", " ", text, flags=re.IGNORECASE)
+        text = re.sub(r"\bMã định danh trang\s+\d+\s+nội dung\b", " ", text, flags=re.IGNORECASE)
         text = re.sub(r"\s+", " ", text).strip()
         return text[:max_chars].strip()
 
@@ -98,23 +103,125 @@ class ResourceGenerator:
         title = " ".join(words[:8]).strip()
         return title.capitalize() if title else fallback
 
+    def _build_lesson_from_point(self, point, title: str, index_label: str):
+        source_note = f"Trang {point['page']} - {point['source']}"
+        return {
+            "title": title,
+            "duration": "20-30 phút",
+            "objectives": [
+                "Nắm được ý chính và thuật ngữ trọng tâm của phần này.",
+                "Giải thích lại nội dung bằng ngôn ngữ của người học.",
+            ],
+            "lecture": (
+                f"Phần {index_label} tập trung vào nội dung từ {source_note}.\n\n"
+                f"{point['text']}\n\n"
+                "Khi học phần này, người học nên đọc kỹ đoạn gốc, xác định các khái niệm then chốt "
+                "và liên hệ chúng với mục tiêu chung của tài liệu."
+            ),
+            "key_points": [
+                point["text"][:180],
+                f"Nội dung này được trace từ {source_note}.",
+                "Cần ghi nhớ mối liên hệ giữa ý chính, ví dụ và mục tiêu bài học.",
+            ],
+            "activity": "Yêu cầu người học tóm tắt phần này bằng 3 gạch đầu dòng và nêu 1 ví dụ minh họa.",
+            "assessment": [
+                "Ý chính của phần này là gì?",
+                "Chi tiết nào trong tài liệu chứng minh cho ý chính đó?",
+            ],
+            "citation": {
+                "page": point["page"],
+                "source": point["source"],
+                "chunk_id": point["chunk_id"],
+            },
+        }
+
+    def _normalize_course(self, course, docs, target_audience: str):
+        points = self._doc_points(docs, limit=18, max_chars=620)
+        if not isinstance(course, dict):
+            return self._build_fallback_course(docs, target_audience)
+
+        normalized = {
+            "title": course.get("title") or "Khóa học từ tài liệu đã tải lên",
+            "description": course.get("description")
+            or f"Lộ trình học dành cho {target_audience or 'người học'}, bám sát nội dung tài liệu gốc.",
+            "estimated_duration": course.get("estimated_duration") or "3-5 giờ",
+            "chapters": [],
+        }
+
+        raw_chapters = course.get("chapters") or course.get("syllabus") or []
+        if not isinstance(raw_chapters, list) or not raw_chapters:
+            return self._build_fallback_course(docs, target_audience)
+
+        point_cursor = 0
+        for chapter_index, raw_chapter in enumerate(raw_chapters[:6], 1):
+            chapter = raw_chapter if isinstance(raw_chapter, dict) else {"title": str(raw_chapter)}
+            raw_lessons = chapter.get("lessons") or []
+            if not isinstance(raw_lessons, list) or not raw_lessons:
+                raw_lessons = [{"title": f"Bài {chapter_index}.1: Nội dung trọng tâm"}]
+
+            lessons = []
+            for lesson_index, raw_lesson in enumerate(raw_lessons[:3], 1):
+                lesson = raw_lesson if isinstance(raw_lesson, dict) else {"title": str(raw_lesson)}
+                point = points[point_cursor % len(points)]
+                point_cursor += 1
+                title = lesson.get("title") or f"Bài {chapter_index}.{lesson_index}: Nội dung trọng tâm"
+                enriched = self._build_lesson_from_point(
+                    point,
+                    title,
+                    f"{chapter_index}.{lesson_index}",
+                )
+
+                for field in ["duration", "activity"]:
+                    if lesson.get(field):
+                        enriched[field] = lesson[field]
+
+                for field in ["objectives", "key_points", "assessment"]:
+                    if isinstance(lesson.get(field), list) and lesson[field]:
+                        enriched[field] = lesson[field]
+
+                if isinstance(lesson.get("lecture"), str) and lesson["lecture"].strip():
+                    enriched["lecture"] = lesson["lecture"].strip()
+
+                lessons.append(enriched)
+
+            normalized["chapters"].append(
+                {
+                    "title": chapter.get("title") or chapter.get("chapter") or f"Chương {chapter_index}",
+                    "description": chapter.get("description")
+                    or f"Chương này hệ thống hóa {len(lessons)} bài học chính từ tài liệu.",
+                    "lessons": lessons,
+                }
+            )
+
+        return normalized
+
     def _build_fallback_course(self, docs, target_audience: str):
-        points = self._doc_points(docs, limit=6, max_chars=180)
+        points = self._doc_points(docs, limit=6, max_chars=620)
         chapters = []
         for index, point in enumerate(points, 1):
             title = self._short_title(point["text"], f"Nội dung chính {index}")
             chapters.append(
                 {
                     "title": f"Chương {index}: {title}",
+                    "description": f"Hệ thống hóa nội dung trọng tâm từ trang {point['page']} của tài liệu.",
                     "lessons": [
-                        {"title": f"Bài {index}.1: Đọc hiểu nội dung trang {point['page']}"},
-                        {"title": f"Bài {index}.2: Ghi nhớ và vận dụng ý chính"},
+                        self._build_lesson_from_point(
+                            point,
+                            f"Bài {index}.1: Đọc hiểu nội dung trang {point['page']}",
+                            f"{index}.1",
+                        ),
+                        self._build_lesson_from_point(
+                            point,
+                            f"Bài {index}.2: Ghi nhớ và vận dụng ý chính",
+                            f"{index}.2",
+                        ),
                     ],
                 }
             )
         return {
             "title": "Khóa học từ tài liệu đã tải lên",
             "description": f"Lộ trình học MVP dành cho {target_audience or 'người học'}, được dựng trực tiếp từ các đoạn nội dung đã index trong tài liệu.",
+            "estimated_duration": "3-5 giờ",
             "chapters": chapters,
         }
 
@@ -180,9 +287,10 @@ class ResourceGenerator:
                 "target_audience": target_audience or "người học chung"
             })
             course = json.loads(extract_json(res))
-            if not isinstance(course, dict):
-                raise ValueError("LLM did not return a course object.")
-            return {"course": course, "citations": citations}
+            return {
+                "course": self._normalize_course(course, docs, target_audience),
+                "citations": citations,
+            }
         except Exception as e:
             logger.warning("Course generation failed, using fallback: %s", e)
             return {
@@ -237,11 +345,10 @@ class ResourceGenerator:
         """Build simple citation-backed flashcards when LLM output is unavailable."""
         cards = []
         for doc in docs:
-            text = re.sub(r"===.*?===", " ", doc.page_content, flags=re.DOTALL)
-            text = re.sub(r"\s+", " ", text).strip()
+            text = self._clean_doc_text(doc, 280)
             if not text:
                 continue
-            answer = text[:280].strip()
+            answer = text
             if len(answer) < 40:
                 continue
             page = doc.metadata.get("page", "?")

@@ -67,7 +67,12 @@ class MindmapGenerator:
             logger.warning("Mindmap generation failed, using fallback: %s", e)
             branches = []
             for index, doc in enumerate(docs[: max_depth * 3], 1):
-                text = re.sub(r"===.*?===", " ", doc.page_content, flags=re.DOTALL)
+                text = doc.page_content
+                text = re.sub(r"===\s*BẮT ĐẦU.*?===", " ", text, flags=re.IGNORECASE | re.DOTALL)
+                text = re.sub(r"===\s*KẾT THÚC.*?===", " ", text, flags=re.IGNORECASE | re.DOTALL)
+                text = re.sub(r"\[MÃ ĐỊNH DANH TRANG:\s*\d+\]", " ", text, flags=re.IGNORECASE)
+                text = re.sub(r"\bNỘI DUNG:\s*", " ", text, flags=re.IGNORECASE)
+                text = re.sub(r"\bMã định danh trang\s+\d+\s+nội dung\b", " ", text, flags=re.IGNORECASE)
                 text = re.sub(r"\s+", " ", text).strip()
                 words = re.findall(r"\w+", text, flags=re.UNICODE)
                 title = " ".join(words[:8]).strip() or f"Ý chính {index}"

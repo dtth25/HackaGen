@@ -10,6 +10,10 @@ export function convertMindMapToFlow(data: MindMapData): { nodes: Node[]; edges:
   const nodes: Node[] = [];
   const edges: Edge[] = [];
   let yPosition = 0;
+  const root: MindMapNode = {
+    ...data.root,
+    children: data.root.children?.length ? data.root.children : data.branches,
+  };
 
   function traverseTree(
     node: MindMapNode,
@@ -59,7 +63,7 @@ export function convertMindMapToFlow(data: MindMapData): { nodes: Node[]; edges:
     }
   }
 
-  traverseTree(data.root, 0);
+  traverseTree(root, 0);
 
   return { nodes, edges };
 }
@@ -67,6 +71,10 @@ export function convertMindMapToFlow(data: MindMapData): { nodes: Node[]; edges:
 export function layoutTreeMindMap(data: MindMapData): { nodes: Node[]; edges: Edge[] } {
   const nodes: Node[] = [];
   const edges: Edge[] = [];
+  const root: MindMapNode = {
+    ...data.root,
+    children: data.root.children?.length ? data.root.children : data.branches,
+  };
 
   const rootX = 400;
   const rootY = 300;
@@ -141,7 +149,7 @@ export function layoutTreeMindMap(data: MindMapData): { nodes: Node[]; edges: Ed
     }
   }
 
-  processNode(data.root);
+  processNode(root);
 
   return { nodes, edges };
 }
@@ -164,17 +172,25 @@ export function getNodeDepth(nodes: Node[], nodeId: string): number {
 }
 
 export function countNodes(data: MindMapData): number {
-  return flattenMindMap(data.root).length;
+  const root: MindMapNode = {
+    ...data.root,
+    children: data.root.children?.length ? data.root.children : data.branches,
+  };
+  return flattenMindMap(root).length;
 }
 
 export function getMaxDepth(data: MindMapData): number {
   let maxDepth = 0;
+  const root: MindMapNode = {
+    ...data.root,
+    children: data.root.children?.length ? data.root.children : data.branches,
+  };
 
   function traverse(node: MindMapNode, depth: number) {
     if (depth > maxDepth) maxDepth = depth;
     node.children?.forEach((child) => traverse(child, depth + 1));
   }
 
-  traverse(data.root, 0);
+  traverse(root, 0);
   return maxDepth;
 }

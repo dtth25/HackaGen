@@ -193,7 +193,12 @@ class CustomProcessor:
         """Build a deterministic answer from retrieved chunks when the LLM is unavailable."""
         points = []
         for doc in docs[:8]:
-            text = re.sub(r"===.*?===", " ", doc.page_content, flags=re.DOTALL)
+            text = doc.page_content
+            text = re.sub(r"===\s*BẮT ĐẦU.*?===", " ", text, flags=re.IGNORECASE | re.DOTALL)
+            text = re.sub(r"===\s*KẾT THÚC.*?===", " ", text, flags=re.IGNORECASE | re.DOTALL)
+            text = re.sub(r"\[MÃ ĐỊNH DANH TRANG:\s*\d+\]", " ", text, flags=re.IGNORECASE)
+            text = re.sub(r"\bNỘI DUNG:\s*", " ", text, flags=re.IGNORECASE)
+            text = re.sub(r"\bMã định danh trang\s+\d+\s+nội dung\b", " ", text, flags=re.IGNORECASE)
             text = re.sub(r"\s+", " ", text).strip()
             if len(text) < 30:
                 continue

@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import UploadBox from "@/components/UploadBox";
 import FeatureSelector, { type FeatureType } from "@/components/FeatureSelector";
 import PromptInput from "@/components/PromptInput";
+import ResultRenderer from "@/components/ResultRenderer";
 import {
   type Citation,
   type CourseStatusResponse,
@@ -196,32 +197,12 @@ export default function GeneratePage() {
         />
       </div>
 
-      {result && (
-        <Card className="w-full max-w-4xl">
-          <CardHeader>
-            <CardTitle>Kết quả</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <pre className="max-h-[520px] overflow-auto rounded-lg bg-muted p-4 text-xs leading-relaxed">
-              {JSON.stringify(result, null, 2)}
-            </pre>
-
-            {citations.length > 0 && (
-              <div>
-                <h3 className="mb-2 text-sm font-semibold">Citations</h3>
-                <ul className="space-y-1 text-sm text-muted-foreground">
-                  {citations.map((citation, index) => (
-                    <li key={`${citation.source}-${citation.chunk_id}-${index}`}>
-                      [{index + 1}] page {citation.page ?? "?"} -{" "}
-                      {citation.source ?? "unknown"} - chunk{" "}
-                      {citation.chunk_id ?? "?"}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+      {result && selectedFeature && (
+        <ResultRenderer
+          feature={selectedFeature}
+          result={result}
+          citations={citations}
+        />
       )}
     </div>
   );

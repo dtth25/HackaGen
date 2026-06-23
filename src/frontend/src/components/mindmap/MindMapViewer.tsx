@@ -103,7 +103,7 @@ function MindMapViewer({ data }: MindMapViewerProps) {
   }, [onToggleNode, setNodes]);
 
   return (
-    <div className="w-full h-[calc(100vh-200px)] min-h-[600px] bg-gray-50 rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+    <div className="h-[560px] min-h-[480px] w-full overflow-hidden rounded-lg border border-border bg-card shadow-sm">
       <div className="flex h-full">
         <div className="flex-1 relative">
           <ReactFlow
@@ -135,10 +135,10 @@ function MindMapViewer({ data }: MindMapViewerProps) {
             />
           </ReactFlow>
 
-          <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm px-3 py-2 rounded-lg border border-gray-200 shadow-sm">
+          <div className="absolute left-4 top-4 rounded-lg border border-gray-200 bg-white/90 px-3 py-2 shadow-sm backdrop-blur-sm">
             <div className="flex items-center gap-2 text-xs text-gray-600">
               <BookOpen className="w-4 h-4 text-blue-500" />
-              <span className="font-medium">Mind Map Preview</span>
+              <span className="font-medium">Sơ đồ tư duy</span>
             </div>
           </div>
         </div>
