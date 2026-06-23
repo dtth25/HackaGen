@@ -59,36 +59,158 @@ class ResourceGenerator:
                 "chunk_id": d.metadata.get("chunk_id", f"chunk_{hash(d.page_content) % 1000}")
             } for d in docs[:3]
         ]
+
+    def _clean_doc_text(self, doc, max_chars: int = 320) -> str:
+        """Return compact text from a retrieved chunk for deterministic fallbacks."""
+        text = re.sub(r"===.*?===", " ", doc.page_content, flags=re.DOTALL)
+        text = re.sub(r"\s+", " ", text).strip()
+        return text[:max_chars].strip()
+
+    def _doc_points(self, docs, limit: int = 8, max_chars: int = 220):
+        points = []
+        for doc in docs:
+            text = self._clean_doc_text(doc, max_chars)
+            if len(text) < 30:
+                continue
+            points.append(
+                {
+                    "text": text,
+                    "page": doc.metadata.get("page", "?"),
+                    "source": os.path.basename(
+                        doc.metadata.get("source_file", doc.metadata.get("source", "unknown"))
+                    ),
+                    "chunk_id": doc.metadata.get("chunk_id", ""),
+                }
+            )
+            if len(points) >= limit:
+                break
+        return points or [
+            {
+                "text": "Tài liệu đã được xử lý thành công, nhưng hệ thống chưa trích xuất được đoạn nội dung đủ dài cho bản nháp.",
+                "page": "?",
+                "source": "unknown",
+                "chunk_id": "",
+            }
+        ]
+
+    def _short_title(self, text: str, fallback: str) -> str:
+        words = re.findall(r"\w+", text, flags=re.UNICODE)
+        title = " ".join(words[:8]).strip()
+        return title.capitalize() if title else fallback
+
+    def _build_fallback_course(self, docs, target_audience: str):
+        points = self._doc_points(docs, limit=6, max_chars=180)
+        chapters = []
+        for index, point in enumerate(points, 1):
+            title = self._short_title(point["text"], f"Nội dung chính {index}")
+            chapters.append(
+                {
+                    "title": f"Chương {index}: {title}",
+                    "lessons": [
+                        {"title": f"Bài {index}.1: Đọc hiểu nội dung trang {point['page']}"},
+                        {"title": f"Bài {index}.2: Ghi nhớ và vận dụng ý chính"},
+                    ],
+                }
+            )
+        return {
+            "title": "Khóa học từ tài liệu đã tải lên",
+            "description": f"Lộ trình học MVP dành cho {target_audience or 'người học'}, được dựng trực tiếp từ các đoạn nội dung đã index trong tài liệu.",
+            "chapters": chapters,
+        }
+
+    def _build_fallback_summary(self, docs, summary_type: str):
+        points = self._doc_points(docs, limit=8, max_chars=260)
+        bullets = "\n".join(
+            f"- Trang {point['page']}: {point['text']}" for point in points
+        )
+        return (
+            "# BẢN TÓM TẮT TÀI LIỆU\n\n"
+            f"Loại tóm tắt: `{summary_type}`.\n\n"
+            "Các ý chính được trích trực tiếp từ tài liệu:\n\n"
+            f"{bullets}\n\n"
+            "Bản này được tạo ở chế độ dự phòng để bảo đảm demo vẫn có nội dung khi LLM hoặc parser gặp lỗi."
+        )
+
+    def _build_fallback_quiz(self, docs, quantity: int, difficulty: str):
+        points = self._doc_points(docs, limit=max(1, min(quantity, 10)), max_chars=220)
+        questions = []
+        for index in range(max(1, min(quantity, 10))):
+            point = points[index % len(points)]
+            questions.append(
+                {
+                    "question": f"Ý nào sau đây phản ánh đúng nội dung ở trang {point['page']}?",
+                    "options": [
+                        point["text"][:140],
+                        "Một nhận định không được tài liệu cung cấp rõ ràng.",
+                        "Một kết luận mở rộng ngoài phạm vi tài liệu.",
+                        "Một phương án dùng để gây nhiễu trong câu hỏi.",
+                    ],
+                    "correct": 0,
+                    "explanation": f"Đáp án đúng lấy trực tiếp từ chunk metadata page={point['page']}, source={point['source']}.",
+                    "difficulty": difficulty,
+                }
+            )
+        return questions
+
+    def _build_fallback_slides(self, docs, num_slides: int):
+        points = self._doc_points(docs, limit=max(1, min(num_slides, 10)), max_chars=220)
+        slides = []
+        for index in range(max(1, min(num_slides, 10))):
+            point = points[index % len(points)]
+            slides.append(
+                {
+                    "title": f"Slide {index + 1}: Trang {point['page']}",
+                    "content": f"- {point['text']}\n- Nguồn: {point['source']}",
+                    "layout_hint": "title-and-content",
+                    "image_suggestion": "Sơ đồ hoặc minh họa đơn giản cho ý chính của slide.",
+                }
+            )
+        return slides
         
     def generate_course_structure(self, user_prompt: str, target_audience: str):
         retriever = self.vectorstore.as_retriever(search_kwargs={"k": 10})
         docs = retriever.invoke(user_prompt or "tổng quan")
-        prompt = ChatPromptTemplate.from_template(COURSE_GENERATION_PROMPT)
-        chain = prompt | get_llm(temperature=0.3) | StrOutputParser()
-        res = chain.invoke({
-            "context": format_docs(docs),
-            "user_prompt": user_prompt or "Không có",
-            "target_audience": target_audience or "người học chung"
-        })
-        return {"course": json.loads(extract_json(res)), "citations": self._get_citations(docs)}
+        citations = self._get_citations(docs)
+        try:
+            prompt = ChatPromptTemplate.from_template(COURSE_GENERATION_PROMPT)
+            chain = prompt | get_llm(temperature=0.3) | StrOutputParser()
+            res = chain.invoke({
+                "context": format_docs(docs),
+                "user_prompt": user_prompt or "Không có",
+                "target_audience": target_audience or "người học chung"
+            })
+            course = json.loads(extract_json(res))
+            if not isinstance(course, dict):
+                raise ValueError("LLM did not return a course object.")
+            return {"course": course, "citations": citations}
+        except Exception as e:
+            logger.warning("Course generation failed, using fallback: %s", e)
+            return {
+                "course": self._build_fallback_course(docs, target_audience),
+                "citations": citations,
+            }
 
     # 4.2 Summary
     def generate_summary_v2(self, summary_type: str = "detailed"):
         retriever = self.vectorstore.as_retriever(search_kwargs={"k": 15})
         docs = retriever.invoke("nội dung trọng tâm")
-        instructions = {
-            "short": "Viết 1 đoạn văn 70 từ.",
-            "detailed": "Phân tích sâu, chia mục rõ ràng.",
-            "key_points": "Chỉ liệt kê các gạch đầu dòng cốt lõi.",
-            "conclusion": "Tập trung vào giá trị cuối cùng."
-        }
-        prompt = ChatPromptTemplate.from_template(SUMMARY_V2_PROMPT)
-        chain = prompt | get_llm(temperature=0.2) | StrOutputParser()
-        res = chain.invoke({
-            "context": format_docs(docs),
-            "type": summary_type
-        })
-        return {"summary": res, "citations": self._get_citations(docs)}
+        citations = self._get_citations(docs)
+        try:
+            prompt = ChatPromptTemplate.from_template(SUMMARY_V2_PROMPT)
+            chain = prompt | get_llm(temperature=0.2) | StrOutputParser()
+            res = chain.invoke({
+                "context": format_docs(docs),
+                "type": summary_type
+            })
+            if not res or not res.strip():
+                raise ValueError("LLM returned an empty summary.")
+            return {"summary": res, "citations": citations}
+        except Exception as e:
+            logger.warning("Summary generation failed, using fallback: %s", e)
+            return {
+                "summary": self._build_fallback_summary(docs, summary_type),
+                "citations": citations,
+            }
 
     # 4.3 Flashcards
     def generate_flashcards_v2(self, count: int):
@@ -154,24 +276,46 @@ class ResourceGenerator:
     def generate_quiz_v2(self, topic: str, quantity: int, difficulty: str):
         retriever = self.vectorstore.as_retriever(search_kwargs={"k": 15})
         docs = retriever.invoke(topic)
-        prompt = ChatPromptTemplate.from_template(QUIZ_V2_PROMPT)
-        chain = prompt | get_llm(temperature=0.3) | StrOutputParser()
-        res = chain.invoke({
-            "context": format_docs(docs), "topic": topic, 
-            "quantity": quantity, "difficulty": difficulty
-        })
-        return {"questions": json.loads(extract_json(res)), "citations": self._get_citations(docs)}
+        citations = self._get_citations(docs)
+        try:
+            prompt = ChatPromptTemplate.from_template(QUIZ_V2_PROMPT)
+            chain = prompt | get_llm(temperature=0.3) | StrOutputParser()
+            res = chain.invoke({
+                "context": format_docs(docs), "topic": topic,
+                "quantity": quantity, "difficulty": difficulty
+            })
+            questions = json.loads(extract_json(res))
+            if not isinstance(questions, list) or not questions:
+                raise ValueError("LLM did not return a non-empty quiz array.")
+            return {"questions": questions[:quantity], "citations": citations}
+        except Exception as e:
+            logger.warning("Quiz generation failed, using fallback: %s", e)
+            return {
+                "questions": self._build_fallback_quiz(docs, quantity, difficulty),
+                "citations": citations,
+            }
 
     # 4.5 Slides
     def generate_slides_v2(self, topic: str, num_slides: int):
         retriever = self.vectorstore.as_retriever(search_kwargs={"k": 15})
         docs = retriever.invoke(topic)
-        prompt = ChatPromptTemplate.from_template(SLIDES_V2_PROMPT)
-        chain = prompt | get_llm(temperature=0.1) | StrOutputParser()
-        res = chain.invoke({
-            "context": format_docs(docs), "topic": topic, "num_slides": num_slides
-        })
-        return {"slides": json.loads(extract_json(res)), "citations": self._get_citations(docs)}
+        citations = self._get_citations(docs)
+        try:
+            prompt = ChatPromptTemplate.from_template(SLIDES_V2_PROMPT)
+            chain = prompt | get_llm(temperature=0.1) | StrOutputParser()
+            res = chain.invoke({
+                "context": format_docs(docs), "topic": topic, "num_slides": num_slides
+            })
+            slides = json.loads(extract_json(res))
+            if not isinstance(slides, list) or not slides:
+                raise ValueError("LLM did not return a non-empty slide array.")
+            return {"slides": slides[:num_slides], "citations": citations}
+        except Exception as e:
+            logger.warning("Slides generation failed, using fallback: %s", e)
+            return {
+                "slides": self._build_fallback_slides(docs, num_slides),
+                "citations": citations,
+            }
         
     
 

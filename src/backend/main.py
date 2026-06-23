@@ -50,8 +50,8 @@ ALLOW_ALL_ORIGINS = os.getenv("ALLOW_ALL_ORIGINS", "true").lower() in {
 # ─── Configuration ─────────────────────────────────────────────────────────────
 
 MAX_UPLOAD_SIZE = 50 * 1024 * 1024  # 50MB
-RATE_LIMIT_WINDOW = 60  # seconds
-RATE_LIMIT_MAX_REQUESTS = 30
+RATE_LIMIT_WINDOW = int(os.getenv("RATE_LIMIT_WINDOW", "60"))
+RATE_LIMIT_MAX_REQUESTS = int(os.getenv("RATE_LIMIT_MAX_REQUESTS", "300"))
 
 # ─── Global instances ──────────────────────────────────────────────────────────
 
@@ -95,6 +95,9 @@ app.add_middleware(
 @app.middleware("http")
 async def rate_limit_middleware(request: Request, call_next):
     """Simple in-memory rate limiter."""
+    if request.method == "OPTIONS" or request.url.path.endswith("/status"):
+        return await call_next(request)
+
     client_ip = request.client.host if request.client else "unknown"
     now = time.time()
 
@@ -107,10 +110,18 @@ async def rate_limit_middleware(request: Request, call_next):
     ]
 
     if len(rate_limit_store[client_ip]) >= RATE_LIMIT_MAX_REQUESTS:
-        return JSONResponse(
+        response = JSONResponse(
             status_code=429,
             content={"detail": "Rate limit exceeded. Vui lòng thử lại sau."}
         )
+        origin = request.headers.get("origin")
+        if ALLOW_ALL_ORIGINS:
+            response.headers["Access-Control-Allow-Origin"] = "*"
+        elif origin in ALLOWED_ORIGINS:
+            response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Methods"] = "*"
+        response.headers["Access-Control-Allow-Headers"] = "*"
+        return response
 
     rate_limit_store[client_ip].append(now)
 

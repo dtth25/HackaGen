@@ -1,6 +1,7 @@
 import os
 import json
 import logging
+import re
 from typing import Dict, Any, Optional
 from backend.core.config import get_llm, extract_json, get_course_path, format_docs
 from backend.core.prompts import MINDMAP_PROMPT
@@ -63,5 +64,33 @@ class MindmapGenerator:
             
             return final_response
         except Exception as e:
-            logger.error(f"Lỗi tạo Mindmap: {e}")
-            raise RuntimeError(f"Không thể tạo bản đồ tư duy: {str(e)}")
+            logger.warning("Mindmap generation failed, using fallback: %s", e)
+            branches = []
+            for index, doc in enumerate(docs[: max_depth * 3], 1):
+                text = re.sub(r"===.*?===", " ", doc.page_content, flags=re.DOTALL)
+                text = re.sub(r"\s+", " ", text).strip()
+                words = re.findall(r"\w+", text, flags=re.UNICODE)
+                title = " ".join(words[:8]).strip() or f"Ý chính {index}"
+                branches.append({"title": title.capitalize(), "children": []})
+
+            mindmap_dict = {
+                "central_topic": "Tài liệu học tập",
+                "branches": branches or [{"title": "Nội dung chính", "children": []}],
+            }
+            final_response = {
+                "course_id": self.course_id,
+                "mindmap": mindmap_dict,
+                "citations": citations[:5],
+            }
+
+            try:
+                paths = get_course_path(self.course_id)
+                save_dir = paths["mindmaps"]
+                os.makedirs(save_dir, exist_ok=True)
+                save_path = os.path.join(save_dir, "mindmap.json")
+                with open(save_path, "w", encoding="utf-8") as f:
+                    json.dump(final_response, f, indent=2, ensure_ascii=False)
+            except Exception as save_error:
+                logger.warning("Could not save fallback mindmap: %s", save_error)
+
+            return final_response

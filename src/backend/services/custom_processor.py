@@ -179,8 +179,38 @@ class CustomProcessor:
 
             return response
         except Exception as e:
-            logger.error(f"Lỗi xử lý prompt tùy chỉnh: {e}")
-            raise RuntimeError(f"Không thể xử lý yêu cầu: {e}")
+            logger.warning("Custom prompt LLM failed, using fallback: %s", e)
+            result = self._fallback_result(user_prompt, docs)
+            response = {
+                "result": result,
+                "prompt_type": prompt_type,
+                "citations": citations,
+            }
+            self._save_result(user_prompt, response)
+            return response
+
+    def _fallback_result(self, user_prompt: str, docs: List[Any]) -> str:
+        """Build a deterministic answer from retrieved chunks when the LLM is unavailable."""
+        points = []
+        for doc in docs[:8]:
+            text = re.sub(r"===.*?===", " ", doc.page_content, flags=re.DOTALL)
+            text = re.sub(r"\s+", " ", text).strip()
+            if len(text) < 30:
+                continue
+            meta = getattr(doc, "metadata", {})
+            points.append(
+                f"- Trang {meta.get('page', '?')}: {text[:260]}"
+            )
+
+        if not points:
+            points.append("- Tài liệu đã được xử lý, nhưng chưa có đoạn nội dung đủ dài để tạo câu trả lời dự phòng.")
+
+        return (
+            f"Yêu cầu: {user_prompt}\n\n"
+            "Các ý liên quan được trích từ tài liệu:\n\n"
+            + "\n".join(points)
+            + "\n\nKết quả này được tạo ở chế độ dự phòng để bảo đảm demo không bị gián đoạn khi LLM gặp lỗi."
+        )
 
     def _save_result(self, user_prompt: str, response: Dict[str, Any]):
         """Lưu kết quả vào custom_prompts/course_{id}/{timestamp}.json và .md"""
