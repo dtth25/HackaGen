@@ -78,14 +78,9 @@ MAX_RETRY_DELAY = 60    # Max delay on 429 errors
 
 def _normalize_embedding_model(model_name: Optional[str]) -> str:
     """Normalize Gemini embedding model names for LangChain batch embeddings."""
-    model = (model_name or "models/embedding-001").strip()
+    model = (model_name or "gemini-embedding-2").strip()
     if model in {"gemini-embedding-2", "models/gemini-embedding-2"}:
-        logger.warning(
-            "EMBEDDING_MODEL=%s is not compatible with current LangChain batch "
-            "embedding flow. Falling back to models/embedding-001.",
-            model,
-        )
-        return "models/embedding-001"
+        return model
     if not model.startswith("models/"):
         model = f"models/{model}"
     return model
@@ -112,6 +107,7 @@ def get_course_path(course_id: str) -> Dict[str, str]:
         "guides": os.path.join(GUIDES_DIR, f"course_{course_id}"),
         "flashcards": os.path.join(FLASHCARDS_DIR, f"course_{course_id}_flashcards.json"),
         "mindmaps": os.path.join(MINDMAPS_DIR, f"course_{course_id}"),
+        "course": os.path.join(QUESTIONS_DIR, f"course_{course_id}_course.json"),
     }
 
 
@@ -119,16 +115,15 @@ def get_course_path(course_id: str) -> Dict[str, str]:
 
 def get_embeddings() -> GoogleGenerativeAIEmbeddings:
     """Get Gemini embeddings instance."""
-    api_key = _require_google_api_key()
-    return GoogleGenerativeAIEmbeddings(model=EMBEDDING_MODEL, google_api_key=api_key)
+    _require_google_api_key()
+    return GoogleGenerativeAIEmbeddings(model=EMBEDDING_MODEL)
 
 
 def get_llm(temperature: float = 0.1, max_output_tokens: int = 8192) -> ChatGoogleGenerativeAI:
     """Get Gemini LLM instance."""
-    api_key = _require_google_api_key()
+    _require_google_api_key()
     return ChatGoogleGenerativeAI(
         model=LLM_MODEL,
-        google_api_key=api_key,
         temperature=temperature,
         max_output_tokens=max_output_tokens,
     )

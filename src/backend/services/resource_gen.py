@@ -68,7 +68,10 @@ class ResourceGenerator:
         text = re.sub(r"\[MÃ ĐỊNH DANH TRANG:\s*\d+\]", " ", text, flags=re.IGNORECASE)
         text = re.sub(r"\bNỘI DUNG:\s*", " ", text, flags=re.IGNORECASE)
         text = re.sub(r"\bMã định danh trang\s+\d+\s+nội dung\b", " ", text, flags=re.IGNORECASE)
+        text = re.sub(r"[^\x00-\x7F\u00C0-\u024F\u1E00-\u1EFF]", " ", text)
         text = re.sub(r"\s+", " ", text).strip()
+        if not text or len(text) < 3:
+            return ""
         return text[:max_chars].strip()
 
     def _doc_points(self, docs, limit: int = 8, max_chars: int = 220):
@@ -264,12 +267,18 @@ class ResourceGenerator:
         slides = []
         for index in range(max(1, min(num_slides, 10))):
             point = points[index % len(points)]
+            title = f"Trang {point['page']}: {self._short_title(point['text'], 'Nội dung trọng tâm')}"
             slides.append(
                 {
-                    "title": f"Slide {index + 1}: Trang {point['page']}",
-                    "content": f"- {point['text']}\n- Nguồn: {point['source']}",
+                    "title": title,
+                    "content": point["text"],
                     "layout_hint": "title-and-content",
-                    "image_suggestion": "Sơ đồ hoặc minh họa đơn giản cho ý chính của slide.",
+                    "image_suggestion": "Nội dung được trích xuất trực tiếp từ tài liệu gốc.",
+                    "citation": {
+                        "page": point["page"],
+                        "source": point["source"],
+                        "chunk_id": point["chunk_id"],
+                    },
                 }
             )
         return slides
@@ -287,16 +296,26 @@ class ResourceGenerator:
                 "target_audience": target_audience or "người học chung"
             })
             course = json.loads(extract_json(res))
-            return {
+            result = {
                 "course": self._normalize_course(course, docs, target_audience),
                 "citations": citations,
             }
+            # Save to course JSON file for GET endpoint
+            course_path = get_course_path(self.course_id)["course"]
+            with open(course_path, "w", encoding="utf-8") as f:
+                json.dump(result, f, indent=2, ensure_ascii=False)
+            return result
         except Exception as e:
             logger.warning("Course generation failed, using fallback: %s", e)
-            return {
+            result = {
                 "course": self._build_fallback_course(docs, target_audience),
                 "citations": citations,
             }
+            # Save fallback too so GET can retrieve
+            course_path = get_course_path(self.course_id)["course"]
+            with open(course_path, "w", encoding="utf-8") as f:
+                json.dump(result, f, indent=2, ensure_ascii=False)
+            return result
 
     # 4.2 Summary
     def generate_summary_v2(self, summary_type: str = "detailed"):
@@ -423,6 +442,399 @@ class ResourceGenerator:
                 "slides": self._build_fallback_slides(docs, num_slides),
                 "citations": citations,
             }
+
+    def _image_suggestion_to_keyword(self, suggestion: str) -> str:
+        """
+        Convert a Vietnamese image suggestion to an English Unsplash/Picsum keyword.
+        Uses a simple keyword mapping for common educational/academic topics.
+        Falls back to generic 'education learning' if no match found.
+        """
+        suggestion_lower = suggestion.lower()
+
+        keyword_map = [
+            # Sciences
+            (["vật lí", "vật lý", "physics", "thí nghiệm", "experiment"], "physics laboratory experiment"),
+            (["hóa học", "chemistry", "phân tử", "molecule"], "chemistry science"),
+            (["sinh học", "biology", "tế bào", "cell", "sinh vật"], "biology nature"),
+            (["toán", "math", "số học", "algebra", "geometry"], "mathematics chalkboard"),
+            (["thiên văn", "vũ trụ", "astronomy", "space", "universe"], "astronomy space stars"),
+            # Social/History
+            (["lịch sử", "history", "chiến tranh", "war"], "history museum"),
+            (["địa lý", "geography", "bản đồ", "map"], "world map geography"),
+            (["kinh tế", "economy", "tài chính", "finance"], "business finance"),
+            (["xã hội", "society", "con người", "people"], "people community"),
+            # Technology
+            (["công nghệ", "technology", "máy tính", "computer", "lập trình", "code"], "technology computer"),
+            (["robot", "ai", "trí tuệ nhân tạo", "artificial intelligence"], "artificial intelligence robot"),
+            (["điện", "electric", "mạch điện", "circuit"], "electronics circuit"),
+            # Education generic
+            (["học sinh", "student", "trường", "school", "lớp", "classroom"], "students classroom learning"),
+            (["giáo viên", "teacher", "giảng dạy", "teaching"], "teacher classroom"),
+            (["sách", "book", "đọc sách", "reading", "thư viện", "library"], "books library reading"),
+            (["khóa học", "course", "bài học", "lesson"], "education study"),
+            # Nature/Environment
+            (["thiên nhiên", "nature", "môi trường", "environment"], "nature environment"),
+            (["năng lượng", "energy", "mặt trời", "solar", "gió", "wind"], "renewable energy solar"),
+            # Art/Literature
+            (["văn học", "literature", "thơ", "poetry", "truyện"], "literature books"),
+            (["nghệ thuật", "art", "hội họa", "painting"], "art museum painting"),
+        ]
+
+        for keywords, result in keyword_map:
+            if any(kw in suggestion_lower for kw in keywords):
+                return result
+
+        return "education learning knowledge"
+
+    def _get_slide_image_url(self, image_suggestion: str, slide_index: int, width: int = 800, height: int = 500) -> str:
+        """
+        Generate an image URL for a slide.
+
+        Strategy:
+        1. Extract a keyword from the image_suggestion text
+        2. Use Picsum with a seeded ID derived from the keyword + index for consistency
+           (Picsum doesn't support keyword search, but gives beautiful photos)
+        3. Each slide gets a different but reproducible image
+        """
+        # Use picsum with a seed based on slide index for reproducible, varied images
+        # Seeds 10-99 cover a wide range of beautiful photography
+        seed = (slide_index * 17 + 43) % 1000  # Spread seeds for variety
+        return f"https://picsum.photos/seed/{seed}/{width}/{height}"
+
+    def generate_slides_html(self, topic: str = "", num_slides: int = 10) -> str:
+        """
+        Generate a self-contained Reveal.js HTML presentation.
+        Features: modern 2-column layout, real images from Picsum, clean typography,
+        bullet-by-bullet animations, citation footer.
+        """
+        try:
+            generated = self.generate_slides_v2(topic=topic, num_slides=num_slides)
+        except Exception as e:
+            logger.warning("Slides HTML generation fallback: %s", e)
+            try:
+                retriever = self.vectorstore.as_retriever(search_kwargs={"k": num_slides})
+                docs = retriever.invoke(topic or "tổng quan")
+                generated = {"slides": self._build_fallback_slides(docs, num_slides)}
+            except Exception as e2:
+                logger.warning("Fallback also failed: %s", e2)
+                generated = {
+                    "slides": [
+                        {
+                            "title": "Nội dung trọng tâm",
+                            "content": "Tài liệu đã được xử lý. Hệ thống đang chạy ở chế độ offline.",
+                            "image_suggestion": "education learning",
+                        }
+                    ]
+                }
+        slides = generated.get("slides", [])
+
+        def _clean_text(text: str) -> str:
+            text = re.sub(r"\s+", " ", text).strip()
+            text = text.replace("\\", " ")
+            # Keep Vietnamese chars + common punctuation
+            text = re.sub(
+                r'[^\w\s,.\?!\-:;()àáảãạâấầẩẫậăắằẳẵặéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵđĐA-Za-z0-9]+',
+                ' ', text
+            )
+            return text.strip()
+
+        def _escape(s: str) -> str:
+            return (s.replace("&", "&amp;")
+                     .replace("<", "&lt;")
+                     .replace(">", "&gt;")
+                     .replace('"', "&quot;")
+                     .replace("'", "&#039;"))
+
+        def _content_to_bullets(content: str) -> str:
+            """Split content into bullet points for animated reveal."""
+            content = _clean_text(content)
+            if not content:
+                return ""
+            # Split on newlines or sentences (naive but works for most LLM output)
+            lines = [l.strip() for l in re.split(r'\n|(?<=[.!?])\s+', content) if l.strip() and len(l.strip()) > 10]
+            if not lines:
+                lines = [content[:300]]
+            bullets = ""
+            for line in lines[:6]:  # Max 6 bullets per slide
+                bullets += f'<li class="fragment fade-in-then-semi-out">{_escape(line)}</li>\n'
+            return f'<ul class="slide-bullets">{bullets}</ul>'
+
+        sections = []
+        for idx, item in enumerate(slides):
+            slide_obj = item if isinstance(item, dict) else {}
+            raw_title = slide_obj.get("title") or f"Slide {idx + 1}"
+            raw_content = slide_obj.get("content", "") or ""
+            raw_suggestion = slide_obj.get("image_suggestion", "") or ""
+            citation = slide_obj.get("citation") or {}
+
+            title = _escape(_clean_text(raw_title))
+            bullets_html = _content_to_bullets(raw_content)
+            img_url = self._get_slide_image_url(raw_suggestion, idx)
+            keyword = _escape(self._image_suggestion_to_keyword(raw_suggestion))
+
+            page = citation.get("page", "")
+            source = _escape(str(citation.get("source", "")))
+            cite_html = ""
+            if page:
+                cite_html = f'<div class="cite-bar">📄 {source} — Trang {page}</div>'
+
+            # First slide gets a hero/title layout, rest get 2-column
+            if idx == 0:
+                section_html = f"""
+<section class="slide-hero" data-background-image="{img_url}" data-background-opacity="0.25" data-background-size="cover">
+  <div class="hero-content">
+    <div class="hero-eyebrow">AI Course Generator</div>
+    <h1 class="hero-title">{title}</h1>
+    <div class="hero-divider"></div>
+    {bullets_html}
+  </div>
+  {cite_html}
+</section>"""
+            else:
+                section_html = f"""
+<section class="slide-two-col">
+  <div class="col-image">
+    <img src="{img_url}" alt="{keyword}" loading="lazy" onerror="this.style.display='none'">
+    <div class="img-caption">{_escape(raw_suggestion[:80]) if raw_suggestion else keyword}</div>
+  </div>
+  <div class="col-content">
+    <h2 class="slide-title">{title}</h2>
+    {bullets_html}
+    {cite_html}
+  </div>
+</section>"""
+
+            sections.append(section_html)
+
+        slides_html = "\n".join(sections)
+
+        html = f"""<!DOCTYPE html>
+<html lang='vi'>
+<head>
+<meta charset='utf-8'>
+<title>AI Course Generator — Slides</title>
+<meta name='viewport' content='width=device-width, initial-scale=1.0'>
+<link rel='preconnect' href='https://fonts.googleapis.com'>
+<link rel='stylesheet' href='https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Merriweather:wght@700;900&display=swap'>
+<link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css'>
+<link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/theme/white.css'>
+<style>
+  /* ── Design tokens ── */
+  :root {{
+    --accent: #4f46e5;
+    --accent-light: #818cf8;
+    --surface: #f8f9ff;
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --text-muted: #94a3b8;
+    --radius: 12px;
+    --font-display: 'Merriweather', Georgia, serif;
+    --font-body: 'Inter', system-ui, sans-serif;
+  }}
+
+  /* ── Reveal overrides ── */
+  .reveal {{
+    font-family: var(--font-body);
+    font-size: 18px;
+    color: var(--text-primary);
+    background: var(--surface);
+  }}
+
+  .reveal .slides section {{
+    text-align: left;
+    padding: 0;
+    height: 100%%;
+    box-sizing: border-box;
+  }}
+
+  /* ── Hero slide (slide 1) ── */
+  .slide-hero {{
+    display: flex !important;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 60px 80px !important;
+    background: linear-gradient(135deg, #0f172a 0%%, #1e1b4b 100%%) !important;
+    color: #fff !important;
+    min-height: 100%%;
+  }}
+
+  .hero-eyebrow {{
+    font-size: 0.65em;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent-light);
+    font-weight: 600;
+    margin-bottom: 16px;
+  }}
+
+  .hero-title {{
+    font-family: var(--font-display);
+    font-size: 1.9em !important;
+    font-weight: 900;
+    color: #fff !important;
+    line-height: 1.2;
+    margin: 0 0 20px 0 !important;
+    max-width: 80%%;
+  }}
+
+  .hero-divider {{
+    width: 60px;
+    height: 4px;
+    background: var(--accent);
+    border-radius: 2px;
+    margin-bottom: 24px;
+  }}
+
+  .hero-content .slide-bullets {{
+    color: rgba(255,255,255,0.85);
+    font-size: 0.85em;
+  }}
+
+  /* ── Two-column slide ── */
+  .slide-two-col {{
+    display: flex !important;
+    flex-direction: row;
+    height: 100%%;
+    overflow: hidden;
+  }}
+
+  .col-image {{
+    flex: 0 0 42%%;
+    position: relative;
+    overflow: hidden;
+    background: #1e1b4b;
+  }}
+
+  .col-image img {{
+    width: 100%%;
+    height: 100%%;
+    object-fit: cover;
+    display: block;
+    opacity: 0.9;
+  }}
+
+  .img-caption {{
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 10px 14px;
+    background: linear-gradient(transparent, rgba(0,0,0,0.7));
+    color: rgba(255,255,255,0.75);
+    font-size: 0.5em;
+    line-height: 1.4;
+    font-style: italic;
+  }}
+
+  .col-content {{
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 40px 48px;
+    overflow-y: auto;
+    background: #fff;
+  }}
+
+  /* ── Typography ── */
+  .slide-title {{
+    font-family: var(--font-display);
+    font-size: 1.15em !important;
+    font-weight: 700;
+    color: var(--text-primary) !important;
+    line-height: 1.3;
+    margin: 0 0 20px 0 !important;
+    padding-bottom: 14px;
+    border-bottom: 3px solid var(--accent);
+  }}
+
+  /* ── Bullets ── */
+  .slide-bullets {{
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    flex: 1;
+  }}
+
+  .slide-bullets li {{
+    position: relative;
+    padding: 9px 0 9px 22px;
+    font-size: 0.82em;
+    line-height: 1.55;
+    color: var(--text-secondary);
+    border-bottom: 1px solid #f1f5f9;
+  }}
+
+  .slide-bullets li:last-child {{ border-bottom: none; }}
+
+  .slide-bullets li::before {{
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 18px;
+    width: 8px;
+    height: 8px;
+    background: var(--accent);
+    border-radius: 50%%;
+    flex-shrink: 0;
+  }}
+
+  /* ── Citation bar ── */
+  .cite-bar {{
+    margin-top: 18px;
+    padding: 8px 12px;
+    background: #f1f5f9;
+    border-left: 3px solid var(--accent-light);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    font-size: 0.6em;
+    color: var(--text-muted);
+    font-style: italic;
+  }}
+
+  .slide-hero .cite-bar {{
+    background: rgba(255,255,255,0.1);
+    border-left-color: var(--accent-light);
+    color: rgba(255,255,255,0.6);
+    margin-top: 24px;
+  }}
+
+  /* ── Progress & controls ── */
+  .reveal .progress {{ color: var(--accent); }}
+  .reveal .controls button {{ color: var(--accent) !important; }}
+
+  /* ── Fragment animations ── */
+  .reveal .fragment.fade-in-then-semi-out.visible:not(.current-fragment) {{
+    opacity: 0.45;
+  }}
+</style>
+</head>
+<body>
+<div class='reveal'>
+  <div class='slides'>
+{slides_html}
+  </div>
+</div>
+<script src='https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js'></script>
+<script>
+  Reveal.initialize({{
+    hash: true,
+    keyboard: true,
+    touch: true,
+    transition: 'slide',
+    backgroundTransition: 'fade',
+    progress: true,
+    slideNumber: 'c/t',
+    controls: true,
+    center: false,
+    width: '100%%',
+    height: '100%%',
+    margin: 0,
+  }});
+</script>
+</body>
+</html>"""
+        return html
         
     
 
@@ -645,4 +1057,3 @@ class ResourceGenerator:
     # ═══════════════════════════════════════════════════════════════════════════
     # FLASHCARDS — Feature 6.9 [14]
     # ═══════════════════════════════════════════════════════════════════════════
-

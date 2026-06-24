@@ -8,7 +8,7 @@ import json
 import time
 import uuid
 import re
-from typing import Optional, Any, Dict
+from typing import Optional, Dict, Any
 from collections import OrderedDict
 from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
@@ -24,6 +24,7 @@ from backend.core.config import (
     QUESTIONS_DIR,
     get_course_path,
     sanitize_input,
+    sanitize_filename,
     _timestamp,
     logger,
 )
@@ -132,6 +133,8 @@ async def rate_limit_middleware(request: Request, call_next):
         ]
         for ip in old_clients:
             del rate_limit_store[ip]
+    # Conditionally cleanup old entries without strict typing to avoid TS checks
+    # (Pylance false positive — the store value is List[float], compatible with __setitem__)
 
     response = await call_next(request)
     return response
@@ -161,7 +164,7 @@ class ChatResponse(BaseModel):
 class GenerateCourseRequest(BaseModel):
     course_id: str
     user_prompt: Optional[str] = ""
-    target_audience: Optional[str] = "sinh viên"
+    target_audience: str = "sinh viên"
 
 class GenerateSummaryRequest(BaseModel):
     course_id: str
@@ -325,7 +328,7 @@ def run_background_task(task_id: str, course_id: str, task_type: str, **kwargs):
     status_file = os.path.join(task_dir, "status.json")
 
     def write_status(status: str, result: Any = None, error: str = None):
-        payload = {
+        payload: Dict[str, Any] = {
             "status": status,
             "task_type": task_type,
             "course_id": course_id,
@@ -678,6 +681,16 @@ async def api_generate_slides(req: GenerateSlidesRequest):
         "citations": result.get("citations", []),
     }
 
+@app.get("/api/course/{course_id}/slides/html")
+async def get_slides_html(course_id: str, topic: str = "", num_slides: Optional[int] = None):
+    """Return a self-contained Reveal.js HTML presentation for the course."""
+    rag = get_course(course_id)
+    if num_slides is None:
+        num_slides = 50
+    html = rag.get_resource_generator().generate_slides_html(topic=topic, num_slides=num_slides)
+    from fastapi.responses import HTMLResponse
+    return HTMLResponse(content=html)
+
 @app.post("/api/generate-podcast/{course_id}", response_model=PodcastScriptResponse)
 async def generate_podcast_endpoint(course_id: str):
     """Generate podcast script."""
@@ -766,7 +779,7 @@ async def custom_prompt_sync(req: CustomPromptRequest):
 async def custom_prompt_async(
     course_id: str,
     prompt: str = "Phân tích nội dung tài liệu",
-    background_tasks: BackgroundTasks = None,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
 ):
     """Xử lý prompt tùy chỉnh trong background."""
     course_mgr = _get_course_mgr()
@@ -926,6 +939,120 @@ async def get_task_status(task_id: str):
         except Exception:
             pass
     return data
+
+
+# ─── Get / Save Course (Sách) ─────────────────────────────────────────────────
+
+@app.get("/api/course/{course_id}/course")
+async def get_course_detail(course_id: str):
+    """
+    Get the full course structure with chapters, lessons, and content.
+    Returns the saved course JSON if it exists, otherwise generates on the fly.
+    """
+    if not course_manager:
+        raise HTTPException(503, "Hệ thống chưa khởi tạo.")
+    
+    rag = get_course(course_id)
+    course_path = get_course_path(course_id)["course"]
+    
+    # Try to load saved course first
+    if os.path.exists(course_path):
+        try:
+            with open(course_path, "r", encoding="utf-8") as f:
+                saved = json.load(f)
+                return {
+                    "course_id": course_id,
+                    "course": saved.get("course", saved),
+                    "citations": saved.get("citations", []),
+                }
+        except Exception:
+            pass
+    
+    # Fall back to generating course structure and saving it
+    try:
+        res_gen = rag.get_resource_generator()
+        result = res_gen.generate_course_structure(
+            user_prompt="",
+            target_audience="sinh viên"
+        )
+        return {
+            "course_id": course_id,
+            "course": result.get("course", {}),
+            "citations": result.get("citations", []),
+        }
+    except Exception as e:
+        logger.exception("Failed to get course detail")
+        raise HTTPException(500, f"Lỗi lấy nội dung khóa học: {str(e)}")
+
+
+@app.get("/api/course/{course_id}/export")
+async def export_course_text(course_id: str, format: str = "markdown"):
+    """
+    Export course content as formatted text (markdown or txt).
+    """
+    if not course_manager:
+        raise HTTPException(503, "Hệ thống chưa khởi tạo.")
+    
+    rag = get_course(course_id)
+    course_path = get_course_path(course_id)["course"]
+    
+    if not os.path.exists(course_path):
+        # Generate first
+        res_gen = rag.get_resource_generator()
+        res_gen.generate_course_structure(user_prompt="", target_audience="sinh viên")
+    
+    with open(course_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    
+    course = data.get("course", data)
+    title = course.get("title", "Khóa học")
+    description = course.get("description", "")
+    
+    lines = [
+        f"# {title}\n",
+        f"{description}\n",
+        "---\n",
+    ]
+    
+    chapters = course.get("chapters", [])
+    for ch_idx, chapter in enumerate(chapters, 1):
+        lines.append(f"\n## Chương {ch_idx}: {chapter.get('title', '')}\n")
+        if chapter.get("description"):
+            lines.append(f"{chapter['description']}\n")
+        
+        lessons = chapter.get("lessons", [])
+        for ls_idx, lesson in enumerate(lessons, 1):
+            lines.append(f"\n### Bài {ch_idx}.{ls_idx}: {lesson.get('title', '')}\n")
+            if lesson.get("lecture"):
+                lines.append(f"{lesson['lecture']}\n")
+            if lesson.get("key_points"):
+                lines.append("\n**Điểm chính:**\n")
+                for kp in lesson["key_points"]:
+                    lines.append(f"- {kp}\n")
+            if lesson.get("citation"):
+                c = lesson["citation"]
+                lines.append(f"\n📖 Nguồn: Trang {c.get('page', '?')} — {c.get('source', '')} (chunk: {c.get('chunk_id', '')})\n")
+    
+    # Citations section
+    citations = data.get("citations", [])
+    if citations:
+        lines.append("\n---\n## Trích dẫn\n")
+        for i, c in enumerate(citations, 1):
+            lines.append(f"- [{i}] Trang {c.get('page', '?')}: {c.get('source', '')} (chunk: {c.get('chunk_id', '')})\n")
+    
+    content = "".join(lines)
+    
+    filename = f"{sanitize_filename(title)}_{course_id}.md"
+    filepath = os.path.join(UPLOAD_DIR, filename)
+    with open(filepath, "w", encoding="utf-8") as f:
+        f.write(content)
+    
+    return {
+        "course_id": course_id,
+        "filename": filename,
+        "content": content,
+        "format": format,
+    }
 
 
 # ─── Get Saved Content ─────────────────────────────────────────────────────────
