@@ -87,7 +87,7 @@ function stripInternalMarkers(value: string, compact = true) {
     .replace(/\b(page|source|chunk_id)\s*:\s*[^,\n]+/giu, " ");
 
   if (compact) return cleaned.replace(/\s+/g, " ").trim();
-  return cleaned.replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+  return cleaned.replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n");
 }
 
 function cleanContentMarkdown(content: string): string {
@@ -97,7 +97,8 @@ function cleanContentMarkdown(content: string): string {
       if (part && part.startsWith("$")) {
         return part;
       }
-      return part ? part.replace(/[*_`]/g, "") : part;
+      // Keep backticks (`) to preserve code blocks styling
+      return part ? part.replace(/[*_]/g, "") : part;
     })
     .join("");
 }
@@ -107,8 +108,8 @@ export function replaceNewlinesOutsideMath(content: string): string {
   return parts
     .map((part) => {
       if (part && part.startsWith("$")) {
-        // Inside math blocks, replace literal \n only if it's NOT a LaTeX command starting with n
-        return part.replace(/\\n(?![eauoisplgw])/g, "\n");
+        // Inside math blocks, replace literal \n unless followed by a valid LaTeX command starting with n
+        return part.replace(/\\n(?![eui](?![a-zA-Z])|[a-zA-Z]{2,})/g, "\n");
       }
       return part ? part.replace(/\\n/g, "\n") : part;
     })
@@ -120,59 +121,126 @@ export function MarkdownBlock({ content }: { content: string }) {
   const cleaned = stripInternalMarkers(processed, false).replace(/\r/g, "");
   const formattedContent = cleanContentMarkdown(cleaned);
 
+  const lines = formattedContent.split("\n");
   const blocks: ReactNode[] = [];
-  let listItems: string[] = [];
+  
+  let currentListItems: string[] = [];
+  let currentParagraphLines: string[] = [];
+  let inCodeBlock = false;
+  let codeBlockLanguage = "";
+  let codeBlockLines: string[] = [];
+  let keyCounter = 0;
+
+  const flushParagraph = () => {
+    if (currentParagraphLines.length > 0) {
+      const text = currentParagraphLines.join(" ");
+      blocks.push(
+        <p key={`p-${keyCounter++}`} className="text-sm leading-7 text-foreground/90">
+          <KaTeXText>{text}</KaTeXText>
+        </p>
+      );
+      currentParagraphLines = [];
+    }
+  };
 
   const flushList = () => {
-    if (listItems.length > 0) {
+    if (currentListItems.length > 0) {
       blocks.push(
-        <ul key={`ul-${blocks.length}`} className="space-y-1 pl-5 text-sm leading-6">
-          {listItems.map((item, index) => (
-            <li key={`li-${index}`} className="list-disc">
+        <ul key={`ul-${keyCounter++}`} className="space-y-1 pl-5 text-sm leading-6">
+          {currentListItems.map((item, index) => (
+            <li key={`li-${index}`} className="list-disc text-foreground/90">
               <KaTeXText>{item}</KaTeXText>
             </li>
           ))}
         </ul>
       );
-      listItems = [];
+      currentListItems = [];
     }
   };
 
-  const paragraphs = formattedContent.split(/\n\s*\n/);
-  paragraphs.forEach((paragraph, paraIndex) => {
-    const text = paragraph.trim();
-    if (!text) return;
-
-    const headingMatch = /^(#{1,3})\s+(.+)$/.exec(text);
-    if (headingMatch) {
-      flushList();
+  const flushCodeBlock = () => {
+    if (codeBlockLines.length > 0) {
       blocks.push(
-        <h4 key={`h-${paraIndex}`} className="text-base font-semibold leading-tight mt-4">
+        <div key={`code-${keyCounter++}`} className="relative my-3 rounded-lg border bg-muted/60 p-4 font-mono text-xs overflow-x-auto max-w-full">
+          {codeBlockLanguage && (
+            <div className="absolute right-3 top-2 text-[10px] font-semibold text-muted-foreground uppercase select-none">
+              {codeBlockLanguage}
+            </div>
+          )}
+          <pre className="text-foreground/90 whitespace-pre leading-relaxed">
+            <code>{codeBlockLines.join("\n")}</code>
+          </pre>
+        </div>
+      );
+      codeBlockLines = [];
+      inCodeBlock = false;
+      codeBlockLanguage = "";
+    }
+  };
+
+  const flushAll = () => {
+    flushParagraph();
+    flushList();
+    flushCodeBlock();
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    // Handle Code Block
+    if (trimmed.startsWith("```")) {
+      if (inCodeBlock) {
+        flushCodeBlock();
+      } else {
+        flushAll();
+        inCodeBlock = true;
+        codeBlockLanguage = trimmed.slice(3).trim();
+      }
+      continue;
+    }
+
+    if (inCodeBlock) {
+      codeBlockLines.push(line);
+      continue;
+    }
+
+    // Handle Headers
+    const headingMatch = /^(#{1,3})\s+(.+)$/.exec(trimmed);
+    if (headingMatch) {
+      flushAll();
+      blocks.push(
+        <h4 key={`h-${keyCounter++}`} className="text-base font-semibold leading-tight mt-4 text-foreground">
           <KaTeXText>{headingMatch[2]}</KaTeXText>
         </h4>
       );
-      return;
+      continue;
     }
 
-    if (text.startsWith("- ") || text.startsWith("* ")) {
-      flushList();
-      const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
-      lines.forEach((line) => {
-        const cleanLine = line.replace(/^[-*]\s+/, "");
-        listItems.push(cleanLine);
-      });
-      return;
+    // Handle Lists
+    if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
+      flushParagraph();
+      const cleanLine = trimmed.replace(/^[-*]\s+/, "");
+      currentListItems.push(cleanLine);
+      continue;
     }
 
-    flushList();
-    blocks.push(
-      <p key={`p-${paraIndex}`} className="text-sm leading-7 text-foreground/90">
-        <KaTeXText>{text}</KaTeXText>
-      </p>
-    );
-  });
+    // Handle Empty Line
+    if (trimmed === "") {
+      flushAll();
+      continue;
+    }
 
-  flushList();
+    // Regular line (append to paragraph or list item)
+    if (currentListItems.length > 0) {
+      currentListItems[currentListItems.length - 1] += " " + trimmed;
+    } else {
+      currentParagraphLines.push(trimmed);
+    }
+  }
+
+  flushAll();
+
   return <div className="space-y-3 break-words max-w-full overflow-x-auto">{blocks}</div>;
 }
 
@@ -228,23 +296,24 @@ function LessonMarkdownSection({
   icon: ReactNode;
   content: unknown;
 }) {
-  const text = asString(content).trim();
-  if (!text) return null;
+  if (!content) return null;
 
   const markdownContent = (() => {
     if (Array.isArray(content)) {
-      return content
+      const items = content
         .map((item) => {
           const str = asString(item).trim();
           if (!str) return "";
           if (str.startsWith("- ") || str.startsWith("* ")) return str;
           return `- ${str}`;
         })
-        .filter(Boolean)
-        .join("\n");
+        .filter(Boolean);
+      return items.length > 0 ? items.join("\n") : "";
     }
-    return text;
+    return asString(content).trim();
   })();
+
+  if (!markdownContent) return null;
 
   return (
     <div>
