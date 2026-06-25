@@ -57,12 +57,11 @@ UPLOAD_DIR = "uploads"
 INDEX_DIR = "indices"
 QUESTIONS_DIR = "questions"
 CACHE_DIR = "cache"
-AUDIO_DIR = "audio"
-GUIDES_DIR = "guides"
-FLASHCARDS_DIR = "flashcards"
-MINDMAPS_DIR = "mindmaps"
+BOOKS_DIR = "books"
+SLIDES_DIR = "slides"
+VIDEOS_DIR = "videos"
 
-for d in [UPLOAD_DIR, INDEX_DIR, QUESTIONS_DIR, CACHE_DIR, AUDIO_DIR, GUIDES_DIR, FLASHCARDS_DIR, MINDMAPS_DIR]:
+for d in [UPLOAD_DIR, INDEX_DIR, QUESTIONS_DIR, CACHE_DIR, BOOKS_DIR, SLIDES_DIR, VIDEOS_DIR]:
     os.makedirs(d, exist_ok=True)
 
 # ─── Vector DB Configuration ───────────────────────────────────────────────────
@@ -106,12 +105,10 @@ def get_course_path(course_id: str) -> Dict[str, str]:
     return {
         "faiss_meta": os.path.join(INDEX_DIR, f"faiss_{course_id}.json"),
         "questions": os.path.join(QUESTIONS_DIR, f"course_{course_id}_questions.json"),
-        "syllabus": os.path.join(QUESTIONS_DIR, f"course_{course_id}_syllabus.json"),
         "meta": os.path.join(QUESTIONS_DIR, f"course_{course_id}_meta.json"),
-        "audio": os.path.join(AUDIO_DIR, f"course_{course_id}"),
-        "guides": os.path.join(GUIDES_DIR, f"course_{course_id}"),
-        "flashcards": os.path.join(FLASHCARDS_DIR, f"course_{course_id}_flashcards.json"),
-        "mindmaps": os.path.join(MINDMAPS_DIR, f"course_{course_id}"),
+        "book": os.path.join(BOOKS_DIR, f"course_{course_id}_book.json"),
+        "slides": os.path.join(SLIDES_DIR, f"course_{course_id}_slides.json"),
+        "videos": os.path.join(VIDEOS_DIR, f"course_{course_id}"),
     }
 
 
