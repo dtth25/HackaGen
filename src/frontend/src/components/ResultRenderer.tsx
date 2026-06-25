@@ -219,16 +219,32 @@ function DownloadLink({
   );
 }
 
-function LessonList({
+function LessonMarkdownSection({
   title,
   icon,
-  items,
+  content,
 }: {
   title: string;
   icon: ReactNode;
-  items: string[];
+  content: unknown;
 }) {
-  if (items.length === 0) return null;
+  const text = asString(content).trim();
+  if (!text) return null;
+
+  const markdownContent = (() => {
+    if (Array.isArray(content)) {
+      return content
+        .map((item) => {
+          const str = asString(item).trim();
+          if (!str) return "";
+          if (str.startsWith("- ") || str.startsWith("* ")) return str;
+          return `- ${str}`;
+        })
+        .filter(Boolean)
+        .join("\n");
+    }
+    return text;
+  })();
 
   return (
     <div>
@@ -236,13 +252,9 @@ function LessonList({
         {icon}
         {title}
       </div>
-      <ul className="space-y-1 pl-5 text-sm leading-6 text-muted-foreground">
-        {items.map((item, index) => (
-          <li key={`${item}-${index}`} className="list-disc">
-            <KaTeXText>{item}</KaTeXText>
-          </li>
-        ))}
-      </ul>
+      <div className="rounded-lg border bg-background p-3 text-sm leading-6 text-muted-foreground">
+        <MarkdownBlock content={markdownContent} />
+      </div>
     </div>
   );
 }
@@ -345,10 +357,10 @@ function BookResult({ result }: { result: GenerateResponse }) {
                       </summary>
 
                       <div className="space-y-5 px-4 pb-5">
-                        <LessonList
+                        <LessonMarkdownSection
                           title="Mục tiêu"
                           icon={<Target className="h-4 w-4" />}
-                          items={textList(lessonObj.objectives)}
+                          content={lessonObj.objectives}
                         />
                         <div>
                           <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
@@ -364,10 +376,10 @@ function BookResult({ result }: { result: GenerateResponse }) {
                             />
                           </div>
                         </div>
-                        <LessonList
+                        <LessonMarkdownSection
                           title="Ý chính cần nhớ"
                           icon={<ListChecks className="h-4 w-4" />}
-                          items={textList(lessonObj.key_points)}
+                          content={lessonObj.key_points}
                         />
                         {Boolean(lessonObj.activity) && (
                           <div>
@@ -380,10 +392,10 @@ function BookResult({ result }: { result: GenerateResponse }) {
                             </div>
                           </div>
                         )}
-                        <LessonList
+                        <LessonMarkdownSection
                           title="Kiểm tra nhanh"
                           icon={<ClipboardCheck className="h-4 w-4" />}
-                          items={textList(lessonObj.assessment)}
+                          content={lessonObj.assessment}
                         />
                       </div>
                     </details>
