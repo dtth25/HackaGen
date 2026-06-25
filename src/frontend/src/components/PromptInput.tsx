@@ -12,9 +12,9 @@ interface PromptInputProps {
 
 const PLACEHOLDER_SUGGESTIONS = [
   'Ví dụ: "Tập trung vào phần nhập môn"',
-  'Ví dụ: "Tạo quiz về các khái niệm chính"',
-  'Ví dụ: "Làm slide cho buổi học 45 phút"',
-  'Ví dụ: "Tạo vid ngắn về tổng quan tài liệu"',
+  'Ví dụ: "Ưu tiên các khái niệm chính"',
+  'Ví dụ: "Làm nội dung cho buổi học 45 phút"',
+  'Ví dụ: "Tạo bản tổng quan ngắn gọn"',
 ];
 
 export default function PromptInput({
@@ -36,40 +36,38 @@ export default function PromptInput({
 
   return (
     <form onSubmit={handleSubmit} className="w-full">
-      <h3 className="mb-3 text-lg font-semibold">Tùy chỉnh output</h3>
-      <div className="flex gap-3">
-        <div className="relative flex-1">
-          <textarea
-            value={prompt}
-            onChange={(event) => setPrompt(event.target.value)}
-            onFocus={handleFocus}
-            placeholder={PLACEHOLDER_SUGGESTIONS[placeholderIndex]}
-            disabled={disabled}
-            rows={2}
-            className="flex w-full resize-none rounded-lg border border-input bg-background px-4 py-3 text-sm shadow-sm placeholder:text-muted-foreground/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-          />
-        </div>
+      <h3 className="mb-3 text-lg font-semibold">Yêu cầu thêm</h3>
+      <div className="space-y-3">
+        <textarea
+          value={prompt}
+          onChange={(event) => setPrompt(event.target.value)}
+          onFocus={handleFocus}
+          placeholder={PLACEHOLDER_SUGGESTIONS[placeholderIndex]}
+          disabled={disabled}
+          rows={3}
+          className="flex w-full resize-none rounded-lg border border-input bg-background px-4 py-3 text-sm shadow-sm placeholder:text-muted-foreground/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+        />
         <Button
           type="submit"
           disabled={disabled || isLoading}
-          className="shrink-0 self-end"
+          className="w-full"
           size="lg"
         >
           {isLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Đang xử lý...
+              Đang tạo
             </>
           ) : (
             <>
               <Sparkles className="mr-2 h-4 w-4" />
-              Tạo
+              Tạo output
             </>
           )}
         </Button>
       </div>
       <p className="mt-2 text-xs text-muted-foreground">
-        Để trống để hệ thống tự chọn trọng tâm phù hợp với tài liệu.
+        Có thể để trống để hệ thống tự chọn trọng tâm phù hợp với tài liệu.
       </p>
     </form>
   );

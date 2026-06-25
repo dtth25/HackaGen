@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { Navbar } from "@/components/layout/Navbar";
-import { Sidebar } from "@/components/layout/Sidebar";
 import { MainContent } from "@/components/layout/MainContent";
 import "./globals.css";
 
@@ -19,7 +18,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "AI Course Generator",
   description:
-    "Upload tài liệu (PDF, DOCX, TXT) và tạo đúng 4 output học tập: Book, Slide, Quiz và Vid.",
+    "Upload tài liệu PDF, DOCX, TXT và tạo đúng 4 output học tập: Book, Slide, Quiz và Vid.",
 };
 
 export default function RootLayout({
@@ -33,8 +32,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} min-h-full flex flex-col bg-background text-foreground`}
       >
         <Navbar />
-        <div className="flex flex-1 overflow-hidden">
-          <Sidebar />
+        <div className="flex flex-1">
           <MainContent>{children}</MainContent>
         </div>
         <Toaster richColors position="bottom-right" />

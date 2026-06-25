@@ -13,7 +13,7 @@ from typing import Any
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 
-from backend.core.config import extract_json, format_docs, get_course_path, get_llm, logger
+from backend.core.config import extract_json, get_course_path, get_llm, logger
 from backend.core.prompts import (
     BOOK_GENERATION_PROMPT,
     QUIZ_V2_PROMPT,
@@ -44,6 +44,40 @@ class ResourceGenerator:
         text = re.sub(r"\bMã định danh trang\s+\d+\s+nội dung\b", " ", text, flags=re.IGNORECASE)
         text = re.sub(r"\s+", " ", text).strip()
         return text[:max_chars].strip()
+
+    def _clean_generated_text(self, text: Any, compact: bool = True) -> str:
+        """Remove internal extraction markers from generated/public text."""
+        value = str(text or "")
+        value = re.sub(r"===\s*BẮT ĐẦU.*?===", " ", value, flags=re.IGNORECASE | re.DOTALL)
+        value = re.sub(r"===\s*KẾT THÚC.*?===", " ", value, flags=re.IGNORECASE | re.DOTALL)
+        value = re.sub(r"\[MÃ ĐỊNH DANH TRANG:\s*\d+\]", " ", value, flags=re.IGNORECASE)
+        value = re.sub(r"\bNỘI DUNG:\s*", " ", value, flags=re.IGNORECASE)
+        value = re.sub(r"\b(page|source|chunk_id)\s*:\s*[^,\n]+", " ", value, flags=re.IGNORECASE)
+        if compact:
+            return re.sub(r"\s+", " ", value).strip()
+        return re.sub(r"[ \t]+", " ", value).replace("\n\n\n", "\n\n").strip()
+
+    def _sanitize_payload(self, value: Any) -> Any:
+        """Recursively sanitize public payload strings."""
+        if isinstance(value, dict):
+            return {key: self._sanitize_payload(item) for key, item in value.items() if key not in {"page", "source", "chunk_id"}}
+        if isinstance(value, list):
+            return [self._sanitize_payload(item) for item in value]
+        if isinstance(value, str):
+            return self._clean_generated_text(value, compact=False)
+        return value
+
+    def _clean_docs_context(self, docs, max_docs: int = 24, max_chars: int = 900) -> str:
+        """Build clean prompt context without internal page/chunk markers."""
+        snippets: list[str] = []
+        for doc in docs[:max_docs]:
+            text = self._clean_doc_text(doc, max_chars=max_chars)
+            if len(text) < 30:
+                continue
+            snippets.append(f"- {text}")
+        if not snippets:
+            return "Tài liệu đã được xử lý nhưng chưa trích xuất được đoạn nội dung đủ rõ."
+        return "\n".join(snippets)
 
     def _doc_points(self, docs, limit: int = 8, max_chars: int = 220) -> list[dict[str, str]]:
         points = []
@@ -284,15 +318,120 @@ class ResourceGenerator:
             book = json.load(f)
         return self._render_book_pdf(book, paths["book_pdf"])
 
+    def _render_artifact_pdf(self, title: str, elements: list[tuple[str, str]], pdf_path: str) -> str:
+        from PIL import Image, ImageDraw
+
+        page_width, page_height = 1240, 1754
+        margin = 86
+        content_width = page_width - margin * 2
+        styles = {
+            "title": {"font": self._font(44, bold=True), "fill": (17, 24, 39), "line_height": 58, "width": 38},
+            "heading": {"font": self._font(32, bold=True), "fill": (15, 23, 42), "line_height": 44, "width": 52},
+            "section": {"font": self._font(24, bold=True), "fill": (51, 65, 85), "line_height": 34, "width": 72},
+            "body": {"font": self._font(23), "fill": (51, 65, 85), "line_height": 33, "width": 82},
+            "small": {"font": self._font(20), "fill": (100, 116, 139), "line_height": 29, "width": 92},
+        }
+
+        pages: list[Image.Image] = []
+        image = Image.new("RGB", (page_width, page_height), (255, 255, 255))
+        draw = ImageDraw.Draw(image)
+        y = margin
+
+        def finish_page() -> None:
+            pages.append(image.copy())
+
+        def reset_page() -> tuple[Image.Image, ImageDraw.ImageDraw, int]:
+            next_image = Image.new("RGB", (page_width, page_height), (255, 255, 255))
+            next_draw = ImageDraw.Draw(next_image)
+            return next_image, next_draw, margin
+
+        full_elements = [(title, "title"), ("", "gap"), *elements]
+        for text, style_name in full_elements:
+            if style_name == "gap":
+                y += 24
+                continue
+
+            style = styles.get(style_name, styles["body"])
+            lines = self._wrap_lines(self._clean_generated_text(text, compact=False), width=style["width"]) or [text]
+            block_height = len(lines) * style["line_height"] + 16
+            if y + block_height > page_height - margin:
+                finish_page()
+                image, draw, y = reset_page()
+
+            if style_name == "heading":
+                draw.rounded_rectangle(
+                    (margin - 18, y - 10, margin + content_width + 18, y + block_height - 8),
+                    radius=10,
+                    fill=(248, 250, 252),
+                )
+
+            for line in lines:
+                draw.text((margin, y), line, font=style["font"], fill=style["fill"])
+                y += style["line_height"]
+            y += 12
+
+        finish_page()
+        os.makedirs(os.path.dirname(pdf_path), exist_ok=True)
+        pages[0].save(pdf_path, "PDF", resolution=120.0, save_all=True, append_images=pages[1:])
+        return pdf_path
+
+    def export_slides_pdf(self) -> str:
+        paths = get_course_path(self.course_id)
+        if not os.path.exists(paths["slides"]):
+            raise FileNotFoundError("Slide has not been generated yet.")
+        with open(paths["slides"], "r", encoding="utf-8") as f:
+            slides = json.load(f)
+
+        elements: list[tuple[str, str]] = []
+        for index, slide in enumerate(slides if isinstance(slides, list) else [], 1):
+            item = slide if isinstance(slide, dict) else {"content": str(slide)}
+            elements.append((f"Slide {index}: {item.get('title') or 'Nội dung'}", "heading"))
+            if item.get("content"):
+                elements.append((item["content"], "body"))
+            if item.get("image_suggestion"):
+                elements.append((f"Gợi ý hình ảnh: {item['image_suggestion']}", "small"))
+            elements.append(("", "gap"))
+
+        return self._render_artifact_pdf("Slide học tập", elements, paths["slides_pdf"])
+
+    def export_quiz_pdf(self) -> str:
+        paths = get_course_path(self.course_id)
+        if not os.path.exists(paths["questions"]):
+            raise FileNotFoundError("Quiz has not been generated yet.")
+        with open(paths["questions"], "r", encoding="utf-8") as f:
+            questions = json.load(f)
+
+        elements: list[tuple[str, str]] = []
+        labels = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        for index, question in enumerate(questions if isinstance(questions, list) else [], 1):
+            item = question if isinstance(question, dict) else {"question": str(question)}
+            elements.append((f"Câu {index}: {item.get('question') or 'Câu hỏi'}", "heading"))
+            options = item.get("options") if isinstance(item.get("options"), list) else []
+            for option_index, option in enumerate(options):
+                elements.append((f"{labels[option_index]}. {option}", "body"))
+            try:
+                correct = int(item.get("correct", 0))
+            except (TypeError, ValueError):
+                correct = 0
+            if 0 <= correct < len(options):
+                elements.append((f"Đáp án: {labels[correct]}", "section"))
+            if item.get("explanation"):
+                elements.append((f"Giải thích: {item['explanation']}", "small"))
+            elements.append(("", "gap"))
+
+        return self._render_artifact_pdf("Quiz học tập", elements, paths["questions_pdf"])
+
     def generate_book(self, user_prompt: str = "", target_audience: str = "sinh viên"):
-        retriever = self.vectorstore.as_retriever(search_kwargs={"k": 10})
-        docs = retriever.invoke(user_prompt or "tổng quan")
+        retriever = self.vectorstore.as_retriever(search_kwargs={"k": 24})
+        query = user_prompt or "nội dung chính mục tiêu khái niệm ví dụ kết luận"
+        docs = retriever.invoke(query)
+        context = self._clean_docs_context(docs, max_docs=24, max_chars=1000)
         try:
             prompt = ChatPromptTemplate.from_template(BOOK_GENERATION_PROMPT)
             chain = prompt | get_llm(temperature=0.3) | StrOutputParser()
             res = chain.invoke(
                 {
-                    "context": format_docs(docs),
+                    "context": context,
                     "user_prompt": user_prompt or "Không có",
                     "target_audience": target_audience or "người học chung",
                 }
@@ -301,6 +440,8 @@ class ResourceGenerator:
         except Exception as e:
             logger.warning("Book generation failed, using fallback: %s", e)
             book = self._build_fallback_book(docs, target_audience)
+
+        book = self._sanitize_payload(book)
 
         paths = get_course_path(self.course_id)
         self._save_json(paths["book"], book)
@@ -376,12 +517,13 @@ class ResourceGenerator:
     def generate_quiz_v2(self, topic: str, quantity: int, difficulty: str):
         retriever = self.vectorstore.as_retriever(search_kwargs={"k": 15})
         docs = retriever.invoke(topic)
+        context = self._clean_docs_context(docs, max_docs=15, max_chars=800)
         try:
             prompt = ChatPromptTemplate.from_template(QUIZ_V2_PROMPT)
             chain = prompt | get_llm(temperature=0.3) | StrOutputParser()
             res = chain.invoke(
                 {
-                    "context": format_docs(docs),
+                    "context": context,
                     "topic": topic,
                     "quantity": quantity,
                     "difficulty": difficulty,
@@ -392,8 +534,17 @@ class ResourceGenerator:
             logger.warning("Quiz generation failed, using fallback: %s", e)
             questions = self._build_fallback_quiz(docs, quantity, difficulty)
 
+        questions = self._sanitize_payload(questions)
         self._save_json(get_course_path(self.course_id)["questions"], questions)
-        return {"questions": questions}
+        try:
+            self.export_quiz_pdf()
+        except Exception as exc:
+            logger.warning("Quiz PDF export failed: %s", exc)
+        return {
+            "questions": questions,
+            "json_url": f"/api/course/{self.course_id}/quiz.json",
+            "pdf_url": f"/api/course/{self.course_id}/quiz.pdf",
+        }
 
     def _build_fallback_slides(self, docs, num_slides: int):
         points = self._doc_points(docs, limit=max(1, min(num_slides, 10)), max_chars=220)
@@ -430,17 +581,27 @@ class ResourceGenerator:
     def generate_slides_v2(self, topic: str, num_slides: int):
         retriever = self.vectorstore.as_retriever(search_kwargs={"k": 15})
         docs = retriever.invoke(topic)
+        context = self._clean_docs_context(docs, max_docs=15, max_chars=800)
         try:
             prompt = ChatPromptTemplate.from_template(SLIDE_GENERATION_PROMPT)
             chain = prompt | get_llm(temperature=0.1) | StrOutputParser()
-            res = chain.invoke({"context": format_docs(docs), "topic": topic, "num_slides": num_slides})
+            res = chain.invoke({"context": context, "topic": topic, "num_slides": num_slides})
             slides = self._normalize_slides(json.loads(extract_json(res)), num_slides, docs)
         except Exception as e:
             logger.warning("Slide generation failed, using fallback: %s", e)
             slides = self._build_fallback_slides(docs, num_slides)
 
+        slides = self._sanitize_payload(slides)
         self._save_json(get_course_path(self.course_id)["slides"], slides)
-        return {"slides": slides}
+        try:
+            self.export_slides_pdf()
+        except Exception as exc:
+            logger.warning("Slide PDF export failed: %s", exc)
+        return {
+            "slides": slides,
+            "json_url": f"/api/course/{self.course_id}/slide.json",
+            "pdf_url": f"/api/course/{self.course_id}/slide.pdf",
+        }
 
     def _build_fallback_scenes(self, docs, scene_count: int):
         points = self._doc_points(docs, limit=scene_count, max_chars=260)
@@ -658,6 +819,9 @@ class ResourceGenerator:
             scene_clips.append(clip_path)
 
         concat_path = os.path.join(assets_dir, "concat.txt")
+        if not scene_clips:
+            raise RuntimeError("No video scenes were rendered.")
+
         with open(concat_path, "w", encoding="utf-8") as f:
             for clip in scene_clips:
                 escaped = clip.replace("\\", "/").replace("'", "'\\''")
@@ -669,6 +833,7 @@ class ResourceGenerator:
         metadata = {
             "filename": "vid.mp4",
             "url": f"/api/course/{self.course_id}/vid/file",
+            "status": "ready",
             "duration_minutes": duration_minutes,
             "estimated_duration_seconds": total_seconds,
             "voiceover_status": "ready" if voiceover_count == len(scenes) else "partial_or_silent",
@@ -683,13 +848,14 @@ class ResourceGenerator:
         scene_count = max(4, min(duration_minutes * 2, 10))
         retriever = self.vectorstore.as_retriever(search_kwargs={"k": 12})
         docs = retriever.invoke(topic or "tổng quan")
+        context = self._clean_docs_context(docs, max_docs=12, max_chars=760)
 
         try:
             prompt = ChatPromptTemplate.from_template(VID_SCENES_PROMPT)
             chain = prompt | get_llm(temperature=0.25) | StrOutputParser()
             res = chain.invoke(
                 {
-                    "context": format_docs(docs),
+                    "context": context,
                     "topic": topic or "tổng quan",
                     "duration_minutes": duration_minutes,
                     "scene_count": scene_count,
@@ -700,5 +866,20 @@ class ResourceGenerator:
             logger.warning("Vid script generation failed, using fallback: %s", e)
             scenes = self._build_fallback_scenes(docs, scene_count)
 
-        vid = self._render_vid(scenes, duration_minutes)
+        scenes = self._sanitize_payload(scenes)
+        try:
+            vid = self._render_vid(scenes, duration_minutes)
+        except Exception as exc:
+            logger.error("Vid rendering failed for course '%s': %s", self.course_id, exc)
+            video_dir = get_course_path(self.course_id)["videos"]
+            os.makedirs(video_dir, exist_ok=True)
+            vid = {
+                "filename": None,
+                "url": None,
+                "status": "failed",
+                "error": str(exc),
+                "duration_minutes": duration_minutes,
+                "scenes": scenes,
+            }
+            self._save_json(os.path.join(video_dir, "vid.json"), vid)
         return {"vid": vid}

@@ -17,6 +17,13 @@ export const ENDPOINTS = {
   getBook: (courseId: string) => `${API_BASE_URL}/api/course/${courseId}/book`,
   getBookPdf: (courseId: string) =>
     `${API_BASE_URL}/api/course/${courseId}/book.pdf`,
+  getSlide: (courseId: string) =>
+    `${API_BASE_URL}/api/course/${courseId}/slide`,
+  getSlidePdf: (courseId: string) =>
+    `${API_BASE_URL}/api/course/${courseId}/slide.pdf`,
+  getQuiz: (courseId: string) => `${API_BASE_URL}/api/course/${courseId}/quiz`,
+  getQuizPdf: (courseId: string) =>
+    `${API_BASE_URL}/api/course/${courseId}/quiz.pdf`,
   getVidFile: (courseId: string) =>
     `${API_BASE_URL}/api/course/${courseId}/vid/file`,
 } as const;
@@ -26,6 +33,8 @@ export type GenerateFeature = "book" | "slide" | "quiz" | "vid";
 export interface UploadResponse {
   course_id: string;
   filename: string;
+  filenames?: string[];
+  file_count?: number;
   status: string;
   message: string;
 }
@@ -34,12 +43,16 @@ export interface CourseStatusResponse {
   course_id: string;
   status: "pending" | "processing" | "ready" | "failed" | "unknown";
   error?: string;
+  filenames?: string[];
+  file_count?: number;
 }
 
 export interface CourseListItem {
   course_id: string;
   status: string;
   created_at?: string | number;
+  filenames?: string[];
+  file_count?: number;
   error?: string;
 }
 
@@ -93,8 +106,10 @@ export interface VidScene {
 }
 
 export interface VidOutput {
-  filename: string;
-  url: string;
+  filename?: string | null;
+  url?: string | null;
+  status?: "ready" | "failed" | "running" | "pending";
+  error?: string;
   duration_minutes: number;
   estimated_duration_seconds?: number;
   voiceover_status?: string;
@@ -104,7 +119,8 @@ export interface VidOutput {
 export interface GenerateResponse {
   course_id: string;
   book?: BookOutput;
-  pdf_url?: string;
+  pdf_url?: string | null;
+  json_url?: string | null;
   topic?: string;
   total_slides?: number;
   slides?: SlideItem[];
@@ -142,9 +158,11 @@ async function parseResponse<T>(response: Response): Promise<T> {
   return payload as T;
 }
 
-export async function uploadFile(file: File): Promise<UploadResponse> {
+export async function uploadFiles(files: File[]): Promise<UploadResponse> {
   const formData = new FormData();
-  formData.append("file", file);
+  for (const file of files) {
+    formData.append("files", file);
+  }
 
   const response = await fetch(ENDPOINTS.upload, {
     method: "POST",
@@ -152,6 +170,10 @@ export async function uploadFile(file: File): Promise<UploadResponse> {
   });
 
   return parseResponse<UploadResponse>(response);
+}
+
+export async function uploadFile(file: File): Promise<UploadResponse> {
+  return uploadFiles([file]);
 }
 
 export async function getCourseStatus(

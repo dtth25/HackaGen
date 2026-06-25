@@ -3,14 +3,11 @@ Core configuration, paths, and utility functions.
 """
 import os
 import re
-import json
 import uuid
 import hashlib
-import time
 import logging
 from pathlib import Path
 from typing import List, Dict, Any, Optional
-from collections import OrderedDict
 
 from dotenv import load_dotenv
 from langchain_core.documents import Document
@@ -69,10 +66,10 @@ for d in [UPLOAD_DIR, INDEX_DIR, QUESTIONS_DIR, CACHE_DIR, BOOKS_DIR, SLIDES_DIR
 
 # ─── Model Configuration ───────────────────────────────────────────────────────
 
-DEFAULT_MAX_CACHED_COURSES = 20
-BATCH_SIZE = 30         # Chunks per batch for embedding
-RETRY_DELAY = 10        # Seconds between batches
-MAX_RETRY_DELAY = 60    # Max delay on 429 errors
+DEFAULT_MAX_CACHED_COURSES = int(os.getenv("MAX_CACHED_COURSES", "20"))
+BATCH_SIZE = int(os.getenv("EMBEDDING_BATCH_SIZE", "60"))
+RETRY_DELAY = int(os.getenv("EMBEDDING_BATCH_DELAY", "2"))
+MAX_RETRY_DELAY = int(os.getenv("EMBEDDING_MAX_RETRY_DELAY", "60"))
 
 
 def _normalize_embedding_model(model_name: Optional[str]) -> str:
@@ -105,10 +102,12 @@ def get_course_path(course_id: str) -> Dict[str, str]:
     return {
         "faiss_meta": os.path.join(INDEX_DIR, f"faiss_{course_id}.json"),
         "questions": os.path.join(QUESTIONS_DIR, f"course_{course_id}_questions.json"),
+        "questions_pdf": os.path.join(QUESTIONS_DIR, f"course_{course_id}_quiz.pdf"),
         "meta": os.path.join(QUESTIONS_DIR, f"course_{course_id}_meta.json"),
         "book": os.path.join(BOOKS_DIR, f"course_{course_id}_book.json"),
         "book_pdf": os.path.join(BOOKS_DIR, f"course_{course_id}_book.pdf"),
         "slides": os.path.join(SLIDES_DIR, f"course_{course_id}_slides.json"),
+        "slides_pdf": os.path.join(SLIDES_DIR, f"course_{course_id}_slides.pdf"),
         "videos": os.path.join(VIDEOS_DIR, f"course_{course_id}"),
     }
 

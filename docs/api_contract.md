@@ -4,46 +4,37 @@ Contract này bám theo routes hiện tại trong `src/backend/main.py`. Public 
 
 ## 1. Health & Management
 
-### `GET /api/health`
-
-```json
-{
-  "status": "ok",
-  "course_id": null,
-  "courses": ["abc123"]
-}
-```
-
-### `GET /api/courses`
-Trả danh sách `course_id` đã đăng ký.
-
-### `GET /api/courses/all`
-Trả danh sách course kèm metadata local.
-
-### `DELETE /api/courses/{course_id}`
-Xóa course khỏi cache, generated files và FAISS index.
+- `GET /api/health`: trả trạng thái backend và danh sách `course_id`.
+- `GET /api/courses`: trả danh sách `course_id` đã đăng ký.
+- `GET /api/courses/all`: trả danh sách course kèm metadata local.
+- `DELETE /api/courses/{course_id}`: xóa course khỏi cache, generated files và FAISS index.
 
 ## 2. Upload & Status
 
 ### `POST /api/upload`
 
-Input: `multipart/form-data` với đúng một field:
-- `file`: PDF, DOCX hoặc TXT
+Input: `multipart/form-data`.
+
+Supported fields:
+- `files`: một hoặc nhiều file PDF, DOCX, TXT.
+- `file`: legacy single-file field, vẫn được hỗ trợ để tránh vỡ client cũ.
 
 Validation:
-- filename required
-- extension phải là `.pdf`, `.docx`, `.txt`
-- file không rỗng
-- file size <= 50MB
+- filename required.
+- extension phải là `.pdf`, `.docx`, `.txt`.
+- file không rỗng.
+- mỗi file size <= 50MB.
 
 Response:
 
 ```json
 {
   "course_id": "abc123def456",
-  "filename": "document.pdf",
+  "filename": "2 files",
+  "filenames": ["intro.pdf", "exercise.docx"],
+  "file_count": 2,
   "status": "processing",
-  "message": "File 'document.pdf' đã được nhận và đang được phân tích. ID tài liệu: abc123def456"
+  "message": "Đã nhận 2 file và đang phân tích tài liệu. ID tài liệu: abc123def456"
 }
 ```
 
@@ -52,15 +43,17 @@ Response:
 ```json
 {
   "course_id": "abc123def456",
-  "status": "ready"
+  "status": "ready",
+  "filenames": ["intro.pdf", "exercise.docx"],
+  "file_count": 2
 }
 ```
 
-Possible statuses: `pending`, `ready`, `failed`, `unknown`.
+Possible statuses: `pending`, `processing`, `ready`, `failed`, `unknown`.
 
 ## 3. Generation
 
-Tất cả generation endpoints yêu cầu course ở trạng thái `ready`. Response public không trả `page`, `source`, `chunk_id`.
+Tất cả generation endpoints yêu cầu course ở trạng thái `ready`. Response public không trả `page`, `source`, `chunk_id` hoặc `citations`.
 
 ### `POST /api/generate-book`
 
@@ -101,7 +94,7 @@ Request:
 }
 ```
 
-Response fields: `course_id`, `topic`, `total_slides`, `slides`.
+Response fields: `course_id`, `topic`, `total_slides`, `slides`, `json_url`, `pdf_url`.
 
 ### `POST /api/generate-quiz`
 
@@ -116,7 +109,7 @@ Request:
 }
 ```
 
-Response fields: `course_id`, `topic`, `difficulty`, `total_questions`, `questions`.
+Response fields: `course_id`, `topic`, `difficulty`, `total_questions`, `questions`, `json_url`, `pdf_url`.
 
 ### `POST /api/generate-vid`
 
@@ -130,14 +123,18 @@ Request:
 }
 ```
 
-Response fields: `course_id`, `vid`. `vid.url` trỏ tới `/api/course/{course_id}/vid/file`.
+Response fields: `course_id`, `vid`. Khi tạo thành công, `vid.status = "ready"` và `vid.url` trỏ tới `/api/course/{course_id}/vid/file`. Khi render lỗi, `vid.status = "failed"` và có `vid.error`.
 
 ## 4. Saved Artifacts
 
 - `GET /api/course/{course_id}/book`
 - `GET /api/course/{course_id}/book.pdf`
 - `GET /api/course/{course_id}/slide`
+- `GET /api/course/{course_id}/slide.json`
+- `GET /api/course/{course_id}/slide.pdf`
 - `GET /api/course/{course_id}/quiz`
+- `GET /api/course/{course_id}/quiz.json`
+- `GET /api/course/{course_id}/quiz.pdf`
 - `GET /api/course/{course_id}/vid`
 - `GET /api/course/{course_id}/vid/file`
 - `GET /api/course/{course_id}/files`

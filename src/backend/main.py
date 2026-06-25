@@ -15,7 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field, field_validator
 
-from backend.core.config import INDEX_DIR, UPLOAD_DIR, _timestamp, get_course_path, logger, sanitize_input
+from backend.core.config import INDEX_DIR, UPLOAD_DIR, _timestamp, get_course_path, sanitize_input
 from backend.services.course_gen import CourseManager
 
 
@@ -108,6 +108,8 @@ async def rate_limit_middleware(request: Request, call_next):
 class UploadResponse(BaseModel):
     course_id: str
     filename: str
+    filenames: list[str] = Field(default_factory=list)
+    file_count: int = 1
     status: str
     message: str
 
@@ -229,6 +231,8 @@ def _build_course_info(course_id: str) -> dict:
             with open(meta_path, "r", encoding="utf-8") as f:
                 meta = json.load(f)
             info["created_at"] = meta.get("created_at")
+            info["filenames"] = meta.get("filenames") or []
+            info["file_count"] = meta.get("file_count") or len(info["filenames"])
             if "error" in meta:
                 info["error"] = meta["error"]
         except Exception:
@@ -287,46 +291,84 @@ async def delete_course(course_id: str):
     return StatusResponse(status="deleted", course_id=course_id)
 
 
-@app.post("/api/upload", response_model=UploadResponse)
-async def upload(file: UploadFile = File(...)):
-    """Upload one PDF, DOCX, or TXT document and process it in the background."""
-    mgr = _get_course_manager()
-
-    if not file.filename:
+def _validate_upload_metadata(upload_file: UploadFile) -> None:
+    """Validate upload metadata before reading file bytes."""
+    if not upload_file.filename:
         raise HTTPException(400, "Tên file không được để trống.")
 
-    file_ext = os.path.splitext(file.filename.lower())[1]
+    file_ext = os.path.splitext(upload_file.filename.lower())[1]
     if file_ext not in ALLOWED_EXTENSIONS:
         allowed = ", ".join(sorted(ALLOWED_EXTENSIONS))
-        raise HTTPException(400, f"Định dạng file '{file_ext}' không hợp lệ. Hệ thống chỉ hỗ trợ: {allowed}")
+        raise HTTPException(
+            400,
+            f"Định dạng file '{file_ext}' không hợp lệ. Hệ thống chỉ hỗ trợ: {allowed}",
+        )
 
-    content = await file.read()
-    if len(content) == 0:
-        raise HTTPException(400, "File bạn upload là file rỗng. Vui lòng kiểm tra lại.")
-    if len(content) > MAX_UPLOAD_SIZE:
-        raise HTTPException(400, f"File quá lớn. Tối đa {MAX_UPLOAD_SIZE // (1024 * 1024)}MB.")
 
+async def _save_upload_files(course_id: str, upload_files: list[UploadFile]) -> tuple[list[str], list[str]]:
+    """Save one or many upload files under the same course workspace."""
     os.makedirs(UPLOAD_DIR, exist_ok=True)
-    safe_name = re.sub(r"[^\w\-_\.]", "_", file.filename)
-    file_path = os.path.join(UPLOAD_DIR, f"{int(time.time())}_{safe_name}")
+    course_upload_dir = os.path.join(UPLOAD_DIR, course_id)
+    os.makedirs(course_upload_dir, exist_ok=True)
 
-    try:
-        with open(file_path, "wb") as f:
-            f.write(content)
-    except Exception as exc:
-        raise HTTPException(500, f"Lỗi trong quá trình lưu file: {exc}")
+    saved_paths: list[str] = []
+    filenames: list[str] = []
+
+    for index, upload_file in enumerate(upload_files, 1):
+        _validate_upload_metadata(upload_file)
+        content = await upload_file.read()
+        if len(content) == 0:
+            raise HTTPException(400, f"File '{upload_file.filename}' là file rỗng. Vui lòng kiểm tra lại.")
+        if len(content) > MAX_UPLOAD_SIZE:
+            raise HTTPException(
+                400,
+                f"File '{upload_file.filename}' quá lớn. Tối đa {MAX_UPLOAD_SIZE // (1024 * 1024)}MB.",
+            )
+
+        safe_name = re.sub(r"[^\w\-_\.]", "_", upload_file.filename)
+        file_path = os.path.join(course_upload_dir, f"{index:02d}_{int(time.time())}_{safe_name}")
+        try:
+            with open(file_path, "wb") as f:
+                f.write(content)
+        except Exception as exc:
+            raise HTTPException(500, f"Lỗi trong quá trình lưu file: {exc}") from exc
+
+        saved_paths.append(file_path)
+        filenames.append(upload_file.filename)
+
+    return saved_paths, filenames
+
+
+@app.post("/api/upload", response_model=UploadResponse)
+async def upload(
+    file: UploadFile | None = File(None),
+    files: list[UploadFile] | None = File(None),
+):
+    """Upload one or many PDF, DOCX, or TXT documents as one course corpus."""
+    mgr = _get_course_manager()
+
+    upload_files = list(files or [])
+    if file is not None:
+        upload_files.insert(0, file)
+    upload_files = [item for item in upload_files if item and item.filename]
+    if not upload_files:
+        raise HTTPException(400, "Vui lòng chọn ít nhất một file PDF, DOCX hoặc TXT.")
 
     course_id = uuid.uuid4().hex[:12]
-    mgr.register_course_id(course_id, file_path)
+    saved_paths, filenames = await _save_upload_files(course_id, upload_files)
+    mgr.register_course_id(course_id, saved_paths)
 
-    thread = threading.Thread(target=mgr.process_new_course, args=(course_id, file_path), daemon=True)
+    thread = threading.Thread(target=mgr.process_new_course, args=(course_id, saved_paths), daemon=True)
     thread.start()
 
+    file_label = filenames[0] if len(filenames) == 1 else f"{len(filenames)} files"
     return UploadResponse(
         course_id=course_id,
-        filename=file.filename,
+        filename=file_label,
+        filenames=filenames,
+        file_count=len(filenames),
         status="processing",
-        message=f"File '{file.filename}' đã được nhận và đang được phân tích. ID tài liệu: {course_id}",
+        message=f"Đã nhận {len(filenames)} file và đang phân tích tài liệu. ID tài liệu: {course_id}",
     )
 
 
@@ -344,6 +386,8 @@ async def get_course_status(course_id: str):
                 meta = json.load(f)
             if meta.get("error"):
                 info["error"] = meta["error"]
+            info["filenames"] = meta.get("filenames") or []
+            info["file_count"] = meta.get("file_count") or len(info["filenames"])
         except Exception:
             pass
 
@@ -373,6 +417,8 @@ async def generate_slide(req: GenerateSlideRequest):
         "topic": req.topic,
         "total_slides": len(slides),
         "slides": slides,
+        "json_url": f"/api/course/{req.course_id}/slide.json",
+        "pdf_url": f"/api/course/{req.course_id}/slide.pdf",
     }
 
 
@@ -388,6 +434,8 @@ async def generate_quiz(req: GenerateQuizRequest):
         "difficulty": req.difficulty,
         "total_questions": len(questions),
         "questions": questions,
+        "json_url": f"/api/course/{req.course_id}/quiz.json",
+        "pdf_url": f"/api/course/{req.course_id}/quiz.pdf",
     }
 
 
@@ -431,15 +479,71 @@ async def get_saved_book_pdf(course_id: str):
 @app.get("/api/course/{course_id}/slide")
 async def get_saved_slide(course_id: str):
     """Return the generated Slide JSON."""
-    slides = _read_json(get_course_path(course_id)["slides"], "Chưa có Slide cho tài liệu này.")
-    return {"course_id": course_id, "slides": slides, "total_slides": len(slides)}
+    paths = get_course_path(course_id)
+    slides = _read_json(paths["slides"], "Chưa có Slide cho tài liệu này.")
+    return {
+        "course_id": course_id,
+        "slides": slides,
+        "total_slides": len(slides),
+        "json_url": f"/api/course/{course_id}/slide.json",
+        "pdf_url": f"/api/course/{course_id}/slide.pdf" if os.path.exists(paths["slides_pdf"]) else None,
+    }
+
+
+@app.get("/api/course/{course_id}/slide.json")
+async def download_saved_slide_json(course_id: str):
+    """Download the generated Slide JSON."""
+    path = get_course_path(course_id)["slides"]
+    if not os.path.exists(path):
+        raise HTTPException(404, "Chưa có Slide cho tài liệu này.")
+    return FileResponse(path, media_type="application/json", filename=f"slide_{course_id}.json")
+
+
+@app.get("/api/course/{course_id}/slide.pdf")
+async def download_saved_slide_pdf(course_id: str):
+    """Download the generated Slide PDF."""
+    paths = get_course_path(course_id)
+    if not os.path.exists(paths["slides_pdf"]):
+        if not os.path.exists(paths["slides"]):
+            raise HTTPException(404, "Chưa có Slide PDF cho tài liệu này.")
+        rag = _get_ready_course(course_id)
+        rag.get_resource_generator().export_slides_pdf()
+    return FileResponse(paths["slides_pdf"], media_type="application/pdf", filename=f"slide_{course_id}.pdf")
 
 
 @app.get("/api/course/{course_id}/quiz")
 async def get_saved_quiz(course_id: str):
     """Return the generated Quiz JSON."""
-    questions = _read_json(get_course_path(course_id)["questions"], "Chưa có Quiz cho tài liệu này.")
-    return {"course_id": course_id, "questions": questions, "total_questions": len(questions)}
+    paths = get_course_path(course_id)
+    questions = _read_json(paths["questions"], "Chưa có Quiz cho tài liệu này.")
+    return {
+        "course_id": course_id,
+        "questions": questions,
+        "total_questions": len(questions),
+        "json_url": f"/api/course/{course_id}/quiz.json",
+        "pdf_url": f"/api/course/{course_id}/quiz.pdf" if os.path.exists(paths["questions_pdf"]) else None,
+    }
+
+
+@app.get("/api/course/{course_id}/quiz.json")
+async def download_saved_quiz_json(course_id: str):
+    """Download the generated Quiz JSON."""
+    path = get_course_path(course_id)["questions"]
+    if not os.path.exists(path):
+        raise HTTPException(404, "Chưa có Quiz cho tài liệu này.")
+    return FileResponse(path, media_type="application/json", filename=f"quiz_{course_id}.json")
+
+
+@app.get("/api/course/{course_id}/quiz.pdf")
+async def download_saved_quiz_pdf(course_id: str):
+    """Download the generated Quiz PDF."""
+    paths = get_course_path(course_id)
+    if not os.path.exists(paths["questions_pdf"]):
+        if not os.path.exists(paths["questions"]):
+            raise HTTPException(404, "Chưa có Quiz PDF cho tài liệu này.")
+        rag = _get_ready_course(course_id)
+        rag.get_resource_generator().export_quiz_pdf()
+    return FileResponse(paths["questions_pdf"], media_type="application/pdf", filename=f"quiz_{course_id}.pdf")
 
 
 @app.get("/api/course/{course_id}/vid")
@@ -464,7 +568,7 @@ async def get_course_files(course_id: str):
     paths = get_course_path(course_id)
     files = {}
 
-    for key in ["book", "book_pdf", "questions", "slides"]:
+    for key in ["book", "book_pdf", "questions", "questions_pdf", "slides", "slides_pdf"]:
         if os.path.exists(paths[key]):
             files[key] = paths[key]
 
@@ -490,7 +594,9 @@ async def get_course_stats(course_id: str):
         "has_book": os.path.exists(paths["book"]),
         "has_book_pdf": os.path.exists(paths["book_pdf"]),
         "has_slide": os.path.exists(paths["slides"]),
+        "has_slide_pdf": os.path.exists(paths["slides_pdf"]),
         "has_quiz": os.path.exists(paths["questions"]),
+        "has_quiz_pdf": os.path.exists(paths["questions_pdf"]),
         "has_vid": os.path.exists(os.path.join(paths["videos"], "vid.mp4")),
     }
 

@@ -1,20 +1,26 @@
 "use client";
 
+import { useState, type ReactNode } from "react";
 import {
   BookOpen,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   ClipboardCheck,
   Download,
+  FileJson,
   FileVideo,
   Layers,
   ListChecks,
-  Play,
   Presentation,
+  RotateCcw,
   Sparkles,
   Target,
+  XCircle,
 } from "lucide-react";
-import type { ReactNode } from "react";
 import type { FeatureType } from "@/components/FeatureSelector";
+import { buttonVariants } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { API_BASE_URL, type GenerateResponse } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -32,12 +38,12 @@ const featureMeta: Record<
   book: {
     title: "Book",
     icon: <BookOpen className="h-5 w-5" />,
-    tone: "bg-blue-50 text-blue-700 ring-blue-200",
+    tone: "bg-sky-50 text-sky-700 ring-sky-200",
   },
   slide: {
     title: "Slide",
     icon: <Presentation className="h-5 w-5" />,
-    tone: "bg-indigo-50 text-indigo-700 ring-indigo-200",
+    tone: "bg-violet-50 text-violet-700 ring-violet-200",
   },
   quiz: {
     title: "Quiz",
@@ -57,33 +63,12 @@ function isObject(value: unknown): value is PlainObject {
 
 function asString(value: unknown, fallback = "") {
   if (typeof value === "string") return value;
-  if (typeof value === "number" || typeof value === "boolean") {
-    return String(value);
-  }
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
   return fallback;
 }
 
 function asArray(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
-}
-
-function stripInternalMarkers(value: string, compact = true) {
-  const cleaned = value
-    .replace(/===\s*BẮT ĐẦU.*?===/giu, " ")
-    .replace(/===\s*KẾT THÚC.*?===/giu, " ")
-    .replace(/\[MÃ ĐỊNH DANH TRANG:\s*\d+\]/giu, " ")
-    .replace(/\bNỘI DUNG:\s*/giu, " ")
-    .replace(/\bMã định danh trang\s+\d+\s+nội dung\b/giu, " ");
-
-  if (compact) {
-    return cleaned.replace(/\s+/g, " ").trim();
-  }
-
-  return cleaned.replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
-}
-
-function markdownLines(content: string) {
-  return stripInternalMarkers(content, false).replace(/\r/g, "").split("\n");
 }
 
 function backendUrl(path?: string | null) {
@@ -92,8 +77,24 @@ function backendUrl(path?: string | null) {
   return `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
+function stripInternalMarkers(value: string, compact = true) {
+  const cleaned = value
+    .replace(/===\s*BẮT ĐẦU.*?===/giu, " ")
+    .replace(/===\s*KẾT THÚC.*?===/giu, " ")
+    .replace(/\[MÃ ĐỊNH DANH TRANG:\s*\d+\]/giu, " ")
+    .replace(/\bNỘI DUNG:\s*/giu, " ")
+    .replace(/\b(page|source|chunk_id)\s*:\s*[^,\n]+/giu, " ");
+
+  if (compact) return cleaned.replace(/\s+/g, " ").trim();
+  return cleaned.replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+function markdownLines(content: string) {
+  return stripInternalMarkers(content, false).replace(/\r/g, "").split("\n");
+}
+
 function MarkdownBlock({ content }: { content: string }) {
-  const blocks: React.ReactNode[] = [];
+  const blocks: ReactNode[] = [];
   let listItems: string[] = [];
 
   const flushList = () => {
@@ -161,6 +162,33 @@ function textList(value: unknown): string[] {
     .filter(Boolean);
 }
 
+function DownloadLink({
+  href,
+  label,
+  icon,
+  variant = "outline",
+}: {
+  href?: string | null;
+  label: string;
+  icon: ReactNode;
+  variant?: "default" | "outline" | "secondary" | "ghost";
+}) {
+  const resolved = backendUrl(href);
+  if (!resolved) return null;
+
+  return (
+    <a
+      href={resolved}
+      className={buttonVariants({ variant, size: "lg" })}
+      target="_blank"
+      rel="noreferrer"
+    >
+      {icon}
+      {label}
+    </a>
+  );
+}
+
 function LessonList({
   title,
   icon,
@@ -189,14 +217,13 @@ function LessonList({
   );
 }
 
-function renderBook(result: GenerateResponse) {
+function BookResult({ result }: { result: GenerateResponse }) {
   const book: PlainObject = isObject(result.book) ? result.book : {};
   const chapters = asArray(book.chapters);
   const lessonCount = chapters.reduce<number>((total, chapter) => {
     const item = isObject(chapter) ? chapter : {};
     return total + asArray(item.lessons).length;
   }, 0);
-  const pdfUrl = backendUrl(result.pdf_url);
 
   return (
     <section className="space-y-6">
@@ -221,15 +248,12 @@ function renderBook(result: GenerateResponse) {
               <div className="font-semibold">{lessonCount}</div>
               <div className="text-muted-foreground">Bài</div>
             </div>
-            {pdfUrl && (
-              <a
-                href={pdfUrl}
-                className="inline-flex h-10 items-center gap-2 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-              >
-                <Download className="h-4 w-4" />
-                PDF
-              </a>
-            )}
+            <DownloadLink
+              href={result.pdf_url}
+              label="Tải PDF"
+              icon={<Download className="h-4 w-4" />}
+              variant="default"
+            />
           </div>
         </div>
       </div>
@@ -299,13 +323,13 @@ function renderBook(result: GenerateResponse) {
                         <div>
                           <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
                             <BookOpen className="h-4 w-4" />
-                            Nội dung bài giảng
+                            Nội dung bài học
                           </div>
                           <div className="rounded-lg bg-muted/40 p-4">
                             <MarkdownBlock
                               content={asString(
                                 lessonObj.lecture,
-                                "Chưa có nội dung bài giảng."
+                                "Chưa có nội dung bài học."
                               )}
                             />
                           </div>
@@ -352,134 +376,99 @@ function optionEntries(options: unknown) {
   }));
 }
 
-function renderQuiz(result: GenerateResponse) {
-  const questions = asArray(result.questions);
-
-  return (
-    <section className="grid gap-4">
-      {questions.map((question, index) => {
-        const item = isObject(question) ? question : {};
-        const options = optionEntries(item.options);
-        const correct = Number(item.correct ?? 0);
-
-        return (
-          <div key={index} className="rounded-lg border bg-card p-4">
-            <div className="mb-3 flex items-start gap-3">
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary text-xs font-semibold text-primary-foreground">
-                {index + 1}
-              </div>
-              <h4 className="font-semibold leading-snug">
-                {asString(item.question, "Câu hỏi")}
-              </h4>
-            </div>
-
-            <div className="grid gap-2 md:grid-cols-2">
-              {options.map((option, optionIndex) => {
-                const isCorrect = optionIndex === correct;
-                return (
-                  <div
-                    key={option.key}
-                    className={cn(
-                      "flex items-start gap-2 rounded-md border p-3 text-sm",
-                      isCorrect
-                        ? "border-emerald-300 bg-emerald-50 text-emerald-900"
-                        : "bg-background"
-                    )}
-                  >
-                    <span className="font-semibold">{option.label}.</span>
-                    <span className="leading-5">{stripInternalMarkers(option.value)}</span>
-                    {isCorrect && <CheckCircle2 className="ml-auto h-4 w-4 shrink-0" />}
-                  </div>
-                );
-              })}
-            </div>
-
-            {Boolean(item.explanation) && (
-              <p className="mt-3 rounded-md bg-muted/50 p-3 text-sm leading-6 text-muted-foreground">
-                {stripInternalMarkers(asString(item.explanation))}
-              </p>
-            )}
-          </div>
-        );
-      })}
-    </section>
-  );
-}
-
-function renderSlide(result: GenerateResponse) {
+function SlideResult({ result }: { result: GenerateResponse }) {
   const slides = asArray(result.slides);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const current = isObject(slides[currentIndex]) ? slides[currentIndex] : {};
+  const progress = slides.length ? ((currentIndex + 1) / slides.length) * 100 : 0;
+
+  if (slides.length === 0) {
+    return <EmptyResult message="Chưa có slide để hiển thị." />;
+  }
 
   return (
-    <section className="grid gap-4 md:grid-cols-2">
-      {slides.map((slide, index) => {
-        const item = isObject(slide) ? slide : {};
-        return (
-          <div key={index} className="rounded-lg border bg-card p-4">
-            <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase text-muted-foreground">
-              <Layers className="h-4 w-4" />
-              Slide {index + 1}
-            </div>
-            <h4 className="mb-3 text-lg font-semibold leading-tight">
-              {asString(item.title, `Slide ${index + 1}`)}
-            </h4>
-            <MarkdownBlock content={asString(item.content, "")} />
-            {Boolean(item.image_suggestion) && (
-              <p className="mt-4 rounded-md bg-muted/50 p-3 text-xs leading-5 text-muted-foreground">
-                {asString(item.image_suggestion)}
-              </p>
-            )}
-          </div>
-        );
-      })}
-    </section>
-  );
-}
-
-function renderVid(result: GenerateResponse) {
-  const vid: PlainObject = isObject(result.vid) ? result.vid : {};
-  const scenes = asArray(vid.scenes);
-  const videoUrl = backendUrl(asString(vid.url));
-
-  return (
-    <section className="space-y-5">
+    <section className="space-y-4">
       <div className="rounded-lg border bg-card p-5">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
-            <h3 className="text-xl font-semibold">{asString(vid.filename, "vid.mp4")}</h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {asString(vid.duration_minutes, "3")} phút · {scenes.length} cảnh
-            </p>
+            <div className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
+              <Layers className="h-4 w-4" />
+              Slide {currentIndex + 1} / {slides.length}
+            </div>
+            <h3 className="text-2xl font-semibold leading-tight">
+              {asString(current.title, `Slide ${currentIndex + 1}`)}
+            </h3>
           </div>
-          {videoUrl && (
-            <a
-              href={videoUrl}
-              className="inline-flex h-10 items-center gap-2 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-            >
-              <Play className="h-4 w-4" />
-              Mở video
-            </a>
+          <div className="flex flex-wrap gap-2">
+            <DownloadLink
+              href={result.pdf_url}
+              label="PDF"
+              icon={<Download className="h-4 w-4" />}
+              variant="default"
+            />
+            <DownloadLink
+              href={result.json_url}
+              label="JSON"
+              icon={<FileJson className="h-4 w-4" />}
+              variant="outline"
+            />
+          </div>
+        </div>
+
+        <Progress value={progress} className="mb-5 h-2" />
+        <div className="min-h-[320px] rounded-lg border bg-background p-6">
+          <MarkdownBlock content={asString(current.content, "")} />
+          {Boolean(current.image_suggestion) && (
+            <p className="mt-6 rounded-md bg-muted/50 p-3 text-sm leading-6 text-muted-foreground">
+              Gợi ý hình ảnh: {asString(current.image_suggestion)}
+            </p>
           )}
+        </div>
+
+        <div className="mt-5 flex items-center justify-between gap-3">
+          <button
+            type="button"
+            className={buttonVariants({ variant: "outline", size: "lg" })}
+            onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
+            disabled={currentIndex === 0}
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Trước
+          </button>
+          <button
+            type="button"
+            className={buttonVariants({ variant: "outline", size: "lg" })}
+            onClick={() =>
+              setCurrentIndex((prev) => Math.min(slides.length - 1, prev + 1))
+            }
+            disabled={currentIndex === slides.length - 1}
+          >
+            Tiếp
+            <ChevronRight className="h-4 w-4" />
+          </button>
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        {scenes.map((scene, index) => {
-          const item = isObject(scene) ? scene : {};
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {slides.map((slide, index) => {
+          const item = isObject(slide) ? slide : {};
           return (
-            <div key={index} className="rounded-lg border bg-card p-4">
-              <div className="mb-3 text-xs font-semibold uppercase text-muted-foreground">
-                Cảnh {index + 1}
-              </div>
-              <h4 className="mb-3 text-lg font-semibold">
-                {asString(item.title, `Cảnh ${index + 1}`)}
-              </h4>
-              <MarkdownBlock content={asString(item.visual_text)} />
-              {Boolean(item.voiceover) && (
-                <p className="mt-4 rounded-md bg-muted/50 p-3 text-sm leading-6 text-muted-foreground">
-                  {stripInternalMarkers(asString(item.voiceover))}
-                </p>
+            <button
+              key={index}
+              type="button"
+              onClick={() => setCurrentIndex(index)}
+              className={cn(
+                "min-w-40 rounded-md border p-3 text-left text-xs transition-colors",
+                currentIndex === index
+                  ? "border-primary bg-primary/10"
+                  : "bg-card hover:bg-muted/60"
               )}
-            </div>
+            >
+              <div className="mb-1 font-semibold">Slide {index + 1}</div>
+              <div className="line-clamp-2 text-muted-foreground">
+                {asString(item.title, "Nội dung")}
+              </div>
+            </button>
           );
         })}
       </div>
@@ -487,7 +476,241 @@ function renderVid(result: GenerateResponse) {
   );
 }
 
-function renderFallback(result: GenerateResponse) {
+function QuizResult({ result }: { result: GenerateResponse }) {
+  const questions = asArray(result.questions);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [answers, setAnswers] = useState<Record<number, number>>({});
+  const [submitted, setSubmitted] = useState(false);
+  const current = isObject(questions[currentIndex]) ? questions[currentIndex] : {};
+  const options = optionEntries(current.options);
+  const correct = Number(current.correct ?? 0);
+  const selected = answers[currentIndex];
+  const answeredCount = Object.keys(answers).length;
+  const progress = questions.length ? ((currentIndex + 1) / questions.length) * 100 : 0;
+
+  const score = submitted
+    ? questions.reduce<number>((total, question, index) => {
+        const item = isObject(question) ? question : {};
+        return total + (answers[index] === Number(item.correct ?? 0) ? 1 : 0);
+      }, 0)
+    : 0;
+
+  if (questions.length === 0) {
+    return <EmptyResult message="Chưa có câu hỏi để hiển thị." />;
+  }
+
+  const resetQuiz = () => {
+    setAnswers({});
+    setSubmitted(false);
+    setCurrentIndex(0);
+  };
+
+  return (
+    <section className="space-y-4">
+      <div className="rounded-lg border bg-card p-5">
+        <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <div className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
+              <ClipboardCheck className="h-4 w-4" />
+              Câu {currentIndex + 1} / {questions.length}
+            </div>
+            <h3 className="text-xl font-semibold leading-snug">
+              {asString(current.question, "Câu hỏi")}
+            </h3>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <DownloadLink
+              href={result.pdf_url}
+              label="PDF"
+              icon={<Download className="h-4 w-4" />}
+              variant="default"
+            />
+            <DownloadLink
+              href={result.json_url}
+              label="JSON"
+              icon={<FileJson className="h-4 w-4" />}
+              variant="outline"
+            />
+          </div>
+        </div>
+
+        <Progress value={progress} className="mb-5 h-2" />
+
+        {submitted && (
+          <div className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+            Kết quả: {score}/{questions.length} câu đúng
+          </div>
+        )}
+
+        <div className="grid gap-3">
+          {options.map((option, optionIndex) => {
+            const isSelected = selected === optionIndex;
+            const isCorrect = optionIndex === correct;
+            const isWrongSelection = submitted && isSelected && !isCorrect;
+
+            return (
+              <button
+                key={option.key}
+                type="button"
+                disabled={submitted}
+                onClick={() =>
+                  setAnswers((prev) => ({ ...prev, [currentIndex]: optionIndex }))
+                }
+                className={cn(
+                  "flex items-start gap-3 rounded-md border p-4 text-left text-sm transition-colors",
+                  !submitted && isSelected && "border-primary bg-primary/10",
+                  !submitted && !isSelected && "bg-background hover:bg-muted/50",
+                  submitted && isCorrect && "border-emerald-300 bg-emerald-50 text-emerald-950",
+                  isWrongSelection && "border-rose-300 bg-rose-50 text-rose-950"
+                )}
+              >
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-muted text-xs font-semibold">
+                  {option.label}
+                </span>
+                <span className="leading-6">{stripInternalMarkers(option.value)}</span>
+                {submitted && isCorrect && (
+                  <CheckCircle2 className="ml-auto h-4 w-4 shrink-0" />
+                )}
+                {isWrongSelection && <XCircle className="ml-auto h-4 w-4 shrink-0" />}
+              </button>
+            );
+          })}
+        </div>
+
+        {submitted && Boolean(current.explanation) && (
+          <p className="mt-4 rounded-md bg-muted/50 p-3 text-sm leading-6 text-muted-foreground">
+            {stripInternalMarkers(asString(current.explanation))}
+          </p>
+        )}
+
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+          <button
+            type="button"
+            className={buttonVariants({ variant: "outline", size: "lg" })}
+            onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
+            disabled={currentIndex === 0}
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Trước
+          </button>
+
+          <div className="flex flex-wrap gap-2">
+            {!submitted ? (
+              <button
+                type="button"
+                className={buttonVariants({ variant: "default", size: "lg" })}
+                onClick={() => setSubmitted(true)}
+              >
+                Nộp bài ({answeredCount}/{questions.length})
+              </button>
+            ) : (
+              <button
+                type="button"
+                className={buttonVariants({ variant: "secondary", size: "lg" })}
+                onClick={resetQuiz}
+              >
+                <RotateCcw className="h-4 w-4" />
+                Làm lại
+              </button>
+            )}
+          </div>
+
+          <button
+            type="button"
+            className={buttonVariants({ variant: "outline", size: "lg" })}
+            onClick={() =>
+              setCurrentIndex((prev) => Math.min(questions.length - 1, prev + 1))
+            }
+            disabled={currentIndex === questions.length - 1}
+          >
+            Tiếp
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function VidResult({ result }: { result: GenerateResponse }) {
+  const vid: PlainObject = isObject(result.vid) ? result.vid : {};
+  const scenes = asArray(vid.scenes);
+  const videoUrl = backendUrl(asString(vid.url));
+  const failed = vid.status === "failed";
+
+  return (
+    <section className="space-y-5">
+      <div className="rounded-lg border bg-card p-5">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h3 className="text-xl font-semibold">
+              {failed ? "Chưa tạo được video" : asString(vid.filename, "vid.mp4")}
+            </h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {asString(vid.duration_minutes, "3")} phút · {scenes.length} cảnh
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <DownloadLink
+              href={asString(vid.url)}
+              label="Tải MP4"
+              icon={<Download className="h-4 w-4" />}
+              variant="default"
+            />
+          </div>
+        </div>
+
+        {failed && (
+          <p className="mt-4 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+            {asString(vid.error, "Video chưa được tạo. Vui lòng thử lại sau.")}
+          </p>
+        )}
+
+        {videoUrl && !failed && (
+          <video
+            className="mt-5 aspect-video w-full rounded-lg border bg-black"
+            src={videoUrl}
+            controls
+          />
+        )}
+      </div>
+
+      {scenes.length > 0 && (
+        <div className="grid gap-4 md:grid-cols-2">
+          {scenes.map((scene, index) => {
+            const item = isObject(scene) ? scene : {};
+            return (
+              <div key={index} className="rounded-lg border bg-card p-4">
+                <div className="mb-3 text-xs font-semibold uppercase text-muted-foreground">
+                  Cảnh {index + 1}
+                </div>
+                <h4 className="mb-3 text-lg font-semibold">
+                  {asString(item.title, `Cảnh ${index + 1}`)}
+                </h4>
+                <MarkdownBlock content={asString(item.visual_text)} />
+                {Boolean(item.voiceover) && (
+                  <p className="mt-4 rounded-md bg-muted/50 p-3 text-sm leading-6 text-muted-foreground">
+                    {stripInternalMarkers(asString(item.voiceover))}
+                  </p>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function EmptyResult({ message }: { message: string }) {
+  return (
+    <div className="rounded-lg border bg-card p-6 text-sm text-muted-foreground">
+      {message}
+    </div>
+  );
+}
+
+function JsonFallback({ result }: { result: GenerateResponse }) {
   return (
     <pre className="max-h-[520px] overflow-auto rounded-lg bg-muted p-4 text-xs leading-relaxed">
       {JSON.stringify(result, null, 2)}
@@ -501,20 +724,20 @@ export default function ResultRenderer({ feature, result }: ResultRendererProps)
   const content = (() => {
     switch (feature) {
       case "book":
-        return renderBook(result);
+        return <BookResult result={result} />;
       case "slide":
-        return renderSlide(result);
+        return <SlideResult result={result} />;
       case "quiz":
-        return renderQuiz(result);
+        return <QuizResult result={result} />;
       case "vid":
-        return renderVid(result);
+        return <VidResult result={result} />;
       default:
-        return renderFallback(result);
+        return <JsonFallback result={result} />;
     }
   })();
 
   return (
-    <div className="w-full max-w-5xl space-y-5">
+    <div className="w-full space-y-5">
       <section className="space-y-4">
         <div className="flex items-center gap-3">
           <span className={cn("rounded-md p-2 ring-1", meta.tone)}>{meta.icon}</span>

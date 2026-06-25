@@ -16,31 +16,31 @@ const FEATURES: FeatureOption[] = [
   {
     type: "book",
     label: "Book",
-    description: "Tạo sách học tập theo chương và bài học",
+    description: "Sách học tập theo chương và bài",
     icon: <BookOpen className="h-5 w-5" />,
   },
   {
     type: "slide",
     label: "Slide",
-    description: "Tạo nội dung trình chiếu từ tài liệu",
+    description: "Bộ trình chiếu có thể điều hướng",
     icon: <Presentation className="h-5 w-5" />,
   },
   {
     type: "quiz",
     label: "Quiz",
-    description: "Tạo bộ câu hỏi trắc nghiệm",
+    description: "Câu hỏi trắc nghiệm tương tác",
     icon: <HelpCircle className="h-5 w-5" />,
   },
   {
     type: "vid",
     label: "Vid",
-    description: "Tạo video học tập dạng slide voiceover",
+    description: "Video học tập dạng voiceover",
     icon: <Video className="h-5 w-5" />,
   },
 ];
 
 interface FeatureSelectorProps {
-  selected: FeatureType | null;
+  selected: FeatureType;
   onSelect: (feature: FeatureType) => void;
 }
 
@@ -51,14 +51,14 @@ export default function FeatureSelector({
   return (
     <div className="w-full">
       <h3 className="mb-4 text-lg font-semibold">Chọn output</h3>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3">
         {FEATURES.map((feature) => {
           const isSelected = selected === feature.type;
           return (
             <button
               key={feature.type}
               onClick={() => onSelect(feature.type)}
-              className={`flex flex-col items-start rounded-lg border p-4 text-left transition-all ${
+              className={`flex min-h-28 flex-col items-start rounded-lg border p-4 text-left transition-all ${
                 isSelected
                   ? "border-primary bg-primary/10 ring-2 ring-primary/30"
                   : "border-muted-foreground/20 hover:border-muted-foreground/40 hover:bg-muted/50"
@@ -66,7 +66,7 @@ export default function FeatureSelector({
               type="button"
             >
               <div
-                className={`mb-2 rounded-full p-2 ${
+                className={`mb-2 rounded-md p-2 ${
                   isSelected
                     ? "bg-primary text-primary-foreground"
                     : "bg-muted text-muted-foreground"
