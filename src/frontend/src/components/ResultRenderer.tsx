@@ -23,6 +23,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { API_BASE_URL, type GenerateResponse } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { KaTeXText } from "@/components/KaTeXRenderer";
 
 type PlainObject = Record<string, unknown>;
 
@@ -89,11 +90,36 @@ function stripInternalMarkers(value: string, compact = true) {
   return cleaned.replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
 }
 
-function markdownLines(content: string) {
-  return stripInternalMarkers(content, false).replace(/\r/g, "").split("\n");
+function cleanContentMarkdown(content: string): string {
+  const parts = content.split(/(\$\$[\s\S]*?\$\$|\$[\s\S]*?\$)/g);
+  return parts
+    .map((part) => {
+      if (part && part.startsWith("$")) {
+        return part;
+      }
+      return part ? part.replace(/[*_`]/g, "") : part;
+    })
+    .join("");
 }
 
-function MarkdownBlock({ content }: { content: string }) {
+export function replaceNewlinesOutsideMath(content: string): string {
+  const parts = content.split(/(\$\$[\s\S]*?\$\$|\$[\s\S]*?\$)/g);
+  return parts
+    .map((part) => {
+      if (part && part.startsWith("$")) {
+        // Inside math blocks, replace literal \n only if it's NOT a LaTeX command starting with n
+        return part.replace(/\\n(?![eauoisplgw])/g, "\n");
+      }
+      return part ? part.replace(/\\n/g, "\n") : part;
+    })
+    .join("");
+}
+
+export function MarkdownBlock({ content }: { content: string }) {
+  const processed = replaceNewlinesOutsideMath(content);
+  const cleaned = stripInternalMarkers(processed, false).replace(/\r/g, "");
+  const formattedContent = cleanContentMarkdown(cleaned);
+
   const blocks: ReactNode[] = [];
   let listItems: string[] = [];
 
@@ -102,8 +128,8 @@ function MarkdownBlock({ content }: { content: string }) {
       blocks.push(
         <ul key={`ul-${blocks.length}`} className="space-y-1 pl-5 text-sm leading-6">
           {listItems.map((item, index) => (
-            <li key={`${item}-${index}`} className="list-disc">
-              {item}
+            <li key={`li-${index}`} className="list-disc">
+              <KaTeXText>{item}</KaTeXText>
             </li>
           ))}
         </ul>
@@ -112,48 +138,52 @@ function MarkdownBlock({ content }: { content: string }) {
     }
   };
 
-  markdownLines(content).forEach((rawLine) => {
-    const line = rawLine.trim();
-    if (!line) {
-      flushList();
-      return;
-    }
+  const paragraphs = formattedContent.split(/\n\s*\n/);
+  paragraphs.forEach((paragraph, paraIndex) => {
+    const text = paragraph.trim();
+    if (!text) return;
 
-    const headingMatch = /^(#{1,3})\s+(.+)$/.exec(line);
+    const headingMatch = /^(#{1,3})\s+(.+)$/.exec(text);
     if (headingMatch) {
       flushList();
       blocks.push(
-        <h4 key={`h-${blocks.length}`} className="text-base font-semibold leading-tight">
-          {headingMatch[2].replace(/[*_`]/g, "")}
+        <h4 key={`h-${paraIndex}`} className="text-base font-semibold leading-tight mt-4">
+          <KaTeXText>{headingMatch[2]}</KaTeXText>
         </h4>
       );
       return;
     }
 
-    const bulletMatch = /^[-*]\s+(.+)$/.exec(line);
-    if (bulletMatch) {
-      listItems.push(bulletMatch[1].replace(/[*_`]/g, ""));
+    if (text.startsWith("- ") || text.startsWith("* ")) {
+      flushList();
+      const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+      lines.forEach((line) => {
+        const cleanLine = line.replace(/^[-*]\s+/, "");
+        listItems.push(cleanLine);
+      });
       return;
     }
 
     flushList();
     blocks.push(
-      <p key={`p-${blocks.length}`} className="text-sm leading-7 text-foreground/90">
-        {line.replace(/[*_`]/g, "")}
+      <p key={`p-${paraIndex}`} className="text-sm leading-7 text-foreground/90">
+        <KaTeXText>{text}</KaTeXText>
       </p>
     );
   });
 
   flushList();
-  return <div className="space-y-3">{blocks}</div>;
+  return <div className="space-y-3 break-words max-w-full overflow-x-auto">{blocks}</div>;
 }
 
 function textList(value: unknown): string[] {
   if (Array.isArray(value)) {
-    return value.map((item) => stripInternalMarkers(asString(item))).filter(Boolean);
+    return value
+      .map((item) => replaceNewlinesOutsideMath(stripInternalMarkers(asString(item))))
+      .filter(Boolean);
   }
 
-  const text = stripInternalMarkers(asString(value), false);
+  const text = replaceNewlinesOutsideMath(stripInternalMarkers(asString(value), false));
   if (!text) return [];
 
   return text
@@ -209,7 +239,7 @@ function LessonList({
       <ul className="space-y-1 pl-5 text-sm leading-6 text-muted-foreground">
         {items.map((item, index) => (
           <li key={`${item}-${index}`} className="list-disc">
-            {item}
+            <KaTeXText>{item}</KaTeXText>
           </li>
         ))}
       </ul>
@@ -345,9 +375,9 @@ function BookResult({ result }: { result: GenerateResponse }) {
                               <Sparkles className="h-4 w-4" />
                               Hoạt động học tập
                             </div>
-                            <p className="rounded-lg border bg-background p-3 text-sm leading-6 text-muted-foreground">
-                              {stripInternalMarkers(asString(lessonObj.activity))}
-                            </p>
+                            <div className="rounded-lg border bg-background p-3 text-sm leading-6 text-muted-foreground">
+                              <MarkdownBlock content={asString(lessonObj.activity)} />
+                            </div>
                           </div>
                         )}
                         <LessonList
@@ -490,9 +520,9 @@ function QuizResult({ result }: { result: GenerateResponse }) {
 
   const score = submitted
     ? questions.reduce<number>((total, question, index) => {
-        const item = isObject(question) ? question : {};
-        return total + (answers[index] === Number(item.correct ?? 0) ? 1 : 0);
-      }, 0)
+      const item = isObject(question) ? question : {};
+      return total + (answers[index] === Number(item.correct ?? 0) ? 1 : 0);
+    }, 0)
     : 0;
 
   if (questions.length === 0) {
@@ -515,7 +545,7 @@ function QuizResult({ result }: { result: GenerateResponse }) {
               Câu {currentIndex + 1} / {questions.length}
             </div>
             <h3 className="text-xl font-semibold leading-snug">
-              {asString(current.question, "Câu hỏi")}
+              <KaTeXText>{asString(current.question, "Câu hỏi")}</KaTeXText>
             </h3>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -567,7 +597,7 @@ function QuizResult({ result }: { result: GenerateResponse }) {
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-muted text-xs font-semibold">
                   {option.label}
                 </span>
-                <span className="leading-6">{stripInternalMarkers(option.value)}</span>
+                <span className="leading-6"><KaTeXText>{stripInternalMarkers(option.value)}</KaTeXText></span>
                 {submitted && isCorrect && (
                   <CheckCircle2 className="ml-auto h-4 w-4 shrink-0" />
                 )}
@@ -579,7 +609,7 @@ function QuizResult({ result }: { result: GenerateResponse }) {
 
         {submitted && Boolean(current.explanation) && (
           <p className="mt-4 rounded-md bg-muted/50 p-3 text-sm leading-6 text-muted-foreground">
-            {stripInternalMarkers(asString(current.explanation))}
+            <KaTeXText>{stripInternalMarkers(asString(current.explanation))}</KaTeXText>
           </p>
         )}
 
