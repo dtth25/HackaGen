@@ -42,3 +42,9 @@ Code hiện tại là source of truth cho project. Các tài liệu phải bám 
 - Book thay thế public concept "Course"; `course_id` chỉ còn là ID nội bộ của bộ tài liệu đã index.
 - FAISS metadata vẫn được giữ nội bộ để truy xuất và debug, nhưng không xuất hiện trong public response.
 - Demo cho người dùng nên chạy production frontend bằng `npm run build && npm run start` để tránh Next.js dev indicator.
+- **KaTeX & Xử lý Toán học trên UI:**
+  - Hỗ trợ hiển thị chữ tiếng Việt Unicode trong khối LaTeX bằng cách sử dụng cơ chế font fallback của hệ thống. Đồng thời chặn toàn bộ log cảnh báo nhiễu `No character metrics for` tại `console.warn` để giữ sạch console và terminal khi chạy Next.js dev server.
+  - Ngăn chặn lỗi tràn công thức toán học và tràn chữ ra ngoài lề trên UI bằng cách bọc các thẻ span KaTeX trong CSS `overflow-x-auto max-w-full` và áp dụng `break-words` cho container chính của MarkdownBlock.
+- **Xuất bản PDF của Book:**
+  - Để tránh lỗi ô vuông trống (thiếu font) khi xuất Book ra PDF trên backend, các ký hiệu toán học đặc biệt (số mũ, chỉ số dưới, dấu vô cực, dấu thuộc tập hợp,...) sẽ được chuyển đổi sang định dạng ASCII tiêu chuẩn trước khi tạo PDF, đảm bảo file PDF tải về hiển thị rõ ràng, dễ đọc trong khi Web UI vẫn giữ nguyên công thức LaTeX đẹp mắt.
+
