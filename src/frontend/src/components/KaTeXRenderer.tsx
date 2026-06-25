@@ -106,7 +106,7 @@ function renderLatexSegments(text: string): ReactNode[] {
       parts.push(
         <span
           key={`katex-${keyCounter++}`}
-          className={isDisplay ? "block w-full overflow-x-auto my-2" : "inline-block max-w-full overflow-x-auto align-middle"}
+          className={isDisplay ? "block w-full overflow-x-auto my-2 scrollbar-none" : "inline-block max-w-full align-middle"}
           dangerouslySetInnerHTML={{ __html: html }}
         />
       );
