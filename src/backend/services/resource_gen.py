@@ -53,7 +53,7 @@ class ResourceGenerator:
         value = re.sub(r"===\s*KẾT THÚC.*?===", " ", value, flags=re.IGNORECASE | re.DOTALL)
         value = re.sub(r"\[MÃ ĐỊNH DANH TRANG:\s*\d+\]", " ", value, flags=re.IGNORECASE)
         value = re.sub(r"\bNỘI DUNG:\s*", " ", value, flags=re.IGNORECASE)
-        value = re.sub(r"\b(page|source|chunk_id)\s*:\s*[^,\n]+", " ", value, flags=re.IGNORECASE)
+        value = re.sub(r"\b(page|source|chunk_id|citations|source_file|doc_id)\s*:\s*[^,\n]+", " ", value, flags=re.IGNORECASE)
         if compact:
             return re.sub(r"\s+", " ", value).strip()
         return re.sub(r"[ \t]+", " ", value).replace("\n\n\n", "\n\n").strip()
@@ -144,7 +144,7 @@ class ResourceGenerator:
     def _sanitize_payload(self, value: Any) -> Any:
         """Recursively sanitize public payload strings."""
         if isinstance(value, dict):
-            return {key: self._sanitize_payload(item) for key, item in value.items() if key not in {"page", "source", "chunk_id"}}
+            return {key: self._sanitize_payload(item) for key, item in value.items() if key not in {"page", "source", "chunk_id", "citations", "source_file", "doc_id"}}
         if isinstance(value, list):
             return [self._sanitize_payload(item) for item in value]
         if isinstance(value, str):
