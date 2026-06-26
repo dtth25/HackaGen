@@ -65,12 +65,62 @@ class ResourceGenerator:
         for part in parts:
             if not part:
                 continue
-            if part.startswith('$'):
-                # Inside math blocks, replace literal \n only if it's NOT a LaTeX command starting with n
-                result.append(re.sub(r'\\n(?![eauoisplgw])', '\n', part))
-            else:
-                result.append(part.replace('\\n', '\n'))
+            # Universally protect LaTeX commands starting with 'n' (like \nabla, \neq, \notin) from being split
+            protected = re.sub(
+                r'\\n(?!eq|eg|abla|earrow|warrow|atural|ewline|oindent|ormal|size)', 
+                '\n', 
+                part
+            )
+            result.append(protected)
         return "".join(result)
+
+    def _replace_frac(self, text: str) -> str:
+        """Parse LaTeX \\frac{num}{den} recursively to support nesting and nested braces."""
+        pattern = r'\\frac\b'
+        while True:
+            match = re.search(pattern, text)
+            if not match:
+                break
+            start_idx = match.start()
+            
+            # Find numerator
+            idx = start_idx + 5
+            if idx >= len(text) or text[idx] != '{':
+                # Not a valid frac format, abort to avoid infinite loop
+                break
+            
+            brace_count = 1
+            numerator_start = idx + 1
+            idx += 1
+            while idx < len(text) and brace_count > 0:
+                if text[idx] == '{':
+                    brace_count += 1
+                elif text[idx] == '}':
+                    brace_count -= 1
+                idx += 1
+            if brace_count > 0:
+                break
+            numerator = text[numerator_start:idx-1]
+            
+            # Find denominator
+            if idx >= len(text) or text[idx] != '{':
+                break
+            brace_count = 1
+            denominator_start = idx + 1
+            idx += 1
+            while idx < len(text) and brace_count > 0:
+                if text[idx] == '{':
+                    brace_count += 1
+                elif text[idx] == '}':
+                    brace_count -= 1
+                idx += 1
+            if brace_count > 0:
+                break
+            denominator = text[denominator_start:idx-1]
+            
+            # Replace \frac{num}{den} with (num)/(den)
+            text = text[:start_idx] + f"({numerator})/({denominator})" + text[idx:]
+        return text
 
     def _clean_text_for_pdf(self, text: Any) -> str:
         """Process and clean LaTeX and newline formatting specifically for PDF output."""
@@ -81,7 +131,10 @@ class ResourceGenerator:
         # 1. Replace newlines safely using math-block aware logic
         value = self._replace_newlines_outside_math(value)
         
-        # 2. Convert common LaTeX formulas and symbols to unicode/readable plain text (longest/most specific first)
+        # 2. Parse LaTeX \frac recursively to support nested structures and avoid issues with brackets
+        value = self._replace_frac(value)
+        
+        # 3. Convert common LaTeX formulas and symbols to unicode/readable plain text
         replacements = [
             (r'\\readonly', ''),
             (r'\\mathbb\{R\}', 'R'),
@@ -90,6 +143,33 @@ class ResourceGenerator:
             (r'\\mathbb\{C\}', 'C'),
             (r'\\mathbb\{Z\}', 'Z'),
             (r'\\mathbb\{N\}', 'N'),
+            
+            # Arrows and specific long math commands first (to prevent conflicts like \left matching \leftarrow)
+            (r'\\leftrightarrow', '↔'),
+            (r'\\Leftrightarrow', '⇔'),
+            (r'\\leftarrow', '←'),
+            (r'\\Leftarrow', '⇐'),
+            (r'\\rightarrow', '→'),
+            (r'\\Rightarrow', '⇒'),
+            (r'\\to\b', '→'),
+            
+            # Spacing and brackets cleanups (after arrow checks)
+            (r'\\left', ''),
+            (r'\\right', ''),
+            (r'\\quad', '  '),
+            (r'\\qquad', '    '),
+            
+            # Bold vector mathbf representation
+            (r'\\mathbf\{([^}]+)\}', r'\1'),
+            
+            # Bar / hat decorators
+            (r'\\bar\{?([a-zA-Z])\}?', r'\1' + '\u0304'),  # combining macron
+            (r'\\hat\{?(\\[a-zA-Z]+|[a-zA-Z]+)\}?', r'\1' + '\u0302'),  # Handle hats (ŷ, θ̂, etc.) using combining hat
+            (r'\\mathcal\{([a-zA-Z])\}', r'\1'),  # Convert mathcal{L} to L, etc.
+            
+            # Transpose (must run before general commands strip backslashes)
+            (r'\^?\\top\b', '^T'),
+            
             (r'\\notin', ' không thuộc '),
             (r'\\infty', '∞'),
             (r'\\in', ' thuộc '),
@@ -104,18 +184,55 @@ class ResourceGenerator:
             (r'\\sum_\{([^{}]+)\}^\{([^{}]+)\}', r'Tổng từ \1 đến \2'),
             (r'\\sum', 'Tổng'),
             (r'\\prod', 'Tích'),
-            (r'\\frac\{([^{}]+)\}\{([^{}]+)\}', r'(\1)/(\2)'),
             (r'\\sqrt\{([^{}]+)\}', r'sqrt(\1)'),
+            
+            # Mathematical symbols
+            (r'\\nabla', '∇'),
+            (r'\\partial', '∂'),
+            (r'\\approx', '≈'),
+            (r'\\leq', '≤'),
+            (r'\\le', '≤'),
+            (r'\\geq', '≥'),
+            (r'\\ge', '≥'),
+            (r'\\times', '×'),
+            (r'\\div', '÷'),
+            
+            # Greek alphabet
             (r'\\alpha', 'α'),
             (r'\\beta', 'β'),
             (r'\\gamma', 'γ'),
             (r'\\delta', 'δ'),
+            (r'\\epsilon', 'ε'),
+            (r'\\zeta', 'ζ'),
+            (r'\\eta', 'η'),
             (r'\\theta', 'θ'),
+            (r'\\iota', 'ι'),
+            (r'\\kappa', 'κ'),
             (r'\\lambda', 'λ'),
-            (r'\\sigma', 'σ'),
-            (r'\\omega', 'ω'),
-            (r'\\phi', 'φ'),
+            (r'\\mu', 'μ'),
+            (r'\\nu', 'ν'),
+            (r'\\xi', 'ξ'),
             (r'\\pi', 'π'),
+            (r'\\rho', 'ρ'),
+            (r'\\sigma', 'σ'),
+            (r'\\tau', 'τ'),
+            (r'\\upsilon', 'υ'),
+            (r'\\phi', 'φ'),
+            (r'\\chi', 'χ'),
+            (r'\\psi', 'ψ'),
+            (r'\\omega', 'ω'),
+            
+            # Capital Greek
+            (r'\\Delta', 'Δ'),
+            (r'\\Theta', 'Θ'),
+            (r'\\Lambda', 'Λ'),
+            (r'\\Xi', 'Ξ'),
+            (r'\\Pi', 'Π'),
+            (r'\\Sigma', 'Σ'),
+            (r'\\Phi', 'Φ'),
+            (r'\\Psi', 'Ψ'),
+            (r'\\Omega', 'Ω'),
+            
             (r'\\([a-zA-Z]+)', r'\1'), # strip remaining command backslashes
         ]
         
@@ -871,17 +988,27 @@ class ResourceGenerator:
         from PIL import ImageFont
 
         candidates = [
+            # 1. Preferred Math/Serif fonts (like LaTeX Computer Modern / Times / STIX)
+            "/System/Library/Fonts/Supplemental/STIXGeneralBol.otf" if bold else "/System/Library/Fonts/Supplemental/STIXGeneral.otf",
+            "/usr/share/fonts/opentype/stix/STIXGeneral-Bold.otf" if bold else "/usr/share/fonts/opentype/stix/STIXGeneral-Regular.otf",
+            
+            "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf",
+            
+            "/System/Library/Fonts/Supplemental/Times New Roman Bold.ttf" if bold else "/System/Library/Fonts/Supplemental/Times New Roman.ttf",
+            "C:/Windows/Fonts/timesbd.ttf" if bold else "C:/Windows/Fonts/times.ttf",
+            "/usr/share/fonts/truetype/liberation/LiberationSerif-Bold.ttf" if bold else "/usr/share/fonts/truetype/liberation/LiberationSerif-Regular.ttf",
+            
+            # 2. Fallbacks
             "C:/Windows/Fonts/arialbd.ttf" if bold else "C:/Windows/Fonts/arial.ttf",
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
-            if bold
-            else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-            "/System/Library/Fonts/Supplemental/Arial Bold.ttf"
-            if bold
-            else "/System/Library/Fonts/Supplemental/Arial.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/System/Library/Fonts/Supplemental/Arial Bold.ttf" if bold else "/System/Library/Fonts/Supplemental/Arial.ttf",
         ]
         for candidate in candidates:
             if candidate and os.path.exists(candidate):
-                return ImageFont.truetype(candidate, size)
+                try:
+                    return ImageFont.truetype(candidate, size)
+                except Exception:
+                    continue
         return ImageFont.load_default()
 
     def _wrap_lines(self, text: str, width: int) -> list[str]:
