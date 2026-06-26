@@ -552,11 +552,16 @@ class ResourceGenerator:
             except Exception as e:
                 last_error = e
                 error_str = str(e)
-                if "429" in error_str and attempt < max_attempts - 1:
-                    sleep_time = backoff * (2 ** attempt)
-                    logger.warning("NIM API 429 rate limit hit for %s. Retrying in %.1fs... (Attempt %d/%d)", 
-                                   lesson_title, sleep_time, attempt + 1, max_attempts)
-                    await asyncio.sleep(sleep_time)
+                if attempt < max_attempts - 1:
+                    if "429" in error_str:
+                        sleep_time = backoff * (2 ** attempt)
+                        logger.warning("NIM API 429 rate limit hit for %s. Retrying in %.1fs... (Attempt %d/%d)", 
+                                       lesson_title, sleep_time, attempt + 1, max_attempts)
+                        await asyncio.sleep(sleep_time)
+                    else:
+                        logger.warning("Failed generating or parsing lesson content for %s: %s. Retrying in 1.0s... (Attempt %d/%d)", 
+                                       lesson_title, error_str, attempt + 1, max_attempts)
+                        await asyncio.sleep(1.0)
                     continue
                 break
 
