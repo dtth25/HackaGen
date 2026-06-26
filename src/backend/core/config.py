@@ -180,12 +180,31 @@ def repair_json_quotes_and_commas(s: str) -> str:
     n = len(s)
     out = []
     in_string = False
+    stack = []  # Keep track of 'object' or 'array' context
     i = 0
     
     while i < n:
         c = s[i]
         if not in_string:
-            if c == '"':
+            if c == '{':
+                stack.append('object')
+                out.append(c)
+                i += 1
+            elif c == '}':
+                if stack and stack[-1] == 'object':
+                    stack.pop()
+                out.append(c)
+                i += 1
+            elif c == '[':
+                stack.append('array')
+                out.append(c)
+                i += 1
+            elif c == ']':
+                if stack and stack[-1] == 'array':
+                    stack.pop()
+                out.append(c)
+                i += 1
+            elif c == '"':
                 in_string = True
                 out.append(c)
                 i += 1
@@ -222,15 +241,45 @@ def repair_json_quotes_and_commas(s: str) -> str:
                 is_closing = False
                 if j == n:
                     is_closing = True
-                elif s[j] in ('}', ']', ':'):
+                elif s[j] in ('}', ']'):
+                    is_closing = True
+                elif s[j] == ':':
                     is_closing = True
                 elif s[j] == ',':
                     # Look ahead after comma
                     k = j + 1
                     while k < n and s[k].isspace():
                         k += 1
-                    if k == n or s[k] in ('"', '}', ']'):
+                    if k == n or s[k] in ('}', ']'):
                         is_closing = True
+                    elif s[k] == '"':
+                        # We see a quote after comma.
+                        # Is it a key of an object or an element of an array?
+                        current_context = stack[-1] if stack else 'object'
+                        if current_context == 'array':
+                            # In an array, elements are just values, so this is a closing quote
+                            is_closing = True
+                        else:
+                            # In an object, the next string must be a key, so it must be followed by ':'
+                            # Let's find the closing quote of this potential key
+                            key_close = k + 1
+                            found_close = False
+                            while key_close < n:
+                                if s[key_close] == '\\':
+                                    key_close += 2
+                                elif s[key_close] == '"':
+                                    found_close = True
+                                    break
+                                else:
+                                    key_close += 1
+                            
+                            if found_close:
+                                # Now check if the next non-whitespace character after the closing quote is ':'
+                                next_after_key = key_close + 1
+                                while next_after_key < n and s[next_after_key].isspace():
+                                    next_after_key += 1
+                                if next_after_key < n and s[next_after_key] == ':':
+                                    is_closing = True
                 
                 if is_closing:
                     in_string = False
@@ -249,9 +298,7 @@ def repair_json_quotes_and_commas(s: str) -> str:
 
 def extract_json(text: Any) -> str:
     """Extract JSON array/object from LLM text output."""
-    text_str = str(text)
-    # Remove markdown code fences
-    text_str = re.sub(r'```json|```', '', text_str, flags=re.IGNORECASE).strip()
+    text_str = str(text).strip()
     # Grab the first outermost [...] or {...} block
     match = re.search(r"(\[.*\]|\{.*\})", text_str, re.DOTALL)
     if match:
@@ -272,8 +319,8 @@ def extract_json(text: Any) -> str:
         extracted = repair_json_quotes_and_commas(extracted)
 
         # 3. Sửa lỗi thoát (escape) ký tự backslash không hợp lệ (ví dụ trong công thức LaTeX \sum, \in)
-        # Chỉ coi b, f, n, r, t là ký tự thoát JSON hợp lệ nếu chúng KHÔNG được theo sau bởi một chữ cái (ví dụ \neq, \theta, \frac)
-        pattern = r'(?<!\\)\\(?!"|\\|/|(?:b|f|n|r|t)(?![a-zA-Z])|u[0-9a-fA-F]{4})'
+        # Chỉ coi b, f, n, r, t là ký tự thoát JSON hợp lệ nếu chúng KHÔNG được theo sau bởi tên lệnh LaTeX bắt đầu bằng ký tự đó
+        pattern = r'(?<!\\)\\(?!"|\\|/|b(?!eta|ar|egin|oldsymbol|mod)|f(?!rac|orall)|n(?!eq|otin|abla)|r(?!ightarrow|ho|ight)|t(?!o|au|heta|ilde|ext|imes)|u[0-9a-fA-F]{4})'
         return re.sub(pattern, r'\\\\', extracted)
     return "[]"
 
