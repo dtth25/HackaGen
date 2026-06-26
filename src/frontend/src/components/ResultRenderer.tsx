@@ -329,7 +329,7 @@ export function MarkdownBlock({ content }: { content: string }) {
     const trimmed = line.trim();
 
     // Handle Code Block
-    if (trimmed.startsWith("```")) {
+    if (trimmed.startsWith("```") || (inCodeBlock && trimmed.startsWith("``"))) {
       if (inCodeBlock) {
         flushCodeBlock();
       } else {
