@@ -1,0 +1,201 @@
+{
+  "document_id": "ec96f8025e87",
+  "title": "Sơ đồ tư duy tài liệu",
+  "description": "Sơ đồ kiến thức rút gọn (2-3 tầng) được tổng hợp từ ngữ cảnh sạch của tài liệu.",
+  "root": {
+    "id": "root",
+    "title": "Sơ đồ tư duy tài liệu",
+    "summary": "Sơ đồ khái niệm rút gọn từ các đoạn văn bản sạch nhất của tài liệu.",
+    "type": "root",
+    "importance": "high",
+    "source_chunk_ids": [
+      "chunk_0",
+      "chunk_1",
+      "chunk_2",
+      "chunk_3"
+    ],
+    "children": [
+      "ch_1",
+      "ch_2",
+      "ch_3",
+      "ch_4"
+    ]
+  },
+  "nodes": [
+    {
+      "id": "les_1_1",
+      "parent_id": "ch_1",
+      "title": "Nội dung 1.1",
+      "summary": "IOAI 2025 Syllabus The International Olympiad in Artificial Intelligence (IOAI) is a premier global competition for high school students, aiming to cu",
+      "type": "lesson",
+      "importance": "medium",
+      "keywords": [
+        "Ioai 2025 syllabus the international olympiad in artificial"
+      ],
+      "source_chunk_ids": [
+        "chunk_0"
+      ],
+      "children": []
+    },
+    {
+      "id": "ch_1",
+      "parent_id": "root",
+      "title": "Ioai 2025 syllabus the international olympiad in artificial",
+      "summary": "IOAI 2025 Syllabus The International Olympiad in Artificial Intelligence (IOAI) is a premier global…",
+      "type": "chapter",
+      "importance": "high",
+      "keywords": [
+        "Ioai 2025 syllabus the international olympiad in artificial"
+      ],
+      "source_chunk_ids": [
+        "chunk_0"
+      ],
+      "children": [
+        "les_1_1"
+      ]
+    },
+    {
+      "id": "les_2_1",
+      "parent_id": "ch_2",
+      "title": "Nội dung 2.1",
+      "summary": "Section 1: Foundational Skills & Classical Machine Learning Topic Subtopic Category Programming Fundamentals Python Basics (Loops, Functions, etc.) Pr",
+      "type": "lesson",
+      "importance": "medium",
+      "keywords": [
+        "Section 1 foundational skills classical machine learning topic"
+      ],
+      "source_chunk_ids": [
+        "chunk_1"
+      ],
+      "children": []
+    },
+    {
+      "id": "ch_2",
+      "parent_id": "root",
+      "title": "Section 1 foundational skills classical machine learning topic",
+      "summary": "Section 1: Foundational Skills & Classical Machine Learning Topic Subtopic Category Programming Fund…",
+      "type": "chapter",
+      "importance": "high",
+      "keywords": [
+        "Section 1 foundational skills classical machine learning topic"
+      ],
+      "source_chunk_ids": [
+        "chunk_1"
+      ],
+      "children": [
+        "les_2_1"
+      ]
+    },
+    {
+      "id": "les_3_1",
+      "parent_id": "ch_3",
+      "title": "Nội dung 3.1",
+      "summary": "Section 2: Neural Networks & Deep Learning Topic Subtopic Category Neural Networks Perceptron Basics Both Gradient Descent Both Backpropagation Both A",
+      "type": "lesson",
+      "importance": "medium",
+      "keywords": [
+        "Section 2 neural networks deep learning topic subtopic"
+      ],
+      "source_chunk_ids": [
+        "chunk_2"
+      ],
+      "children": []
+    },
+    {
+      "id": "ch_3",
+      "parent_id": "root",
+      "title": "Section 2 neural networks deep learning topic subtopic",
+      "summary": "Section 2: Neural Networks & Deep Learning Topic Subtopic Category Neural Networks Perceptron Basics…",
+      "type": "chapter",
+      "importance": "high",
+      "keywords": [
+        "Section 2 neural networks deep learning topic subtopic"
+      ],
+      "source_chunk_ids": [
+        "chunk_2"
+      ],
+      "children": [
+        "les_3_1"
+      ]
+    },
+    {
+      "id": "les_4_1",
+      "parent_id": "ch_4",
+      "title": "Nội dung 4.1",
+      "summary": "Section 3: Computer Vision Section 4: Natural Language Processing Computer Vision Fundamentals of Convolutional Layers Both Pooling Techniques (Max, A",
+      "type": "lesson",
+      "importance": "medium",
+      "keywords": [
+        "Section 3 computer vision section 4 natural language"
+      ],
+      "source_chunk_ids": [
+        "chunk_3"
+      ],
+      "children": []
+    },
+    {
+      "id": "ch_4",
+      "parent_id": "root",
+      "title": "Section 3 computer vision section 4 natural language",
+      "summary": "Section 3: Computer Vision Section 4: Natural Language Processing Computer Vision Fundamentals of Co…",
+      "type": "chapter",
+      "importance": "high",
+      "keywords": [
+        "Section 3 computer vision section 4 natural language"
+      ],
+      "source_chunk_ids": [
+        "chunk_3"
+      ],
+      "children": [
+        "les_4_1"
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "root",
+      "to": "ch_1",
+      "relation": "contains"
+    },
+    {
+      "from": "ch_1",
+      "to": "les_1_1",
+      "relation": "contains"
+    },
+    {
+      "from": "root",
+      "to": "ch_2",
+      "relation": "contains"
+    },
+    {
+      "from": "ch_2",
+      "to": "les_2_1",
+      "relation": "contains"
+    },
+    {
+      "from": "root",
+      "to": "ch_3",
+      "relation": "contains"
+    },
+    {
+      "from": "ch_3",
+      "to": "les_3_1",
+      "relation": "contains"
+    },
+    {
+      "from": "root",
+      "to": "ch_4",
+      "relation": "contains"
+    },
+    {
+      "from": "ch_4",
+      "to": "les_4_1",
+      "relation": "contains"
+    }
+  ],
+  "quality_report": {
+    "score": 92,
+    "is_usable": true,
+    "warnings": []
+  }
+}

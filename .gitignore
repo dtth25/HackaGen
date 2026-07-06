@@ -53,9 +53,30 @@ src/uploads/
 src/books/
 src/cache/
 src/indices/
+src/memory/
 src/questions/
 src/slides/
 src/videos/
+src/backend/books/
+src/backend/cache/
+src/backend/indices/
+src/backend/memory/
+src/backend/questions/
+src/backend/slides/
+src/backend/uploads/
+src/backend/videos/
+
+# Scratch & temporary
+scratch/
+claude_skill_build/
+claude-desktop-skills/
+skill_upload_clean/
+
+# Local tooling
+make_skill_zip.py
+study-pack-upgrade.zip
+CLAUDE.md
+powershell.cmd
 
 # Logs
 *.log

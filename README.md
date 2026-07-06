@@ -1,6 +1,8 @@
 # DTTH-Hackathon-2026 AI Course Generator
 
-Biến một hoặc nhiều tài liệu PDF, DOCX, TXT thành một **Document-to-Study-Pack**: Study Guide PDF là trung tâm, kèm quiz, mindmap, flashcards, summary và các output tùy chọn như slides/video.
+AI Course Generator biến một hoặc nhiều tài liệu `.pdf`, `.docx`, `.txt` thành một **Document-to-Study-Pack**: Study Guide/Book là trung tâm, kèm Mindmap, Quiz, Flashcards, High-yield Summary, Slide và Vid.
+
+Code hiện tại là source of truth. README này mô tả đúng flow đang chạy trong repo: Chroma local, Auth v2, FastAPI backend, Next.js frontend và các generated artifacts lưu trên filesystem local.
 
 ## Tech Stack
 
@@ -9,16 +11,180 @@ Biến một hoặc nhiều tài liệu PDF, DOCX, TXT thành một **Document-t
 | Frontend | Next.js App Router, React 19, Tailwind CSS v4, shadcn/base-ui, lucide-react |
 | Backend | FastAPI, Python 3.11+, LangChain |
 | Dependency | `uv` cho backend, npm cho frontend |
-| Vector DB | Chroma local persistent DB, mandatory for hackathon demo |
+| Vector DB | Chroma local persistent DB, bắt buộc cho local/dev demo |
 | Persistence | Local filesystem JSON/generated files |
-| AI Model | Gemini `gemini-2.5-flash` |
-| Embedding | Gemini `models/embedding-001` via LangChain batch embeddings |
+| Auth | JWT bearer token + HttpOnly cookie, user ownership, admin routes |
+| AI Model | Gemini, mặc định `gemini-2.5-flash` qua model routing |
+| Embedding | Gemini embedding qua LangChain batch embeddings |
 
-## Production architecture roadmap
+## Product Surface
 
-Mục tiêu architecture mới là giữ local/dev chạy nhẹ cho demo, nhưng tách provider để có thể nâng cấp thành production web product mà không rewrite toàn bộ codebase.
+- **Study Pack Dashboard:** View tổng hợp từ cùng một document/course: Study Guide/Book, Mindmap, Quiz, Flashcards, Summary, readiness, quality scores và grounding.
+- **Book / Study Guide:** View theo chương/bài và file PDF download.
+- **Mindmap:** Sơ đồ 3-level interactive, có endpoint get/regenerate theo course.
+- **Quiz:** MCQ tương tác; đáp án/explanation chỉ hiện khi người học review hoặc submit; có answer-key PDF.
+- **Flashcards:** Deck ôn tập từ book plan/saved deck hoặc regenerate theo course.
+- **Summary:** High-yield summary trong Study Pack, không có legacy standalone generate endpoint.
+- **Slide:** Viewer từng slide và file PPTX download.
+- **Vid:** Video dạng slide + voiceover, metadata JSON và MP4 download hoặc lỗi render rõ ràng.
 
-### Local/dev mode hiện tại
+Book, Slide, Quiz và Vid là 4 endpoint generation trực tiếp. Mindmap, Flashcards và Summary là thành phần Study Pack/course-scoped, không phải chat/custom prompt tự do.
+
+## Prerequisites
+
+Cài các công cụ sau trước khi setup từ máy sạch:
+
+- Python 3.11+.
+- `uv`.
+- Node.js 20+ và npm.
+- Gemini API key (`GOOGLE_API_KEY`).
+- Windows: cài **Microsoft C++ Build Tools** với workload "Desktop development with C++". Chroma phụ thuộc `chroma-hnswlib`; trên một số máy Windows package này phải build native wheel và sẽ fail nếu thiếu C++ toolchain.
+- Docker Desktop nếu muốn chạy backend bằng Docker.
+
+Kiểm tra nhanh:
+
+```bash
+python --version
+uv --version
+node --version
+npm --version
+```
+
+## Environment Setup
+
+Tạo file env ở root repo:
+
+Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env -Force
+```
+
+macOS/Linux:
+
+```bash
+cp .env.example .env
+```
+
+Sửa `.env` và điền ít nhất:
+
+```bash
+GOOGLE_API_KEY=your_gemini_api_key_here
+JWT_SECRET=change-this-dev-secret
+VECTOR_DB_PROVIDER=chroma
+CHROMA_PERSIST_DIR=./data/chroma
+CHROMA_COLLECTION_NAME=ai_course_chunks
+DATABASE_URL=sqlite:///./data/app.db
+```
+
+Nếu muốn bootstrap admin local/dev:
+
+```bash
+CREATE_DEFAULT_ADMIN=true
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=change-this-password
+```
+
+Preset model có sẵn dưới dạng file example. Copy preset rồi sửa key/secrets nếu cần:
+
+Windows PowerShell:
+
+```powershell
+# Flash mode: nhanh, tiết kiệm quota
+Copy-Item .env.flash.example .env -Force
+
+# Pro mode: chất lượng cao hơn cho một số tác vụ
+Copy-Item .env.pro.example .env -Force
+```
+
+macOS/Linux:
+
+```bash
+cp .env.flash.example .env
+cp .env.pro.example .env
+```
+
+Backend tự load `.env` từ root repo, `src/`, hoặc `src/backend/`. Khởi động lại backend sau khi đổi env để log `[Startup Config]` hiển thị model đang active.
+
+## Backend Runbook
+
+One-time setup:
+
+```bash
+cd src/backend
+uv sync --all-extras
+```
+
+Chạy backend từ thư mục `src` để import path `backend.main` khớp package hiện tại:
+
+```bash
+cd ..
+uv run --project backend uvicorn backend.main:app --reload --port 8000
+```
+
+Backend chạy tại `http://127.0.0.1:8000`.
+
+Kiểm tra readiness:
+
+```bash
+curl http://127.0.0.1:8000/health
+```
+
+Nếu `/health` trả `vector_db.ready=false`, kiểm tra lại `chromadb`, `CHROMA_PERSIST_DIR` và C++ Build Tools trên Windows. Backend vẫn có thể trả health, nhưng upload/generate sẽ fail cho tới khi Chroma ready.
+
+## Frontend Runbook
+
+One-time setup:
+
+```bash
+cd src/frontend
+npm install
+```
+
+Run dev:
+
+```bash
+npm run dev
+```
+
+Frontend chạy tại `http://localhost:3000`.
+
+Frontend gọi backend qua Next.js proxy `/api/backend/*`. Nếu backend không chạy ở `http://127.0.0.1:8000`, set biến server-side cho frontend:
+
+```bash
+BACKEND_API_BASE_URL=http://127.0.0.1:8001
+```
+
+`NEXT_PUBLIC_API_BASE_URL` vẫn được hỗ trợ như alias cũ, nhưng `BACKEND_API_BASE_URL` là biến nên dùng cho proxy hiện tại.
+
+Demo production mode để không thấy Next.js dev indicator:
+
+```bash
+npm run build
+npm run start
+```
+
+## First User Flow
+
+1. Mở `http://localhost:3000/register` để tạo user, hoặc bật `CREATE_DEFAULT_ADMIN=true` rồi đăng nhập admin.
+2. Upload một hoặc nhiều file `.pdf`, `.docx`, `.txt`.
+3. Poll status đến khi document/course `completed` hoặc `ready`.
+4. Mở dashboard Study Pack hoặc generate Book, Slide, Quiz, Vid.
+5. Kiểm tra download: Book PDF, Slide PPTX, Quiz answer-key PDF, Vid MP4 nếu render thành công.
+
+## Docker Backend Option
+
+```bash
+cp .env.example .env
+# Sửa .env và điền GOOGLE_API_KEY/JWT_SECRET
+docker compose up --build backend
+```
+
+Runtime files khi chạy Docker được mount vào `runtime/`. Docker compose hiện chỉ chạy backend; frontend vẫn chạy bằng npm ở `src/frontend`.
+
+## Local Architecture
+
+Local/dev mode hiện tại:
 
 - Frontend: Next.js App Router trong `src/frontend`.
 - Backend: FastAPI trong `src/backend`.
@@ -26,19 +192,10 @@ Mục tiêu architecture mới là giữ local/dev chạy nhẹ cho demo, nhưng
 - File storage: `STORAGE_PROVIDER=local`, upload/generated files lưu trên filesystem.
 - Job queue: `JOB_QUEUE_PROVIDER=inline`, chạy background bằng local thread.
 - Cache: `CACHE_PROVIDER=local`, document hash/cache embedding dùng file JSON/local files.
-- Database: SQLite qua `DATABASE_URL=sqlite:///./data/app.db` hoặc fallback local cũ.
-- Auth: JWT bearer token + HttpOnly cookie cho local/dev; admin user management có bootstrap admin tùy env.
+- Database: SQLite qua `DATABASE_URL`.
+- Auth: Bearer JWT + HttpOnly cookie; protected APIs require active user.
 
-### Production mode sau này
-
-- Database: chuyển `DATABASE_URL` sang Postgres để lưu users, documents, jobs, outputs, usage, metadata.
-- Worker queue: thay `JOB_QUEUE_PROVIDER=inline` bằng `redis_celery`, `rq` hoặc `arq` khi triển khai worker thật.
-- Cache: thay `CACHE_PROVIDER=local` bằng Redis để share cache giữa nhiều backend/worker.
-- Storage: thay `STORAGE_PROVIDER=local` bằng S3 hoặc Cloudflare R2 cho uploads và generated outputs.
-- Vector DB: giữ Chroma cho local/dev; thêm provider Milvus/Qdrant/pgvector phía sau interface `VectorStore`.
-- Admin: xây route quản trị users, documents, failed jobs, usage và retry queue dựa trên job/document metadata.
-
-### Provider-based extension points
+Provider extension points:
 
 - Vector store interface: `src/backend/vector_db/base.py`.
 - Vector provider facade: `src/backend/vector_db/manager.py`.
@@ -46,194 +203,47 @@ Mục tiêu architecture mới là giữ local/dev chạy nhẹ cho demo, nhưng
 - Job queue interface: `src/backend/services/jobs.py`.
 - Cache interface: `src/backend/services/cache.py`.
 
-### Cách switch provider
+Production providers như Postgres, Redis worker/cache, S3/R2 storage, Qdrant/Milvus/pgvector chỉ là hướng mở rộng. Nếu chọn provider chưa implement, backend phải báo lỗi rõ, không fallback âm thầm sang local.
 
-Local mặc định:
+## Chroma Notes
 
-```bash
-VECTOR_DB_PROVIDER=chroma
-STORAGE_PROVIDER=local
-JOB_QUEUE_PROVIDER=inline
-CACHE_PROVIDER=local
-DATABASE_URL=sqlite:///./data/app.db
-```
+Chroma là vector database bắt buộc cho local/dev. Nếu `VECTOR_DB_PROVIDER` unset, backend mặc định dùng `chroma`.
 
-Production provider chưa được implement sẽ báo lỗi rõ nếu chọn nhầm. Không có fallback âm thầm từ S3/Redis/Postgres về local, để tránh demo pass giả nhưng production sai.
+FAISS không phải provider chính trong flow hiện tại. `src/backend/vector_db/faiss_manager.py` còn trong repo cho legacy tests/migration reference. Setting `VECTOR_DB_PROVIDER=faiss` hoặc `simple_dev_only` được normalize về `chroma` với warning.
 
-## Public Outputs
+Chroma được dùng vì app cần:
 
-- **Book:** View theo chương/bài và file PDF download.
-- **Slide:** Viewer từng slide và file PPTX download.
-- **Quiz:** MCQ tương tác, đáp án chỉ hiện khi người học yêu cầu hoặc sau khi nộp bài, kèm file key đáp án.
-- **Vid:** Video học tập dạng slide + voiceover và MP4 download.
+- Persistent collection local.
+- Filter theo `document_id` và `user_id`.
+- Metadata `chunk_type`, `quality_score`, `use_for_generation`.
+- Delete/copy document chunks cho ownership và duplicate-upload cache.
 
-## Backend Runbook
-
-### One-time setup
-
-```bash
-cd src/backend
-uv sync --all-extras
-```
-
-Tạo environment cho Gemini:
-
-```bash
-export GOOGLE_API_KEY="your_gemini_api_key_here"
-```
-
-Trên Windows PowerShell:
-
-```powershell
-$env:GOOGLE_API_KEY="your_gemini_api_key_here"
-```
-
-### Switching Gemini model presets (Flash vs Pro)
-
-Model routing dùng các biến `GEMINI_*_MODEL` (xem `.env.example`) để chọn model Gemini riêng cho từng loại tác vụ sinh nội dung (`GEMINI_BOOK_MODEL`, `GEMINI_SLIDE_MODEL`, `GEMINI_QUIZ_MODEL`, `GEMINI_FLASHCARD_MODEL`, `GEMINI_MINDMAP_MODEL`, `GEMINI_SUMMARY_MODEL`, `GEMINI_VIDEO_MODEL`, `GEMINI_COURSE_MODEL`, `GEMINI_QUALITY_MODEL`), với `GEMINI_DEFAULT_MODEL` rồi `GEMINI_FAST_MODEL` làm fallback nếu một biến task cụ thể chưa được set. Embeddings luôn dùng riêng `GEMINI_EMBEDDING_MODEL`.
-
-Hai preset có sẵn: `.env.flash` (nhanh, tiết kiệm quota) và `.env.pro` (chất lượng cao hơn cho Book/Slide/Video). Copy file preset đè lên `.env` đang dùng:
-
-Windows PowerShell (chạy tại thư mục gốc repo, hoặc `src/backend` nếu bạn giữ preset riêng cho backend):
-
-```powershell
-# Mode Flash (nhanh, tiết kiệm)
-Copy-Item .env.flash .env -Force
-
-# Mode Pro (chất lượng cao)
-Copy-Item .env.pro .env -Force
-```
-
-macOS/Linux:
-
-```bash
-cp .env.flash .env   # Flash mode
-cp .env.pro .env     # Pro mode
-```
-
-Khởi động lại backend sau khi đổi preset để log `[Startup Config]` in ra model đang active cho từng tác vụ.
-
-### Every-time run
-
-Chạy từ thư mục `src` để import path `backend.main` khớp package hiện tại:
-
-```bash
-cd src
-uv run --project backend uvicorn backend.main:app --reload --port 8000
-```
-
-Backend chạy tại `http://localhost:8000`.
-
-## Frontend Runbook
-
-```bash
-cd src/frontend
-npm install
-npm run dev
-```
-
-Frontend chạy tại `http://localhost:3000`. Nếu backend không chạy ở port mặc định, set `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000` cho Next.js. `BACKEND_API_BASE_URL` vẫn được hỗ trợ như alias server-side cũ.
-
-Khi demo cho người dùng, chạy production mode để không thấy Next.js dev indicator:
-
-```bash
-cd src/frontend
-npm run build
-npm run start
-```
-
-## Docker Backend Option
-
-```bash
-cp .env.example .env
-# Sửa .env và điền GOOGLE_API_KEY
-docker compose up --build backend
-```
-
-Runtime files khi chạy Docker được mount vào `runtime/`.
-
-## Using Chroma For Local Hackathon Demo
-
-**Chroma is the required local/dev vector database.** It is the default provider — if
-`VECTOR_DB_PROVIDER` is unset, the backend defaults to `chroma`. Chroma is used because
-this app needs more than plain similarity search: persistent collections with
-`document_id`/`user_id` metadata filtering, per-chunk `chunk_type`/`quality_score`
-tagging, and clean per-document delete — all of which Chroma supports natively.
-
-**FAISS is not the main vector database and is not used at all in the current provider
-path.** `src/backend/vector_db/faiss_manager.py` remains in the repo only for legacy
-tests/migration reference. Setting `VECTOR_DB_PROVIDER=faiss` (or `simple_dev_only`) is
-normalized back to `chroma` with a warning — it is never a silent fallback. FAISS could
-be wired back in later as an *optional, experimental* fallback provider, but that is not
-implemented today. Future **production** vector providers (Qdrant, Milvus, or Postgres
-`pgvector`) are reserved behind the same `VectorStore` interface and are also not
-implemented for local/dev — selecting them reports the vector DB as not ready rather
-than silently falling back to a fake store.
-
-If Chroma is not installed or cannot initialize, `/health` returns
-`vector_db.ready=false` (and legacy `vector_db_ready=false`) with a clear error, and the
-backend keeps running instead of crashing — other endpoints still respond, but any
-Chroma-dependent operation (upload/generate) fails with an explicit message.
-
-Environment:
-
-```bash
-VECTOR_DB_PROVIDER=chroma
-CHROMA_PERSIST_DIR=./data/chroma
-CHROMA_COLLECTION_NAME=ai_course_chunks
-```
-
-`/health` response shape:
-
-```json
-{
-  "status": "ok",
-  "vector_db": {
-    "provider": "chroma",
-    "ready": true,
-    "collection": "ai_course_chunks",
-    "persist_dir": "./data/chroma"
-  }
-}
-```
-
-Install and run:
-
-```bash
-cd src/backend
-uv sync --all-extras
-cd ..
-uv run --project backend uvicorn backend.main:app --reload --port 8000
-```
-
-Chroma data is stored under `src/data/chroma` when the backend is started from `src`. To
-clear local demo vectors, stop the backend and delete that folder, or (dev/debug only —
-never call this from a normal request handler) `ChromaVectorStore().reset_collection()`,
-which drops and recreates the whole collection.
-
-Duplicate-upload handling is also tied to the local Chroma path:
-
-- File hash cache reuses an already processed document by copying existing Chroma chunks/vectors into the new `document_id` (re-tagged with the requesting user's `user_id`, not the original uploader's).
-- Chunk hash cache avoids re-embedding identical chunks.
-- Retrieval requires a `document_id` filter so outputs do not mix chunks from different uploaded documents; if a document has an owning `user_id`, that is filtered too.
-- Every chunk stores `chunk_type` (`toc | noisy | body | definition | example | code | formula | exercise | summary`), `quality_score`, and `use_for_generation`. Generation retrieval excludes `toc`/`noisy` chunks and `use_for_generation=false` chunks by default, over-fetches, deduplicates near-identical text, and caps how many chunks come from the same page — debug/review endpoints can still request the unfiltered set.
+Data mặc định nằm dưới `src/data/chroma` nếu backend start từ `src`. Muốn clear demo vectors thì stop backend rồi xóa folder đó.
 
 ## API Flow
 
-1. `POST /api/upload` với multipart field **`files`** để upload một hoặc nhiều tài liệu vào cùng một `course_id`/`document_id`.
-2. Legacy field **`file`** vẫn được hỗ trợ cho single-file client cũ.
-3. `GET /documents/{document_id}/status` hoặc `GET /api/course/{course_id}/status` để poll đến khi `completed`/`ready`.
-4. Gọi một trong 4 endpoint generation qua FastAPI.
-5. Frontend render artifact; Book/Slide/Quiz/Vid đều có download tương ứng khi tạo xong.
-
 Các route chính:
-- Readiness: `/health`.
-- Auth: `/auth/register`, `/auth/login`, `/auth/logout`, `/auth/me` (also under `/api/auth/...`).
+
+- Readiness: `GET /health`.
+- Auth: `/auth/register`, `/auth/login`, `/auth/logout`, `/auth/me` và alias `/api/auth/...`.
 - Admin users: `/admin/users`, `/admin/users/{user_id}`, `/admin/users/{user_id}/disable|enable|make-admin|make-user|reset-password`.
-- Health/management: `/api/health`, `/api/courses`, `/api/courses/all`, `DELETE /api/courses/{course_id}`.
-- Upload/status: `/api/upload`, `/documents/{document_id}/status`, `/api/course/{course_id}/status`.
-- Generation: `/api/generate-book`, `/api/generate-slide`, `/api/generate-quiz`, `/api/generate-vid`.
-- Saved artifacts: `/api/course/{course_id}/book`, `/book.pdf`, `/slide`, `/slide.pptx`, `/quiz`, `/quiz-key.pdf`, `/vid`, `/vid/file`, `/files`, `/stats`.
+- Upload/status: `POST /api/upload`, `GET /documents/{document_id}/status`, `GET /api/course/{course_id}/status`.
+- Source grounding: `GET /documents/{document_id}/sources`, alias `/api/documents/{document_id}/sources`.
+- Direct generation: `POST /api/generate-book`, `/api/generate-slide`, `/api/generate-quiz`, `/api/generate-vid`.
+- Study Pack/course outputs: `/api/course/{course_id}/study-pack`, `/mindmap`, `/mindmap/regenerate`, `/flashcards`, `/flashcards/regenerate`, `/readiness`, `/stats`.
+- Saved artifacts: `/api/course/{course_id}/book`, `/book.pdf`, `/slide`, `/slide.pptx`, `/quiz`, `/quiz-key.pdf`, `/vid`, `/vid/file`, `/files`.
+- Delete: `DELETE /api/courses/{course_id}`, `DELETE /api/documents/{document_id}`, `DELETE /documents/{document_id}`.
+
+Upload dùng multipart field `files` cho multi-document. Legacy field `file` vẫn được hỗ trợ cho single-file client cũ.
+
+## Security & Metadata Policy
+
+- Frontend không gọi Gemini/LLM trực tiếp. Mọi AI call đi qua FastAPI.
+- Upload/generation/output/delete yêu cầu active user, trừ health/demo public routes được đánh dấu rõ.
+- User thường chỉ truy cập document/output của mình; admin có quyền quản trị/hỗ trợ.
+- Generation response không được lộ raw/internal `source`, `chunk_id`, `citations` hoặc debug markers.
+- `source_chunk_ids` được giữ trong artifact metadata để UI truy vấn grounding.
+- Source panel có thể hiển thị `page` + excerpt sạch; `source_chunk_id` chỉ hiện khi developer mode bật và requester là admin.
 
 ## Test Gates
 
@@ -254,21 +264,27 @@ npm run build
 ```
 
 Manual smoke trước demo:
+
+- Register/login thành công.
 - Upload ít nhất 2 tài liệu.
 - Poll đến khi tài liệu sẵn sàng.
+- Dashboard Study Pack hiển thị Book, Mindmap, Quiz, Flashcards, Summary/readiness/grounding.
 - Generate đủ Book, Slide, Quiz, Vid.
 - Generate output mới không làm mất output cũ.
-- Slide có Next/Previous và download.
-- Quiz chọn đáp án được, không lộ đáp án trước submit.
+- Slide có Next/Previous và PPTX download.
+- Quiz chọn đáp án được, không lộ đáp án/explanation trước submit/review.
 - Book đọc được trong web và tải PDF được.
 - Vid trả player/download MP4 hoặc lỗi rõ ràng nếu render thất bại.
+- User A không truy cập được document/output của User B; admin có thể hỗ trợ/quản trị.
 
 ## Non-Negotiable Gates
 
-1. **Only 4 Outputs:** Public API/UI/docs chỉ có Book, Slide, Quiz, Vid.
-2. **No Additional Chats:** Không có chat tự do hoặc custom prompt độc lập.
-3. **No Public Source Metadata:** Public API không trả `page`, `source`, `chunk_id`, `citations`.
-4. **Grounded Generation:** Output phải dựa trên retrieved chunks từ Chroma.
-5. **Auth & Ownership:** Upload/generation/output APIs require an active user; regular users only access their own documents, while admins can manage users and support document access.
-6. **File validation:** Chỉ chấp nhận `.pdf`, `.docx`, `.txt`, không file rỗng, không quá 50MB mỗi file.
-7. **Backend-only AI:** Frontend không gọi LLM trực tiếp.
+1. **Connected Study Pack:** Study Guide/Book, Mindmap, Quiz, Flashcards, Summary, readiness/quality/grounding phải xuất phát từ cùng nguồn cấu trúc.
+2. **Four Direct Generation Endpoints:** Book, Slide, Quiz, Vid là các endpoint generation trực tiếp; Mindmap/Flashcards/Summary là course-scoped Study Pack components.
+3. **No Additional Chats:** Không có chat tự do hoặc custom prompt độc lập ngoài hệ sinh thái Study Pack.
+4. **No Raw Public Source Metadata:** Generation response không lộ raw/internal `source`, `chunk_id`, `citations` hoặc debug markers; `source_chunk_ids` và source excerpt/page display theo API contract.
+5. **Grounded Generation:** Output phải dựa trên retrieved chunks từ Chroma/local index sau khi lọc noisy/TOC/debug text.
+6. **Auth & Ownership:** Protected APIs require active user; regular users only access their own documents/outputs, admins can manage/support.
+7. **File Validation:** Chỉ chấp nhận `.pdf`, `.docx`, `.txt`, không file rỗng, không quá 50MB mỗi file.
+8. **Backend-only AI:** Frontend không gọi LLM/Gemini trực tiếp.
+9. **Code Style:** Backend Ruff-compatible, Frontend ESLint/build không lỗi.

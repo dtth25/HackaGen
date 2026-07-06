@@ -1,42 +1,46 @@
 # Project Context: AI Course Generator
 
 ## 1. Product Soul
-- **Mục tiêu:** Biến tài liệu thô (PDF, DOCX, TXT) thành đúng 4 output: **Book, Slide, Quiz, Vid**.
-- **Giá trị cốt lõi:** Tự động hệ thống hóa kiến thức thành artifact học tập có thể đọc, trình chiếu, luyện tập và xem dạng video.
+- **Mục tiêu:** Biến tài liệu thô (PDF, DOCX, TXT) thành một **Document-to-Study-Pack** có Study Guide/Book làm trung tâm, kèm Mindmap, Quiz, Flashcards, Summary và các output trình bày Slide/Vid.
+- **Giá trị cốt lõi:** Tự động hệ thống hóa kiến thức thành artifact học tập có thể đọc, trình chiếu, luyện tập, ôn tập nhanh và xem dạng video.
 - **Đối tượng:** Học sinh, giáo viên, người tự học và nhóm làm nội dung đào tạo.
 
 ## 2. Mandatory Tech Stack
-- **Frontend:** Next.js App Router, React, Tailwind CSS, shadcn/base-ui, lucide-react.
+- **Frontend:** Next.js App Router, React 19, Tailwind CSS v4, shadcn/base-ui, lucide-react.
 - **Backend:** FastAPI, Python 3.11+, LangChain, dependency management bằng `uv`.
-- **Vector DB:** FAISS local disk-based. Mỗi course lưu index tại `indices/faiss_{course_id}/` và metadata tại `indices/faiss_{course_id}.json`.
-- **Persistence:** Local filesystem JSON/generated files: `books/`, `slides/`, `questions/`, `videos/`.
-- **AI Models:** Google Gemini qua LangChain Google GenAI: `gemini-2.5-flash` cho LLM và `models/embedding-001` cho batch embeddings.
+- **Vector DB:** Chroma local persistent DB là provider bắt buộc cho local/dev. Dữ liệu mặc định ở `data/chroma/`, collection `ai_course_chunks`. FAISS chỉ còn là legacy reference/test path.
+- **Persistence:** Local filesystem JSON/generated files: `books/`, `slides/`, `questions/`, `videos/`, `mindmaps/`, `flashcards/`.
+- **Auth:** JWT bearer token + HttpOnly cookie; user ownership cho document/output, admin routes cho quản trị.
+- **AI Models:** Google Gemini qua LangChain Google GenAI. Model routing dùng `GEMINI_*_MODEL`; embeddings dùng `GEMINI_EMBEDDING_MODEL` hoặc legacy `EMBEDDING_MODEL`.
 
 ## 3. Guiding Principles & Constraints
-- **Only 4 Outputs:** Public API/UI chỉ có Book, Slide, Quiz, Vid.
+- **Connected Study Pack:** Public product là dashboard học tập kết nối, không phải tập hợp output rời rạc.
+- **Four Direct Generation Endpoints:** Chỉ có 4 endpoint sinh output trực tiếp: Book, Slide, Quiz, Vid. Mindmap/Flashcards/Summary là thành phần course-scoped của Study Pack.
 - **No Additional Chats:** Không có chat tự do hoặc custom prompt độc lập.
-- **No Public Source Metadata:** Public response không trả `page`, `source`, `chunk_id`.
-- **Grounded Generation:** Nội dung AI phải dựa trên retrieved chunks từ FAISS/local index.
+- **No Raw Public Source Metadata:** Không trả raw/internal `source`, `chunk_id`, `citations` hoặc debug markers trong generation responses. `source_chunk_ids` được giữ để grounding; source panel có thể hiển thị `page` + excerpt sạch.
+- **Grounded Generation:** Nội dung AI phải dựa trên retrieved chunks từ Chroma/local index sau khi lọc noisy/TOC/debug text.
 - **Backend-only AI calls:** Frontend không gọi LLM trực tiếp; mọi AI flow đi qua FastAPI.
-- **No-Auth v1:** Không làm đăng nhập, thanh toán hoặc phân quyền trong phiên bản Hackathon.
+- **Auth & Ownership:** Upload/generation/output/delete cần active user, trừ health/demo public được đánh dấu rõ.
 
 ## 4. Core Pipeline
 
 ```text
-[Upload] -> [Parse] -> [Chunk] -> [Embed] -> [FAISS] -> [Retrieve] -> [Generate]
-   |          |          |          |          |           |              |
-   |          |          |          |          |           |              +-- Book
-   |          |          |          |          |           |              +-- Slide
-   |          |          |          |          |           |              +-- Quiz
-   |          |          |          |          |           |              +-- Vid
-   v          v          v          v          v           v
- course_id  raw_text   chunks     vectors   local index  top_k
+[Register/Login] -> [Upload] -> [Parse] -> [Clean/Chunk] -> [Embed] -> [Chroma] -> [Retrieve] -> [Generate/Assemble]
+        |             |          |             |             |          |             |              |
+        |             |          |             |             |          |             |              +-- Study Pack Dashboard
+        |             |          |             |             |          |             |              +-- Book
+        |             |          |             |             |          |             |              +-- Slide
+        |             |          |             |             |          |             |              +-- Quiz
+        |             |          |             |             |          |             |              +-- Vid
+        v             v          v             v             v          v             v
+      user_id     document_id  raw_text    clean chunks   vectors   local DB       top_k
 ```
 
 ## 5. Non-Negotiable Gates
 1. **Upload validation** - chỉ chấp nhận `.pdf`, `.docx`, `.txt`, không file rỗng, không quá 50MB.
-2. **Only 4 public outputs** - không merge endpoint/UI/docs cho output ngoài Book, Slide, Quiz, Vid.
-3. **No public source metadata** - không trả `page`, `source`, `chunk_id` trong API response public.
-4. **Backend-only AI** - tất cả LLM/embedding calls phải nằm ở backend.
-5. **Backend dùng `uv`** để quản lý Python dependencies.
-6. **No Auth/Payment v1** - tập trung core AI pipeline.
+2. **Connected Study Pack** - Study Guide/Book, Mindmap, Quiz, Flashcards, Summary, readiness/quality/grounding phải xuất phát từ cùng nguồn cấu trúc.
+3. **No additional chats** - không merge chat tự do, custom prompt độc lập hoặc legacy standalone generators.
+4. **No raw public metadata leak** - không lộ raw `source`, `chunk_id`, `citations` hoặc debug markers trong generation responses; `source_chunk_ids` và source excerpt policy theo API contract.
+5. **Backend-only AI** - tất cả LLM/embedding calls phải nằm ở backend.
+6. **Auth & ownership** - protected APIs yêu cầu active user; regular user chỉ truy cập document/output của mình.
+7. **Backend dùng `uv`** để quản lý Python dependencies.
