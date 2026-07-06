@@ -1,0 +1,122 @@
+[
+  {
+    "question": "Trong bài toán \"Mex Another Problem Yet\", giá trị MEX(S) được định nghĩa là gì?",
+    "options": [
+      "Số nguyên không âm lớn nhất không xuất hiện trong tập hợp $S$.",
+      "Số nguyên không âm nhỏ nhất không xuất hiện trong tập hợp $S$.",
+      "Tổng các số nguyên không âm không xuất hiện trong tập hợp $S$.",
+      "Số lượng phần tử trong tập hợp $S$."
+    ],
+    "correct": 1,
+    "explanation": "Dựa trên định nghĩa trong bài toán \"Mex Another Problem Yet\": \"Với một tập hợp số nguyên không âm S, giá trị MEX(S) (Minimum EXcluded) được định nghĩa là số nguyên không âm nhỏ nhất không xuất hiện trong tập hợp S.\"",
+    "difficulty": "medium"
+  },
+  {
+    "question": "Giới hạn tối đa cho số lượng đỉnh $n$ trong bài toán \"Mex Another Problem Yet\" là bao nhiêu?",
+    "options": [
+      "$n \\le 20$",
+      "$n \\le 5,000$",
+      "$n \\le 2 \\times 10^5$",
+      "$n \\le 10^6$"
+    ],
+    "correct": 2,
+    "explanation": "Trong phần \"Giới hạn\" của bài toán \"Mex Another Problem Yet\", có ghi rõ: \"• $1 \\le n \\le 2 \\times 10^5$\".",
+    "difficulty": "medium"
+  },
+  {
+    "question": "Một truy vấn trong bài toán \"Yet Another Knapsack Problem\" bao gồm những thông số nào?",
+    "options": [
+      "$N, M, A_i$",
+      "$u, v$",
+      "$L_j, R_j, C_j$",
+      "$n, m$"
+    ],
+    "correct": 2,
+    "explanation": "Dựa trên mô tả bài toán \"Yet Another Knapsack Problem\": \"Có Q truy vấn, mỗi truy vấn $(L_j, R_j, C_j)$ yêu cầu tìm tổng giá trị lớn nhất khi chọn các vật phẩm trong đoạn từ $L_j$ đến $R_j$ sao cho tổng trọng lượng không vượt quá $C_j$\".",
+    "difficulty": "medium"
+  },
+  {
+    "question": "Trọng lượng tối đa $C_j$ cho mỗi truy vấn trong bài toán \"Yet Another Knapsack Problem\" có giới hạn là bao nhiêu?",
+    "options": [
+      "$C_j \\le 10^9$",
+      "$C_j \\le 500$",
+      "$C_j \\le 2 \\times 10^4$",
+      "$C_j \\le 2 \\times 10^5$"
+    ],
+    "correct": 1,
+    "explanation": "Trong phần \"Giới hạn\" của bài toán \"Yet Another Knapsack Problem\", có ghi rõ: \"• $1 \\le C_j \\le 500$\".",
+    "difficulty": "medium"
+  },
+  {
+    "question": "Theo bài toán \"ts is SO easy gng\", một bàn cờ được gọi là \"đẹp\" khi nào?",
+    "options": [
+      "Mọi bảng con vuông có cạnh lẻ đều chứa một số chẵn ô đen.",
+      "Mọi bảng con vuông có cạnh chẵn đều chứa một số lẻ ô đen.",
+      "Mọi bảng con vuông đều có số ô đen bằng số ô trắng.",
+      "Toàn bộ bàn cờ chỉ chứa ô trắng hoặc chỉ chứa ô đen."
+    ],
+    "correct": 1,
+    "explanation": "Dựa trên định nghĩa trong bài toán \"ts is SO easy gng\": \"Ta gọi bàn cờ là đẹp nếu mọi bảng con vuông có cạnh chẵn đều chứa một số lẻ ô đen.\"",
+    "difficulty": "medium"
+  },
+  {
+    "question": "Giới hạn tối đa cho tích $n \\cdot m$ trong bài toán \"ts is SO easy gng\" là bao nhiêu?",
+    "options": [
+      "$n \\cdot m \\le 8$",
+      "$n \\cdot m \\le 10^6$",
+      "$n \\cdot m \\le 2 \\times 10^5$",
+      "$n \\cdot m \\le 5,000$"
+    ],
+    "correct": 1,
+    "explanation": "Trong phần \"Giới hạn\" của bài toán \"ts is SO easy gng\", có ghi rõ: \"• $1 \\le n \\le m \\le 10^6, n \\cdot m \\le 10^6$\".",
+    "difficulty": "medium"
+  },
+  {
+    "question": "Mục tiêu chính của bài toán \"Anti AK\" là gì?",
+    "options": [
+      "Tìm tổng giá trị lớn nhất của các vật phẩm.",
+      "Tính tổng độ đẹp của tất cả các cặp đỉnh trên cây.",
+      "Tìm số lượng dãy số nguyên không âm $x$ thỏa mãn $\\sum_{i=1}^N A_i x_i \\le M$.",
+      "Tìm số ô ít nhất cần đổi màu trên bàn cờ."
+    ],
+    "correct": 2,
+    "explanation": "Dựa trên mô tả bài toán \"Anti AK\": \"Tìm số lượng dãy số nguyên không âm $x = (x_1, x_2, \\dots, x_N)$ thỏa mãn: $\\sum_{i=1}^N A_i x_i \\le M$\".",
+    "difficulty": "medium"
+  },
+  {
+    "question": "Giá trị tối đa của $M$ trong bài toán \"Anti AK\" là bao nhiêu?",
+    "options": [
+      "$M \\le 100$",
+      "$M \\le 500$",
+      "$M \\le 10^9 + 7$",
+      "$M \\le 10^{18}$"
+    ],
+    "correct": 3,
+    "explanation": "Trong phần \"Giới hạn\" của bài toán \"Anti AK\", có ghi rõ: \"• $1 \\le M \\le 10^{18}$\". Mặc dù kết quả được in theo modulo $10^9+7$, nhưng giá trị $M$ có thể rất lớn.",
+    "difficulty": "medium"
+  },
+  {
+    "question": "Bài toán nào trong số các bài được mô tả yêu cầu tính tổng độ đẹp của tất cả các cặp đỉnh $(i, j)$ trên một cây?",
+    "options": [
+      "Yet Another Knapsack Problem",
+      "Mex Another Problem Yet",
+      "ts is SO easy gng",
+      "Anti AK"
+    ],
+    "correct": 1,
+    "explanation": "Bài toán \"Mex Another Problem Yet\" (TREEMEX.cpp) có yêu cầu: \"Tính tổng độ đẹp của tất cả các cặp đỉnh $(i, j)$ trên cây, hay $S = \\sum_{0 \\le i \\le j \\le n-1} \\text{beauty}(i, j)$\".",
+    "difficulty": "medium"
+  },
+  {
+    "question": "Bài toán nào trong số các bài được mô tả yêu cầu tìm số ô ít nhất cần đổi màu để bàn cờ trở thành đẹp?",
+    "options": [
+      "Yet Another Knapsack Problem",
+      "Mex Another Problem Yet",
+      "ts is SO easy gng",
+      "Anti AK"
+    ],
+    "correct": 2,
+    "explanation": "Bài toán \"ts is SO easy gng\" (CHESSBOARD.cpp) có yêu cầu: \"Cho trạng thái ban đầu của bàn cờ, hãy tìm số ô ít nhất cần đổi màu để bàn cờ trở thành đẹp.\"",
+    "difficulty": "medium"
+  }
+]

@@ -3,7 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --webpack",
+    "dev:turbo": "next dev --turbopack",
+    "clean": "npx rimraf .next",
+    "fresh": "npm run clean && npm run dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"

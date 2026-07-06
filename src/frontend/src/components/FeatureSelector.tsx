@@ -15,14 +15,14 @@ interface FeatureOption {
 const FEATURES: FeatureOption[] = [
   {
     type: "book",
-    label: "Book",
-    description: "Sách học tập theo chương và bài",
+    label: "Sách",
+    description: "Tạo sách tiếng Việt có cấu trúc từ tài liệu của bạn.",
     icon: <BookOpen className="h-5 w-5" />,
   },
   {
     type: "slide",
-    label: "Slide",
-    description: "Bộ trình chiếu có thể điều hướng",
+    label: "Slides",
+    description: "Bản trình chiếu tùy chọn",
     icon: <Presentation className="h-5 w-5" />,
   },
   {
@@ -33,8 +33,8 @@ const FEATURES: FeatureOption[] = [
   },
   {
     type: "vid",
-    label: "Vid",
-    description: "Video học tập dạng voiceover",
+    label: "Video",
+    description: "Video học tập tùy chọn",
     icon: <Video className="h-5 w-5" />,
   },
 ];
@@ -50,7 +50,7 @@ export default function FeatureSelector({
 }: FeatureSelectorProps) {
   return (
     <div className="w-full">
-      <h3 className="mb-4 text-lg font-semibold">Chọn output</h3>
+      <h3 className="mb-4 text-lg font-semibold">Chọn phần học liệu</h3>
       <div className="grid grid-cols-2 gap-3">
         {FEATURES.map((feature) => {
           const isSelected = selected === feature.type;

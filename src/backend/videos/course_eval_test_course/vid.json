@@ -1,0 +1,461 @@
+{
+  "filename": null,
+  "url": null,
+  "status": "failed",
+  "generation_status": "failed",
+  "error": "Context bị nhiễu mục lục/số trang nên chưa thể tạo video tốt.",
+  "duration_minutes": 1,
+  "scenes": [
+    {
+      "scene_index": 1,
+      "scene_type": "hook",
+      "title": "Vì sao cần hiểu Bài gi ing trí tu i nhân tio?",
+      "key_message": "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành",
+      "screen_text": [
+        "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành",
+        "Tập trung vào điều giúp bạn hiểu nhanh hơn."
+      ],
+      "visual_text": "- Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành - Tập trung vào điều giúp bạn hiểu nhanh hơn.",
+      "visual_template": "title_intro",
+      "visual_data": {
+        "term": "Bài gi ing trí tu i nhân tio",
+        "definition": "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành khoa h Ic máy tính nh Im t Io"
+      },
+      "visual_description": "Template title_intro với text ngắn, điểm nhấn và chuyển động nhẹ.",
+      "voiceover": "Hãy bắt đầu bằng câu hỏi: vì sao vì sao cần hiểu bài gi ing trí tu i nhân tio? lại đáng học? Điểm cốt lõi là Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành Khi hiểu được lý do này, bạn sẽ dễ kết nối phần sau với bài toán thực tế hơn.",
+      "duration_seconds": 18,
+      "animation_notes": "Fade in, slide cards from left to right, highlight the current keyword, show progress bar."
+    },
+    {
+      "scene_index": 2,
+      "scene_type": "objective",
+      "title": "Sau video này, bạn sẽ nắm được gì?",
+      "key_message": "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành",
+      "screen_text": [
+        "Hiểu khái niệm",
+        "Nhìn qua ví dụ",
+        "Tự trả lời câu hỏi kiểm tra"
+      ],
+      "visual_text": "- Hiểu khái niệm - Nhìn qua ví dụ - Tự trả lời câu hỏi kiểm tra",
+      "visual_template": "learning_objectives",
+      "visual_data": {
+        "objectives": [
+          "Hiểu khái niệm",
+          "Nhìn qua ví dụ",
+          "Tự trả lời câu hỏi kiểm tra"
+        ]
+      },
+      "visual_description": "Template learning_objectives với text ngắn, điểm nhấn và chuyển động nhẹ.",
+      "voiceover": "Trong video ngắn này, bạn cần đạt ba việc: nhận diện khái niệm chính, xem một ví dụ cụ thể, và tự kiểm tra xem mình có giải thích được ý sau hay chưa: Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành",
+      "duration_seconds": 24,
+      "animation_notes": "Fade in, slide cards from left to right, highlight the current keyword, show progress bar."
+    },
+    {
+      "scene_index": 3,
+      "scene_type": "concept",
+      "title": "Khái niệm cốt lõi: Bài gi ing trí tu i nhân tio",
+      "key_message": "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành",
+      "screen_text": [
+        "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành",
+        "Hiểu bản chất, không học thuộc máy móc."
+      ],
+      "visual_text": "- Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành - Hiểu bản chất, không học thuộc máy móc.",
+      "visual_template": "concept_card",
+      "visual_data": {
+        "term": "Bài gi ing trí tu i nhân tio",
+        "definition": "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành khoa h Ic máy tính nh Im t Io"
+      },
+      "visual_description": "Template concept_card với text ngắn, điểm nhấn và chuyển động nhẹ.",
+      "voiceover": "Khái niệm trung tâm ở đây là Khái niệm cốt lõi: Bài gi ing trí tu i nhân tio. Nói đơn giản, Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành Hãy chú ý bản chất của cơ chế, không chỉ tên gọi của thuật ngữ.",
+      "duration_seconds": 24,
+      "animation_notes": "Fade in, slide cards from left to right, highlight the current keyword, show progress bar."
+    },
+    {
+      "scene_index": 4,
+      "scene_type": "example",
+      "title": "Một ví dụ để nhìn thấy khái niệm hoạt động",
+      "key_message": "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành",
+      "screen_text": [
+        "Ví dụ: Bài gi ing trí tu i nhân tio",
+        "Quan sát điều thay đổi và kết quả."
+      ],
+      "visual_text": "- Ví dụ: Bài gi ing trí tu i nhân tio - Quan sát điều thay đổi và kết quả.",
+      "visual_template": "example_card",
+      "visual_data": {
+        "term": "Bài gi ing trí tu i nhân tio",
+        "definition": "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành khoa h Ic máy tính nh Im t Io"
+      },
+      "visual_description": "Template example_card với text ngắn, điểm nhấn và chuyển động nhẹ.",
+      "voiceover": "Bây giờ ta chuyển sang ví dụ. Hãy tưởng tượng một tình huống nhỏ nơi một ví dụ để nhìn thấy khái niệm hoạt động xuất hiện. Ví dụ này giúp bạn nhìn thấy Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành dưới dạng có thể quan sát và kiểm tra.",
+      "duration_seconds": 24,
+      "animation_notes": "Fade in, slide cards from left to right, highlight the current keyword, show progress bar."
+    },
+    {
+      "scene_index": 5,
+      "scene_type": "diagram",
+      "title": "Tách vấn đề thành các bước dễ theo dõi",
+      "key_message": "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành",
+      "screen_text": [
+        "Đầu vào",
+        "Cách xử lý",
+        "Kết quả cần kiểm tra"
+      ],
+      "visual_text": "- Đầu vào - Cách xử lý - Kết quả cần kiểm tra",
+      "visual_template": "flow_diagram",
+      "visual_data": {
+        "steps": [
+          "Đầu vào",
+          "Cách xử lý",
+          "Kết quả cần kiểm tra"
+        ]
+      },
+      "visual_description": "Template flow_diagram với text ngắn, điểm nhấn và chuyển động nhẹ.",
+      "voiceover": "Ta tách vấn đề thành từng bước. Bước đầu là xác định đầu vào, sau đó theo dõi cách xử lý, cuối cùng kiểm tra kết quả theo ý chính: Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành",
+      "duration_seconds": 24,
+      "animation_notes": "Fade in, slide cards from left to right, highlight the current keyword, show progress bar."
+    },
+    {
+      "scene_index": 6,
+      "scene_type": "common_mistake",
+      "title": "Lỗi thường gặp khi học phần này",
+      "key_message": "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành",
+      "screen_text": [
+        "Nhầm ghi nhớ với hiểu bản chất",
+        "Sửa bằng ví dụ và câu hỏi tự kiểm tra"
+      ],
+      "visual_text": "- Nhầm ghi nhớ với hiểu bản chất - Sửa bằng ví dụ và câu hỏi tự kiểm tra",
+      "visual_template": "common_mistake_card",
+      "visual_data": {
+        "mistake": "Nhầm ghi nhớ với hiểu bản chất",
+        "correction": "Sửa bằng ví dụ và câu hỏi tự kiểm tra"
+      },
+      "visual_description": "Template common_mistake_card với text ngắn, điểm nhấn và chuyển động nhẹ.",
+      "voiceover": "Lỗi thường gặp là áp dụng máy móc mà không kiểm tra điều kiện. Với phần này, hãy luôn tự hỏi: dữ liệu hoặc ví dụ có thật sự phù hợp với nhận định Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành hay không.",
+      "duration_seconds": 24,
+      "animation_notes": "Fade in, slide cards from left to right, highlight the current keyword, show progress bar."
+    }
+  ],
+  "progress_states": [
+    "cleaning_context",
+    "planning_storyboard",
+    "validating_quality",
+    "failed"
+  ],
+  "course_video_id": "course_video_eval_test_course",
+  "course_title": "Danh sách video bài giảng",
+  "playlist_title": "Danh sách video bài giảng",
+  "audience": "University students / self-learners",
+  "level": "introductory",
+  "total_duration": "1 phút",
+  "estimated_total_duration_minutes": 1,
+  "videos": [
+    {
+      "video_index": 1,
+      "video_id": "les_01",
+      "file_name": "01_bai_hoc.mp4",
+      "full_title": "Bài giảng video: Gradient Descent và Loss Curve",
+      "short_title": "Bài 1",
+      "duration_minutes": 1,
+      "learning_objectives": [
+        "Hiểu các khái niệm cốt lõi trong bài."
+      ],
+      "storyboard": [
+        {
+          "scene_index": 1,
+          "scene_type": "hook",
+          "title": "Vì sao cần hiểu Bài gi ing trí tu i nhân tio?",
+          "key_message": "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing",
+          "screen_text": [
+            "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung",
+            "Tập trung vào điều giúp bạn hiểu nhanh hơn."
+          ],
+          "visual_text": "- Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung - Tập trung vào điều giúp bạn hiểu nhanh hơn.",
+          "visual_template": "title_intro",
+          "visual_data": {
+            "definition": "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing",
+            "term": "Bài gi ing trí tu i nhân tio"
+          },
+          "animation_notes": "Fade in, slide cards from left to right, highlight the current keyword, show progress bar.",
+          "visual_description": "Template title_intro với text ngắn, điểm nhấn và chuyển động nhẹ.",
+          "voiceover": "Hãy bắt đầu bằng câu hỏi: vì sao vì sao cần hiểu bài gi ing trí tu i nhân tio? lại đáng học? Điểm cốt lõi là Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành Khi hiểu được lý do này, bạn sẽ dễ kết nối phần sau với bài toán thực tế hơn.",
+          "duration_seconds": 18
+        },
+        {
+          "scene_index": 2,
+          "scene_type": "objective",
+          "title": "Sau video này, bạn sẽ nắm được gì?",
+          "key_message": "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing",
+          "screen_text": [
+            "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung"
+          ],
+          "visual_text": "- Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung",
+          "visual_template": "learning_objectives",
+          "visual_data": {
+            "objectives": [
+              "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung"
+            ]
+          },
+          "animation_notes": "Fade in, slide cards from left to right, highlight the current keyword, show progress bar.",
+          "visual_description": "Template learning_objectives với text ngắn, điểm nhấn và chuyển động nhẹ.",
+          "voiceover": "Trong video ngắn này, bạn cần đạt ba việc: nhận diện khái niệm chính, xem một ví dụ cụ thể, và tự kiểm tra xem mình có giải thích được ý sau hay chưa: Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành",
+          "duration_seconds": 24
+        },
+        {
+          "scene_index": 3,
+          "scene_type": "concept",
+          "title": "Khái niệm cốt lõi: Bài gi ing trí tu i nhân tio",
+          "key_message": "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing",
+          "screen_text": [
+            "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung",
+            "Hiểu bản chất, không học thuộc máy móc."
+          ],
+          "visual_text": "- Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung - Hiểu bản chất, không học thuộc máy móc.",
+          "visual_template": "concept_card",
+          "visual_data": {
+            "definition": "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing",
+            "term": "Bài gi ing trí tu i nhân tio"
+          },
+          "animation_notes": "Fade in, slide cards from left to right, highlight the current keyword, show progress bar.",
+          "visual_description": "Template concept_card với text ngắn, điểm nhấn và chuyển động nhẹ.",
+          "voiceover": "Khái niệm trung tâm ở đây là Khái niệm cốt lõi: Bài gi ing trí tu i nhân tio. Nói đơn giản, Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành Hãy chú ý bản chất của cơ chế, không chỉ tên gọi của thuật ngữ.",
+          "duration_seconds": 24
+        },
+        {
+          "scene_index": 4,
+          "scene_type": "example",
+          "title": "Một ví dụ để nhìn thấy khái niệm hoạt động",
+          "key_message": "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing",
+          "screen_text": [
+            "Ví dụ: Bài gi ing trí tu i nhân tio",
+            "Quan sát điều thay đổi và kết quả."
+          ],
+          "visual_text": "- Ví dụ: Bài gi ing trí tu i nhân tio - Quan sát điều thay đổi và kết quả.",
+          "visual_template": "example_card",
+          "visual_data": {
+            "definition": "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing",
+            "term": "Bài gi ing trí tu i nhân tio"
+          },
+          "animation_notes": "Fade in, slide cards from left to right, highlight the current keyword, show progress bar.",
+          "visual_description": "Template example_card với text ngắn, điểm nhấn và chuyển động nhẹ.",
+          "voiceover": "Bây giờ ta chuyển sang ví dụ. Hãy tưởng tượng một tình huống nhỏ nơi một ví dụ để nhìn thấy khái niệm hoạt động xuất hiện. Ví dụ này giúp bạn nhìn thấy Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành dưới dạng có thể quan sát và kiểm tra.",
+          "duration_seconds": 24
+        },
+        {
+          "scene_index": 5,
+          "scene_type": "diagram",
+          "title": "Tách vấn đề thành các bước dễ theo dõi",
+          "key_message": "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing",
+          "screen_text": [
+            "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung"
+          ],
+          "visual_text": "- Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung",
+          "visual_template": "flow_diagram",
+          "visual_data": {
+            "steps": [
+              "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung"
+            ]
+          },
+          "animation_notes": "Fade in, slide cards from left to right, highlight the current keyword, show progress bar.",
+          "visual_description": "Template flow_diagram với text ngắn, điểm nhấn và chuyển động nhẹ.",
+          "voiceover": "Ta tách vấn đề thành từng bước. Bước đầu là xác định đầu vào, sau đó theo dõi cách xử lý, cuối cùng kiểm tra kết quả theo ý chính: Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành khoa h Ic máy tính nh Im t Io ra các máy móc ho Ic h I th Ing có kh I",
+          "duration_seconds": 24
+        },
+        {
+          "scene_index": 6,
+          "scene_type": "common_mistake",
+          "title": "Lỗi thường gặp khi học phần này",
+          "key_message": "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing",
+          "screen_text": [
+            "Nhầm ghi nhớ với hiểu bản chất",
+            "Sửa bằng ví dụ và câu hỏi tự kiểm tra"
+          ],
+          "visual_text": "- Nhầm ghi nhớ với hiểu bản chất - Sửa bằng ví dụ và câu hỏi tự kiểm tra",
+          "visual_template": "common_mistake_card",
+          "visual_data": {
+            "mistake": "Nhầm ghi nhớ với hiểu bản chất",
+            "correction": "Sửa bằng ví dụ và câu hỏi tự kiểm tra"
+          },
+          "animation_notes": "Fade in, slide cards from left to right, highlight the current keyword, show progress bar.",
+          "visual_description": "Template common_mistake_card với text ngắn, điểm nhấn và chuyển động nhẹ.",
+          "voiceover": "Lỗi thường gặp là áp dụng máy móc mà không kiểm tra điều kiện. Với phần này, hãy luôn tự hỏi: dữ liệu hoặc ví dụ có thật sự phù hợp với nhận định Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành hay không.",
+          "duration_seconds": 24
+        }
+      ],
+      "scenes": [
+        {
+          "scene_index": 1,
+          "scene_type": "hook",
+          "title": "Vì sao cần hiểu Bài gi ing trí tu i nhân tio?",
+          "key_message": "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing",
+          "screen_text": [
+            "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung",
+            "Tập trung vào điều giúp bạn hiểu nhanh hơn."
+          ],
+          "visual_text": "- Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung - Tập trung vào điều giúp bạn hiểu nhanh hơn.",
+          "visual_template": "title_intro",
+          "visual_data": {
+            "definition": "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing",
+            "term": "Bài gi ing trí tu i nhân tio"
+          },
+          "animation_notes": "Fade in, slide cards from left to right, highlight the current keyword, show progress bar.",
+          "visual_description": "Template title_intro với text ngắn, điểm nhấn và chuyển động nhẹ.",
+          "voiceover": "Hãy bắt đầu bằng câu hỏi: vì sao vì sao cần hiểu bài gi ing trí tu i nhân tio? lại đáng học? Điểm cốt lõi là Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành Khi hiểu được lý do này, bạn sẽ dễ kết nối phần sau với bài toán thực tế hơn.",
+          "duration_seconds": 18
+        },
+        {
+          "scene_index": 2,
+          "scene_type": "objective",
+          "title": "Sau video này, bạn sẽ nắm được gì?",
+          "key_message": "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing",
+          "screen_text": [
+            "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung"
+          ],
+          "visual_text": "- Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung",
+          "visual_template": "learning_objectives",
+          "visual_data": {
+            "objectives": [
+              "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung"
+            ]
+          },
+          "animation_notes": "Fade in, slide cards from left to right, highlight the current keyword, show progress bar.",
+          "visual_description": "Template learning_objectives với text ngắn, điểm nhấn và chuyển động nhẹ.",
+          "voiceover": "Trong video ngắn này, bạn cần đạt ba việc: nhận diện khái niệm chính, xem một ví dụ cụ thể, và tự kiểm tra xem mình có giải thích được ý sau hay chưa: Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành",
+          "duration_seconds": 24
+        },
+        {
+          "scene_index": 3,
+          "scene_type": "concept",
+          "title": "Khái niệm cốt lõi: Bài gi ing trí tu i nhân tio",
+          "key_message": "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing",
+          "screen_text": [
+            "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung",
+            "Hiểu bản chất, không học thuộc máy móc."
+          ],
+          "visual_text": "- Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung - Hiểu bản chất, không học thuộc máy móc.",
+          "visual_template": "concept_card",
+          "visual_data": {
+            "definition": "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing",
+            "term": "Bài gi ing trí tu i nhân tio"
+          },
+          "animation_notes": "Fade in, slide cards from left to right, highlight the current keyword, show progress bar.",
+          "visual_description": "Template concept_card với text ngắn, điểm nhấn và chuyển động nhẹ.",
+          "voiceover": "Khái niệm trung tâm ở đây là Khái niệm cốt lõi: Bài gi ing trí tu i nhân tio. Nói đơn giản, Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành Hãy chú ý bản chất của cơ chế, không chỉ tên gọi của thuật ngữ.",
+          "duration_seconds": 24
+        },
+        {
+          "scene_index": 4,
+          "scene_type": "example",
+          "title": "Một ví dụ để nhìn thấy khái niệm hoạt động",
+          "key_message": "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing",
+          "screen_text": [
+            "Ví dụ: Bài gi ing trí tu i nhân tio",
+            "Quan sát điều thay đổi và kết quả."
+          ],
+          "visual_text": "- Ví dụ: Bài gi ing trí tu i nhân tio - Quan sát điều thay đổi và kết quả.",
+          "visual_template": "example_card",
+          "visual_data": {
+            "definition": "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing",
+            "term": "Bài gi ing trí tu i nhân tio"
+          },
+          "animation_notes": "Fade in, slide cards from left to right, highlight the current keyword, show progress bar.",
+          "visual_description": "Template example_card với text ngắn, điểm nhấn và chuyển động nhẹ.",
+          "voiceover": "Bây giờ ta chuyển sang ví dụ. Hãy tưởng tượng một tình huống nhỏ nơi một ví dụ để nhìn thấy khái niệm hoạt động xuất hiện. Ví dụ này giúp bạn nhìn thấy Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành dưới dạng có thể quan sát và kiểm tra.",
+          "duration_seconds": 24
+        },
+        {
+          "scene_index": 5,
+          "scene_type": "diagram",
+          "title": "Tách vấn đề thành các bước dễ theo dõi",
+          "key_message": "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing",
+          "screen_text": [
+            "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung"
+          ],
+          "visual_text": "- Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung",
+          "visual_template": "flow_diagram",
+          "visual_data": {
+            "steps": [
+              "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung"
+            ]
+          },
+          "animation_notes": "Fade in, slide cards from left to right, highlight the current keyword, show progress bar.",
+          "visual_description": "Template flow_diagram với text ngắn, điểm nhấn và chuyển động nhẹ.",
+          "voiceover": "Ta tách vấn đề thành từng bước. Bước đầu là xác định đầu vào, sau đó theo dõi cách xử lý, cuối cùng kiểm tra kết quả theo ý chính: Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành khoa h Ic máy tính nh Im t Io ra các máy móc ho Ic h I th Ing có kh I",
+          "duration_seconds": 24
+        },
+        {
+          "scene_index": 6,
+          "scene_type": "common_mistake",
+          "title": "Lỗi thường gặp khi học phần này",
+          "key_message": "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing",
+          "screen_text": [
+            "Nhầm ghi nhớ với hiểu bản chất",
+            "Sửa bằng ví dụ và câu hỏi tự kiểm tra"
+          ],
+          "visual_text": "- Nhầm ghi nhớ với hiểu bản chất - Sửa bằng ví dụ và câu hỏi tự kiểm tra",
+          "visual_template": "common_mistake_card",
+          "visual_data": {
+            "mistake": "Nhầm ghi nhớ với hiểu bản chất",
+            "correction": "Sửa bằng ví dụ và câu hỏi tự kiểm tra"
+          },
+          "animation_notes": "Fade in, slide cards from left to right, highlight the current keyword, show progress bar.",
+          "visual_description": "Template common_mistake_card với text ngắn, điểm nhấn và chuyển động nhẹ.",
+          "voiceover": "Lỗi thường gặp là áp dụng máy móc mà không kiểm tra điều kiện. Với phần này, hãy luôn tự hỏi: dữ liệu hoặc ví dụ có thật sự phù hợp với nhận định Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành hay không.",
+          "duration_seconds": 24
+        }
+      ],
+      "quick_quiz": [
+        {
+          "question": "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing",
+          "options": [
+            "A. Học thuộc nguyên văn tài liệu",
+            "B. Hiểu bản chất và áp dụng vào ví dụ",
+            "C. Chỉ xem tiêu đề",
+            "D. Bỏ qua phần kiểm tra nhanh"
+          ],
+          "correct_answer": "B",
+          "explanation": "Video hướng người học hiểu bản chất, dùng ví dụ và tự kiểm tra thay vì đọc lại tài liệu."
+        }
+      ],
+      "transcript": "Hãy bắt đầu bằng câu hỏi: vì sao vì sao cần hiểu bài gi ing trí tu i nhân tio? lại đáng học? Điểm cốt lõi là Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành Khi hiểu được lý do này, bạn sẽ dễ kết nối phần sau với bài toán thực tế hơn. Trong video ngắn này, bạn cần đạt ba việc: nhận diện khái niệm chính, xem một ví dụ cụ thể, và tự kiểm tra xem mình có giải thích được ý sau hay chưa: Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành Khái niệm trung tâm ở đây là Khái niệm cốt lõi: Bài gi ing trí tu i nhân tio. Nói đơn giản, Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành Hãy chú ý bản chất của cơ chế, không chỉ tên gọi của thuật ngữ. Bây giờ ta chuyển sang ví dụ. Hãy tưởng tượng một tình huống nhỏ nơi một ví dụ để nhìn thấy khái niệm hoạt động xuất hiện. Ví dụ này giúp bạn nhìn thấy Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành dưới dạng có thể quan sát và kiểm tra. Ta tách vấn đề thành từng bước. Bước đầu là xác định đầu vào, sau đó theo dõi cách xử lý, cuối cùng kiểm tra kết quả theo ý chính: Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành khoa h Ic máy tính nh Im t Io ra các máy móc ho Ic h I th Ing có kh I Lỗi thường gặp là áp dụng máy móc mà không kiểm tra điều kiện. Với phần này, hãy luôn tự hỏi: dữ liệu hoặc ví dụ có thật sự phù hợp với nhận định Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành hay không.",
+      "subtitles_srt": "00:00:00,000 --> 00:00:18,000 Hãy bắt đầu bằng câu hỏi vì sao vì sao cần hiểu bài gi ing trí tu i nhân tio? lại đáng học? Điểm cốt lõi là Bài Gi Ing Trí Tu I Nhân TIo HIc Máy 00:00:18,000 --> 00:00:42,000 Trong video ngắn này, bạn cần đạt ba việc nhận diện khái niệm chính, xem một ví dụ cụ thể, và tự kiểm tra xem mình có giải thích được ý sau hay 00:00:42,000 --> 00:01:06,000 Khái niệm trung tâm ở đây là Khái niệm cốt lõi Bài gi ing trí tu i nhân tio. Nói đơn giản, Bài Gi Ing Trí Tu I Nhân TIo HIc Máy CI BIn Khái quát 00:01:06,000 --> 00:01:30,000 Bây giờ ta chuyển sang ví dụ. Hãy tưởng tượng một tình huống nhỏ nơi một ví dụ để nhìn thấy khái niệm hoạt động xuất hiện. Ví dụ này giúp bạn 00:01:30,000 --> 00:01:54,000 Ta tách vấn đề thành từng bước. Bước đầu là xác định đầu vào, sau đó theo dõi cách xử lý, cuối cùng kiểm tra kết quả theo ý chính Bài Gi Ing 00:01:54,000 --> 00:02:18,000 Lỗi thường gặp là áp dụng máy móc mà không kiểm tra điều kiện. Với phần này, hãy luôn tự hỏi dữ liệu hoặc ví dụ có thật sự phù hợp với nhận định"
+    }
+  ],
+  "playlist_plan": [],
+  "quality_report": {
+    "is_final": true,
+    "quality_score": 37,
+    "source_grounding_score": 72,
+    "score": 40,
+    "is_university_ready": false,
+    "is_user_friendly": false,
+    "engagement_score": 42,
+    "learning_score": 72,
+    "visual_score": 72,
+    "problems": [
+      "Có thể còn lỗi dính chữ tiếng Việt.",
+      "Scene còn chứa Contents/dot leaders/tiêu đề hoặc filler rác.",
+      "Voiceover rập khuôn, chung chung."
+    ],
+    "issues": [
+      "Có thể còn lỗi dính chữ tiếng Việt.",
+      "Scene còn chứa Contents/dot leaders/tiêu đề hoặc filler rác.",
+      "Voiceover rập khuôn, chung chung."
+    ],
+    "warnings": [
+      "Không đủ ngữ cảnh sạch để tạo học liệu chất lượng. Vui lòng dùng PDF rõ hơn hoặc bật OCR."
+    ],
+    "fixes_needed": [
+      "Làm sạch storyboard và không copy raw chunks vào video."
+    ],
+    "used_chunks": 0,
+    "ignored_noisy_chunks": 0,
+    "source_chunk_ids": [],
+    "retrieved_chunks_count": 1,
+    "usable_chunks_count": 1,
+    "noisy_chunks_count": 0,
+    "context_quality_score": 40,
+    "can_generate": false
+  },
+  "renderer": "manim",
+  "renderer_message": "Manim đã sẵn sàng; các scene phù hợp sẽ dùng animation template an toàn."
+}

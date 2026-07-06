@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   XCircle,
   HelpCircle,
+  Lightbulb,
   RotateCcw,
   BarChart3,
 } from "lucide-react";
@@ -42,6 +43,14 @@ const DIFFICULTY_COLOR: Record<string, string> = {
   hard: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
 };
 
+const QUESTION_TYPE_LABEL: Record<string, string> = {
+  mcq: "Trắc nghiệm",
+  true_false: "Đúng/Sai",
+  short_answer: "Tự luận ngắn",
+  scenario: "Tình huống",
+  code_reading: "Đọc hiểu code",
+};
+
 /* ── Component ─────────────────────────────────────────── */
 
 export default function QuizPage() {
@@ -56,6 +65,10 @@ export default function QuizPage() {
 
   /* Interaction state */
   const [answers, setAnswers] = useState<Record<number, number>>({});
+  // For free-form questions (no options: short_answer/scenario/code_reading), track whether
+  // the user has revealed the sample answer — these can't be auto-graded, so they don't
+  // contribute to the score, only to progress.
+  const [revealed, setRevealed] = useState<Record<number, boolean>>({});
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [showResults, setShowResults] = useState(false);
 
@@ -110,15 +123,26 @@ export default function QuizPage() {
 
   const handleRestart = useCallback(() => {
     setAnswers({});
+    setRevealed({});
     setCurrentQuestion(0);
     setShowResults(false);
   }, []);
 
-  /* Scoring */
+  const handleReveal = useCallback((index: number) => {
+    setRevealed((prev) => ({ ...prev, [index]: true }));
+  }, []);
+
+  /* Scoring: only option-bearing questions (mcq/true_false) can be auto-graded.
+     Free-form questions (short_answer/scenario/code_reading) count toward progress
+     but are excluded from the score fraction since there's no way to auto-check them. */
+  const scoreableCount = useMemo(
+    () => questions.filter((q) => (q.options?.length ?? 0) > 0).length,
+    [questions]
+  );
   const score = useMemo(() => {
     let correct = 0;
     for (let i = 0; i < totalQuestions; i++) {
-      if (answers[i] === questions[i]?.correct) {
+      if ((questions[i]?.options?.length ?? 0) > 0 && answers[i] === questions[i]?.correct) {
         correct++;
       }
     }
@@ -166,7 +190,7 @@ export default function QuizPage() {
 
   /* ── Result screen ───────────────────────────── */
   if (showResults) {
-    const percentage = Math.round((score / totalQuestions) * 100);
+    const percentage = scoreableCount > 0 ? Math.round((score / scoreableCount) * 100) : 0;
     let resultColor = "text-red-500";
     let resultText = "Cần cố gắng hơn!";
     if (percentage >= 80) {
@@ -179,6 +203,7 @@ export default function QuizPage() {
       resultColor = "text-amber-500";
       resultText = "Có thể làm tốt hơn!";
     }
+    const freeFormCount = totalQuestions - scoreableCount;
 
     return (
       <div className="space-y-6">
@@ -194,7 +219,7 @@ export default function QuizPage() {
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">
             Kết quả
           </h1>
-          <p className="text-sm text-muted-foreground">{quiz.topic}</p>
+          <p className="text-sm text-muted-foreground">{quiz.quiz_title || quiz.topic}</p>
         </div>
 
         {/* Score card */}
@@ -202,12 +227,13 @@ export default function QuizPage() {
           <CardContent className="space-y-4">
             <BarChart3 className="h-12 w-12 mx-auto text-primary" />
             <div className={`text-5xl font-bold ${resultColor}`}>
-              {score}/{totalQuestions}
+              {score}/{scoreableCount}
             </div>
             <p className="text-lg font-medium">{resultText}</p>
             <Progress value={percentage} className="w-full max-w-xs mx-auto" />
             <p className="text-sm text-muted-foreground">
-              {percentage}% câu trả lời đúng
+              {percentage}% câu trắc nghiệm trả lời đúng
+              {freeFormCount > 0 && ` · ${freeFormCount} câu tự luận không tính điểm tự động`}
             </p>
           </CardContent>
           <CardFooter className="justify-center gap-3">
@@ -223,19 +249,22 @@ export default function QuizPage() {
         <div className="space-y-3">
           <h2 className="text-lg font-medium">Chi tiết câu trả lời</h2>
           {questions.map((q, idx) => {
+            const hasOptions = (q.options?.length ?? 0) > 0;
             const userAnswer = answers[idx];
-            const isCorrect = userAnswer === q.correct;
-            const isAnswered = userAnswer !== undefined;
+            const isCorrect = hasOptions && userAnswer === q.correct;
+            const isAnswered = hasOptions ? userAnswer !== undefined : Boolean(revealed[idx]);
 
             return (
               <Card
                 key={idx}
                 className={`border-l-4 ${
-                  isAnswered
-                    ? isCorrect
-                      ? "border-l-green-500"
-                      : "border-l-red-500"
-                    : "border-l-muted"
+                  !hasOptions
+                    ? "border-l-blue-400"
+                    : isAnswered
+                      ? isCorrect
+                        ? "border-l-green-500"
+                        : "border-l-red-500"
+                      : "border-l-muted"
                 }`}
               >
                 <CardHeader className="pb-2">
@@ -243,36 +272,78 @@ export default function QuizPage() {
                     <CardTitle className="text-sm font-medium">
                       Câu {idx + 1}: {q.question}
                     </CardTitle>
-                    {isAnswered ? (
-                      isCorrect ? (
-                        <CheckCircle2 className="h-5 w-5 shrink-0 text-green-500" />
+                    {hasOptions ? (
+                      isAnswered ? (
+                        isCorrect ? (
+                          <CheckCircle2 className="h-5 w-5 shrink-0 text-green-500" />
+                        ) : (
+                          <XCircle className="h-5 w-5 shrink-0 text-red-500" />
+                        )
                       ) : (
-                        <XCircle className="h-5 w-5 shrink-0 text-red-500" />
+                        <HelpCircle className="h-5 w-5 shrink-0 text-muted-foreground" />
                       )
                     ) : (
-                      <HelpCircle className="h-5 w-5 shrink-0 text-muted-foreground" />
+                      <span className="shrink-0 rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                        {QUESTION_TYPE_LABEL[q.type ?? ""] ?? "Tự luận"}
+                      </span>
                     )}
                   </div>
+                  {q.concept_tags && q.concept_tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1 pt-1">
+                      {q.concept_tags.map((tag) => (
+                        <span
+                          key={tag}
+                          className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
+                        >
+                          #{tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </CardHeader>
                 <CardContent className="space-y-1 pb-3">
-                  {q.options.map((opt, oi) => {
-                    let optClass = "text-sm px-3 py-1.5 rounded-md";
-                    if (oi === q.correct) {
-                      optClass += " bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400";
-                    } else if (oi === userAnswer && oi !== q.correct) {
-                      optClass += " bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400";
-                    } else {
-                      optClass += " text-muted-foreground";
-                    }
-                    return (
-                      <div key={oi} className={optClass}>
-                        {opt}
-                      </div>
-                    );
-                  })}
+                  {hasOptions ? (
+                    q.options.map((opt, oi) => {
+                      let optClass = "text-sm px-3 py-1.5 rounded-md";
+                      if (oi === q.correct) {
+                        optClass += " bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400";
+                      } else if (oi === userAnswer && oi !== q.correct) {
+                        optClass += " bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400";
+                      } else {
+                        optClass += " text-muted-foreground";
+                      }
+                      // why_wrong_options_are_wrong is aligned to the wrong options only, in
+                      // the order they appear in `options` (the correct option has no entry).
+                      const wrongOptionsBeforeThis = q.options
+                        .slice(0, oi)
+                        .filter((_, i) => i !== q.correct).length;
+                      const whyWrong =
+                        oi !== q.correct
+                          ? q.why_wrong_options_are_wrong?.[wrongOptionsBeforeThis]
+                          : undefined;
+                      return (
+                        <div key={oi}>
+                          <div className={optClass}>{opt}</div>
+                          {isAnswered && oi === userAnswer && whyWrong && (
+                            <p className="px-3 pt-0.5 text-xs italic text-red-600 dark:text-red-400">
+                              {whyWrong}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })
+                  ) : isAnswered ? (
+                    <div className="rounded-md bg-primary/10 px-3 py-2 text-sm text-foreground">
+                      <span className="font-medium">Đáp án mẫu: </span>
+                      {q.correct_answer}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground italic">Chưa xem đáp án mẫu.</p>
+                  )}
                   {q.explanation && (
-                    <p className="text-xs text-muted-foreground mt-2 italic">
-                      💡 {q.explanation}
+                    <p className="flex items-start gap-1.5 text-xs text-muted-foreground mt-2 italic">
+                      <Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                      {q.explanation}
                     </p>
                   )}
                 </CardContent>
@@ -285,8 +356,10 @@ export default function QuizPage() {
   }
 
   /* ── Quiz screen ─────────────────────────────── */
-  const answeredCount = Object.keys(answers).length;
+  const answeredCount = Object.keys(answers).length + Object.keys(revealed).length;
   const progressValue = totalQuestions > 0 ? (answeredCount / totalQuestions) * 100 : 0;
+  const qualityReport = quiz.quality_report;
+  const difficultyMix = quiz.difficulty_mix;
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
@@ -302,7 +375,7 @@ export default function QuizPage() {
         <div className="flex items-center justify-between gap-4">
           <div>
             <h1 className="text-xl font-semibold tracking-tight text-foreground">
-              {quiz.topic}
+              {quiz.quiz_title || quiz.topic}
             </h1>
             <p className="text-sm text-muted-foreground">
               Tài liệu: {courseId.slice(0, 8)}...
@@ -314,6 +387,20 @@ export default function QuizPage() {
             {DIFFICULTY_LABEL[quiz.difficulty] ?? quiz.difficulty}
           </span>
         </div>
+        {difficultyMix && (difficultyMix.easy + difficultyMix.medium + difficultyMix.hard) > 0 && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span>Cơ cấu độ khó:</span>
+            <span className={`rounded-full px-2 py-0.5 ${DIFFICULTY_COLOR.easy}`}>Dễ {difficultyMix.easy}</span>
+            <span className={`rounded-full px-2 py-0.5 ${DIFFICULTY_COLOR.medium}`}>TB {difficultyMix.medium}</span>
+            <span className={`rounded-full px-2 py-0.5 ${DIFFICULTY_COLOR.hard}`}>Khó {difficultyMix.hard}</span>
+          </div>
+        )}
+        {qualityReport && (qualityReport.score < 80 || (qualityReport.warnings?.length ?? 0) > 0) && (
+          <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-300">
+            <strong>Kiểm duyệt chất lượng (Score: {qualityReport.score}/100):</strong>{" "}
+            {qualityReport.warnings?.join(" | ") || "Bộ câu hỏi đã được chuẩn hóa tự động."}
+          </div>
+        )}
       </div>
 
       {/* Progress bar */}
@@ -334,73 +421,140 @@ export default function QuizPage() {
       {/* Question card */}
       <Card>
         <CardHeader>
-          <CardDescription className="text-xs font-medium uppercase tracking-wide">
-            Câu {currentQuestion + 1} / {totalQuestions}
-          </CardDescription>
-          <CardTitle className="text-base font-medium leading-relaxed">
+          <div className="flex items-center justify-between gap-2">
+            <CardDescription className="text-xs font-medium uppercase tracking-wide">
+              Câu {currentQuestion + 1} / {totalQuestions}
+            </CardDescription>
+            {currentQ.type && QUESTION_TYPE_LABEL[currentQ.type] && (
+              <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                {QUESTION_TYPE_LABEL[currentQ.type]}
+              </span>
+            )}
+          </div>
+          <CardTitle className="text-base font-medium leading-relaxed whitespace-pre-wrap">
             {currentQ.question}
           </CardTitle>
+          {currentQ.concept_tags && currentQ.concept_tags.length > 0 && (
+            <div className="flex flex-wrap gap-1 pt-1">
+              {currentQ.concept_tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
+                >
+                  #{tag}
+                </span>
+              ))}
+            </div>
+          )}
         </CardHeader>
         <CardContent>
-          <RadioGroup
-            value={
-              answers[currentQuestion] !== undefined
-                ? String(answers[currentQuestion])
-                : undefined
-            }
-            onValueChange={handleSelect}
-            className="gap-2"
-          >
-            {currentQ.options.map((option, idx) => {
-              const isSelected = answers[currentQuestion] === idx;
-              const hasAnswer = answers[currentQuestion] !== undefined;
-              const isCorrect = idx === currentQ.correct;
-
-              let optionClass =
-                "flex items-center gap-3 rounded-lg border px-4 py-3 text-sm transition-all cursor-pointer";
-              if (hasAnswer) {
-                if (isCorrect) {
-                  optionClass += " border-green-500 bg-green-50 dark:bg-green-950/20";
-                } else if (isSelected && !isCorrect) {
-                  optionClass += " border-red-500 bg-red-50 dark:bg-red-950/20";
-                } else {
-                  optionClass += " border-border opacity-60";
+          {currentQ.options && currentQ.options.length > 0 ? (
+            <>
+              <RadioGroup
+                value={
+                  answers[currentQuestion] !== undefined
+                    ? String(answers[currentQuestion])
+                    : undefined
                 }
-              } else {
-                optionClass +=
-                  " border-border hover:border-primary hover:bg-muted/50";
-              }
+                onValueChange={handleSelect}
+                className="gap-2"
+              >
+                {currentQ.options.map((option, idx) => {
+                  const isSelected = answers[currentQuestion] === idx;
+                  const hasAnswer = answers[currentQuestion] !== undefined;
+                  const isCorrect = idx === currentQ.correct;
+                  const wrongOptionsBeforeThis = currentQ.options
+                    .slice(0, idx)
+                    .filter((_, i) => i !== currentQ.correct).length;
+                  const whyWrong =
+                    idx !== currentQ.correct
+                      ? currentQ.why_wrong_options_are_wrong?.[wrongOptionsBeforeThis]
+                      : undefined;
 
-              return (
-                <Label key={idx} className={optionClass}>
-                  <RadioGroupItem
-                    value={String(idx)}
-                    disabled={hasAnswer}
-                    className={
-                      hasAnswer && isCorrect
-                        ? "border-green-500 text-green-500 data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500"
-                        : hasAnswer && isSelected && !isCorrect
-                          ? "border-red-500 text-red-500 data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500"
-                          : ""
+                  let optionClass =
+                    "flex items-center gap-3 rounded-lg border px-4 py-3 text-sm transition-all cursor-pointer";
+                  if (hasAnswer) {
+                    if (isCorrect) {
+                      optionClass += " border-green-500 bg-green-50 dark:bg-green-950/20";
+                    } else if (isSelected && !isCorrect) {
+                      optionClass += " border-red-500 bg-red-50 dark:bg-red-950/20";
+                    } else {
+                      optionClass += " border-border opacity-60";
                     }
-                  />
-                  <span className="flex-1">{option}</span>
-                  {hasAnswer && isCorrect && (
-                    <CheckCircle2 className="h-4 w-4 shrink-0 text-green-500" />
-                  )}
-                  {hasAnswer && isSelected && !isCorrect && (
-                    <XCircle className="h-4 w-4 shrink-0 text-red-500" />
-                  )}
-                </Label>
-              );
-            })}
-          </RadioGroup>
+                  } else {
+                    optionClass +=
+                      " border-border hover:border-primary hover:bg-muted/50";
+                  }
 
-          {/* Explanation */}
-          {answers[currentQuestion] !== undefined && currentQ.explanation && (
-            <div className="mt-4 rounded-lg bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
-              <p className="font-medium text-foreground mb-1">💡 Giải thích:</p>
-              <p>{currentQ.explanation}</p>
+                  return (
+                    <div key={idx}>
+                      <Label className={optionClass}>
+                        <RadioGroupItem
+                          value={String(idx)}
+                          disabled={hasAnswer}
+                          className={
+                            hasAnswer && isCorrect
+                              ? "border-green-500 text-green-500 data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500"
+                              : hasAnswer && isSelected && !isCorrect
+                                ? "border-red-500 text-red-500 data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500"
+                                : ""
+                          }
+                        />
+                        <span className="flex-1">{option}</span>
+                        {hasAnswer && isCorrect && (
+                          <CheckCircle2 className="h-4 w-4 shrink-0 text-green-500" />
+                        )}
+                        {hasAnswer && isSelected && !isCorrect && (
+                          <XCircle className="h-4 w-4 shrink-0 text-red-500" />
+                        )}
+                      </Label>
+                      {hasAnswer && isSelected && !isCorrect && whyWrong && (
+                        <p className="px-4 pt-1 text-xs italic text-red-600 dark:text-red-400">
+                          {whyWrong}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </RadioGroup>
+
+              {/* Explanation */}
+              {answers[currentQuestion] !== undefined && currentQ.explanation && (
+                <div className="mt-4 rounded-lg bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
+                  <p className="flex items-center gap-1.5 font-medium text-foreground mb-1">
+                    <Lightbulb className="h-3.5 w-3.5" />
+                    Giải thích
+                  </p>
+                  <p>{currentQ.explanation}</p>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-xs text-muted-foreground">
+                Câu tự luận — hãy tự trả lời trong đầu, sau đó xem đáp án mẫu để tự đối chiếu.
+              </p>
+              {!revealed[currentQuestion] ? (
+                <Button variant="outline" onClick={() => handleReveal(currentQuestion)}>
+                  Xem đáp án mẫu
+                </Button>
+              ) : (
+                <>
+                  <div className="rounded-lg border border-primary/30 bg-primary/10 px-4 py-3 text-sm text-foreground">
+                    <p className="font-medium mb-1">Đáp án mẫu</p>
+                    <p className="whitespace-pre-wrap">{currentQ.correct_answer}</p>
+                  </div>
+                  {currentQ.explanation && (
+                    <div className="rounded-lg bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
+                      <p className="flex items-center gap-1.5 font-medium text-foreground mb-1">
+                        <Lightbulb className="h-3.5 w-3.5" />
+                        Giải thích
+                      </p>
+                      <p>{currentQ.explanation}</p>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           )}
         </CardContent>

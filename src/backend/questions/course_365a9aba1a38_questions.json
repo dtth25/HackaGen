@@ -1,0 +1,132 @@
+[
+  {
+    "question_type": "concept",
+    "question": "Nhận định nào mô tả đúng nhất ý sau trong tài liệu: Chapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo Chương này giới thiệu các kiến thức lập trình cơ bản cần thiết cho các dự án Trí tuệ Nhân tạo (AI), sử dụng",
+    "options": [
+      "Chapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo Chương này giới thiệu các kiến thức lập trình cơ bản cần thiết cho các dự án Trí tuệ Nhân tạo (AI), sử dụng",
+      "Một kết luận mở rộng không được tài liệu cung cấp.",
+      "Một mô tả chỉ nhắc lại thuật ngữ nhưng bỏ qua bản chất.",
+      "Một nhận định trái với ngữ cảnh của đoạn học liệu."
+    ],
+    "correct": 0,
+    "explanation": "Đáp án đúng bám sát ý được truy xuất từ Vector DB; các phương án còn lại hoặc suy diễn ngoài tài liệu, hoặc đánh tráo bản chất khái niệm.",
+    "difficulty": "medium"
+  },
+  {
+    "question_type": "application",
+    "question": "Nhận định nào mô tả đúng nhất ý sau trong tài liệu: Chapter 2 Học có giám sát – Supervised Learning 2.1 Giới thiệu Học có giám sát (Supervised Learning) là một nhánh quan trọng trong học máy (Machine Learning).",
+    "options": [
+      "Chapter 2 Học có giám sát – Supervised Learning 2.1 Giới thiệu Học có giám sát (Supervised Learning) là một nhánh quan trọng trong học máy (Machine Learning).",
+      "Một kết luận mở rộng không được tài liệu cung cấp.",
+      "Một mô tả chỉ nhắc lại thuật ngữ nhưng bỏ qua bản chất.",
+      "Một nhận định trái với ngữ cảnh của đoạn học liệu."
+    ],
+    "correct": 0,
+    "explanation": "Đáp án đúng bám sát ý được truy xuất từ Vector DB; các phương án còn lại hoặc suy diễn ngoài tài liệu, hoặc đánh tráo bản chất khái niệm.",
+    "difficulty": "medium"
+  },
+  {
+    "question_type": "concept",
+    "question": "Nhận định nào mô tả đúng nhất ý sau trong tài liệu: 27 3.5 Phân Cụm Phân Cấp (Hierarchical Clustering) 28 3.5.1 Giới thiệu 28 3.5.2 Cách Thuật Toán Hoạt Động 28 3.5.3 Ví dụ Minh Họa 29 3.5.4 Ứng Dụng Thực Tiễn 30",
+    "options": [
+      "27 3.5 Phân Cụm Phân Cấp (Hierarchical Clustering) 28 3.5.1 Giới thiệu 28 3.5.2 Cách Thuật Toán Hoạt Động 28 3.5.3 Ví dụ Minh Họa 29 3.5.4 Ứng Dụng Thực Tiễn 30",
+      "Một kết luận mở rộng không được tài liệu cung cấp.",
+      "Một mô tả chỉ nhắc lại thuật ngữ nhưng bỏ qua bản chất.",
+      "Một nhận định trái với ngữ cảnh của đoạn học liệu."
+    ],
+    "correct": 0,
+    "explanation": "Đáp án đúng bám sát ý được truy xuất từ Vector DB; các phương án còn lại hoặc suy diễn ngoài tài liệu, hoặc đánh tráo bản chất khái niệm.",
+    "difficulty": "medium"
+  },
+  {
+    "question_type": "application",
+    "question": "Nhận định nào mô tả đúng nhất ý sau trong tài liệu: Chapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo print(i) Đoạn mã trên sẽin ra các sốtừ0 đến 4.",
+    "options": [
+      "Chapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo print(i) Đoạn mã trên sẽin ra các sốtừ0 đến 4.",
+      "Một kết luận mở rộng không được tài liệu cung cấp.",
+      "Một mô tả chỉ nhắc lại thuật ngữ nhưng bỏ qua bản chất.",
+      "Một nhận định trái với ngữ cảnh của đoạn học liệu."
+    ],
+    "correct": 0,
+    "explanation": "Đáp án đúng bám sát ý được truy xuất từ Vector DB; các phương án còn lại hoặc suy diễn ngoài tài liệu, hoặc đánh tráo bản chất khái niệm.",
+    "difficulty": "medium"
+  },
+  {
+    "question_type": "concept",
+    "question": "Nhận định nào mô tả đúng nhất ý sau trong tài liệu: Chapter 2 Học có giám sát – Supervised Learning Mục tiêu là tìm w, b đểsai sốnhỏnhất.",
+    "options": [
+      "Chapter 2 Học có giám sát – Supervised Learning Mục tiêu là tìm w, b đểsai sốnhỏnhất.",
+      "Một kết luận mở rộng không được tài liệu cung cấp.",
+      "Một mô tả chỉ nhắc lại thuật ngữ nhưng bỏ qua bản chất.",
+      "Một nhận định trái với ngữ cảnh của đoạn học liệu."
+    ],
+    "correct": 0,
+    "explanation": "Đáp án đúng bám sát ý được truy xuất từ Vector DB; các phương án còn lại hoặc suy diễn ngoài tài liệu, hoặc đánh tráo bản chất khái niệm.",
+    "difficulty": "medium"
+  },
+  {
+    "question_type": "application",
+    "question": "Nhận định nào mô tả đúng nhất ý sau trong tài liệu: Chapter 5 Neural Networks 5.1 Kiến thức cơ bản về Perceptron Lý thuyết Perceptron là dạng đơn giản nhất của mạng nơ-ron.",
+    "options": [
+      "Chapter 5 Neural Networks 5.1 Kiến thức cơ bản về Perceptron Lý thuyết Perceptron là dạng đơn giản nhất của mạng nơ-ron.",
+      "Một kết luận mở rộng không được tài liệu cung cấp.",
+      "Một mô tả chỉ nhắc lại thuật ngữ nhưng bỏ qua bản chất.",
+      "Một nhận định trái với ngữ cảnh của đoạn học liệu."
+    ],
+    "correct": 0,
+    "explanation": "Đáp án đúng bám sát ý được truy xuất từ Vector DB; các phương án còn lại hoặc suy diễn ngoài tài liệu, hoặc đánh tráo bản chất khái niệm.",
+    "difficulty": "medium"
+  },
+  {
+    "question_type": "concept",
+    "question": "Nhận định nào mô tả đúng nhất ý sau trong tài liệu: Chapter 8 Computer Vision 4.",
+    "options": [
+      "Chapter 8 Computer Vision 4.",
+      "Một kết luận mở rộng không được tài liệu cung cấp.",
+      "Một mô tả chỉ nhắc lại thuật ngữ nhưng bỏ qua bản chất.",
+      "Một nhận định trái với ngữ cảnh của đoạn học liệu."
+    ],
+    "correct": 0,
+    "explanation": "Đáp án đúng bám sát ý được truy xuất từ Vector DB; các phương án còn lại hoặc suy diễn ngoài tài liệu, hoặc đánh tráo bản chất khái niệm.",
+    "difficulty": "medium"
+  },
+  {
+    "question_type": "application",
+    "question": "Nhận định nào mô tả đúng nhất ý sau trong tài liệu: 5.3 Lan truyền ngược (Backpropagation) Tóm tắt • Cho phép huấn luyện mạng nơ-ron sâu.",
+    "options": [
+      "5.3 Lan truyền ngược (Backpropagation) Tóm tắt • Cho phép huấn luyện mạng nơ-ron sâu.",
+      "Một kết luận mở rộng không được tài liệu cung cấp.",
+      "Một mô tả chỉ nhắc lại thuật ngữ nhưng bỏ qua bản chất.",
+      "Một nhận định trái với ngữ cảnh của đoạn học liệu."
+    ],
+    "correct": 0,
+    "explanation": "Đáp án đúng bám sát ý được truy xuất từ Vector DB; các phương án còn lại hoặc suy diễn ngoài tài liệu, hoặc đánh tráo bản chất khái niệm.",
+    "difficulty": "medium"
+  },
+  {
+    "question_type": "concept",
+    "question": "Nhận định nào mô tả đúng nhất ý sau trong tài liệu: 12 2.5 Decision Trees (Cây quyết định) 13 2.6 Random Forests (Rừng ngẫu nhiên) 13 2.7 Gradient Boosting 13 3",
+    "options": [
+      "12 2.5 Decision Trees (Cây quyết định) 13 2.6 Random Forests (Rừng ngẫu nhiên) 13 2.7 Gradient Boosting 13 3",
+      "Một kết luận mở rộng không được tài liệu cung cấp.",
+      "Một mô tả chỉ nhắc lại thuật ngữ nhưng bỏ qua bản chất.",
+      "Một nhận định trái với ngữ cảnh của đoạn học liệu."
+    ],
+    "correct": 0,
+    "explanation": "Đáp án đúng bám sát ý được truy xuất từ Vector DB; các phương án còn lại hoặc suy diễn ngoài tài liệu, hoặc đánh tráo bản chất khái niệm.",
+    "difficulty": "medium"
+  },
+  {
+    "question_type": "application",
+    "question": "Nhận định nào mô tả đúng nhất ý sau trong tài liệu: Chapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo model.fit(X_train , y_train) # Make predictions y_pred = model.predict(X_test) # Evaluate the model accuracy",
+    "options": [
+      "Chapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo model.fit(X_train , y_train) # Make predictions y_pred = model.predict(X_test) # Evaluate the model accuracy",
+      "Một kết luận mở rộng không được tài liệu cung cấp.",
+      "Một mô tả chỉ nhắc lại thuật ngữ nhưng bỏ qua bản chất.",
+      "Một nhận định trái với ngữ cảnh của đoạn học liệu."
+    ],
+    "correct": 0,
+    "explanation": "Đáp án đúng bám sát ý được truy xuất từ Vector DB; các phương án còn lại hoặc suy diễn ngoài tài liệu, hoặc đánh tráo bản chất khái niệm.",
+    "difficulty": "medium"
+  }
+]

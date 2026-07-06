@@ -9,6 +9,7 @@ import {
   Loader2,
   Trash2,
   UploadCloud,
+  ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -151,35 +152,36 @@ export default function UploadBox({ onUploaded }: UploadBoxProps) {
   const isUploading = fileItems.some((item) => item.status === "uploading");
 
   return (
-    <Card className="w-full">
-      <CardHeader className="space-y-2">
-        <CardTitle className="text-xl">Tải tài liệu học tập</CardTitle>
+    <Card className="w-full shadow-md border-border/80 bg-card/95 backdrop-blur-sm transition-all">
+      <CardHeader className="space-y-1.5 pb-4">
+        <CardTitle className="text-xl font-bold flex items-center gap-2 text-foreground">
+          <UploadCloud className="h-5 w-5 text-primary" />
+          Tải lên tài liệu học tập
+        </CardTitle>
         <p className="text-sm text-muted-foreground">
-          Có thể tải nhiều file PDF, DOCX hoặc TXT. Mỗi file tối đa 50MB.
+          Hỗ trợ định dạng PDF, DOCX hoặc TXT. Dung lượng tối đa 50MB mỗi file.
         </p>
       </CardHeader>
       <CardContent>
         <div
           {...getRootProps()}
-          className={`cursor-pointer rounded-lg border-2 border-dashed p-8 text-center transition-colors ${
+          className={`cursor-pointer rounded-xl border-2 border-dashed p-10 text-center transition-all duration-200 ${
             isDragActive
-              ? "border-primary bg-primary/5"
-              : "border-muted-foreground/25 hover:border-muted-foreground/50 hover:bg-muted/50"
+              ? "border-primary bg-primary/10 shadow-inner scale-[0.99]"
+              : "border-border hover:border-primary/60 hover:bg-secondary/50 hover:shadow-sm"
           }`}
         >
           <Input {...getInputProps()} />
-          <UploadCloud
-            className={`mx-auto mb-4 h-11 w-11 transition-colors ${
-              isDragActive ? "text-primary" : "text-muted-foreground"
-            }`}
-          />
-          <p className="text-base font-medium">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary shadow-sm">
+            <UploadCloud className="h-7 w-7" />
+          </div>
+          <p className="text-base font-semibold text-foreground">
             {isDragActive
-              ? "Thả tài liệu vào đây"
+              ? "Thả tài liệu vào đây ngay..."
               : "Kéo thả tài liệu vào đây hoặc click để chọn file"}
           </p>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Hệ thống sẽ gộp các file thành một bộ tài liệu chung.
+          <p className="mt-1.5 text-xs font-medium text-muted-foreground">
+            Một lần tải lên để tạo Sách, mindmap, quiz, flashcards và summary.
           </p>
         </div>
 
@@ -271,6 +273,40 @@ export default function UploadBox({ onUploaded }: UploadBoxProps) {
             )}
           </div>
         )}
+
+        {/* Privacy & Trust Layer Notice */}
+        <div className="mt-8 rounded-2xl border border-border/80 bg-muted/30 p-5 text-sm">
+          <div className="flex items-center gap-2 font-semibold text-foreground mb-3">
+            <ShieldCheck className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+            Cam kết bảo mật & Quyền riêng tư (Trust & Privacy Layer)
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-muted-foreground">
+            <div className="flex items-start gap-2">
+              <span className="mt-1 h-2 w-2 rounded-full bg-emerald-500" />
+              <span>
+                <strong className="text-foreground">Tài liệu của bạn được giữ riêng tư.</strong> File được lưu trong workspace của ứng dụng, chỉ tài khoản của bạn (và quản trị viên) truy cập được.
+              </span>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="mt-1 h-2 w-2 rounded-full bg-amber-500" />
+              <span>
+                <strong className="text-foreground">Bạn có thể xóa tài liệu bất cứ lúc nào.</strong> Xóa sẽ gỡ file gốc, dữ liệu vector và học liệu đã tạo.
+              </span>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="mt-1 h-2 w-2 rounded-full bg-primary" />
+              <span>
+                <strong className="text-foreground">Nội dung được tạo dựa trên nguồn trong file của bạn.</strong> Mỗi output có thể xem lại trích đoạn nguồn gốc.
+              </span>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="mt-1 h-2 w-2 rounded-full bg-rose-500" />
+              <span>
+                <strong className="text-foreground">AI có thể sai, hãy kiểm tra lại thông tin quan trọng.</strong>
+              </span>
+            </div>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );

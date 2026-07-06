@@ -1,0 +1,122 @@
+[
+  {
+    "question": "Thư viện Python nào sau đây được thiết kế chủ yếu để xử lý và phân tích dữ liệu dạng bảng (tabular data) một cách hiệu quả?",
+    "options": [
+      "A. NumPy",
+      "B. Matplotlib",
+      "C. Pandas",
+      "D. Scikit-learn"
+    ],
+    "correct": 2,
+    "explanation": "Theo mục 1.2.2 trong tài liệu, Pandas là thư viện được sử dụng để xử lý dữ liệu, đặc biệt hiệu quả với dữ liệu dạng bảng. NumPy chủ yếu dùng cho các phép toán số học trên mảng, Matplotlib và Seaborn dùng để trực quan hóa dữ liệu, còn Scikit-learn dùng để xây dựng các mô hình học máy.",
+    "difficulty": "medium"
+  },
+  {
+    "question": "Trong Học có giám sát (Supervised Learning), đâu là hai loại bài toán chính được đề cập?",
+    "options": [
+      "A. Phân cụm (Clustering) và Giảm chiều (Dimensionality Reduction)",
+      "B. Hồi quy (Regression) và Phân loại (Classification)",
+      "C. Phát hiện đối tượng (Object Detection) và Phân đoạn ảnh (Image Segmentation)",
+      "D. Tối ưu hóa (Optimization) và Lan truyền ngược (Backpropagation)"
+    ],
+    "correct": 1,
+    "explanation": "Mục 2.1 'Giới thiệu Học có giám sát (Supervised Learning)' nêu rõ hai loại bài toán chính là 'Regression (Hồi quy): Dự đoán đầu ra là giá trị số liên tục' và 'Classification (Phân loại): Dự đoán đầu ra là nhãn rời rạc'. Các lựa chọn khác thuộc về Học không giám sát (A), Thị giác máy tính (C) hoặc các khái niệm trong huấn luyện mô hình học sâu (D).",
+    "difficulty": "medium"
+  },
+  {
+    "question": "Chỉ số đánh giá mô hình nào sau đây đo lường tỉ lệ các trường hợp dương tính được dự đoán đúng trong số tất cả các trường hợp mà mô hình dự đoán là dương tính?",
+    "options": [
+      "A. Độ chính xác (Accuracy)",
+      "B. Khả năng thu hồi (Recall)",
+      "C. Độ chính xác của dự đoán dương (Precision)",
+      "D. F1-Score"
+    ],
+    "correct": 2,
+    "explanation": "Theo mục 4.1.2 'Độ Chính Xác Của Dự Đoán Dương (Precision)', chỉ số này đo lường 'tỉ lệ các trường hợp dương tính được dự đoán đúng trong số tất cả các trường hợp mà mô hình dự đoán là dương tính'. Accuracy là tỉ lệ dự đoán đúng tổng thể, Recall là tỉ lệ dương tính đúng trên tổng số dương tính thực tế, và F1-Score là trung bình điều hòa của Precision và Recall.",
+    "difficulty": "medium"
+  },
+  {
+    "question": "Hiện tượng nào xảy ra khi một mô hình học máy học quá kỹ dữ liệu huấn luyện, dẫn đến hiệu suất kém trên dữ liệu mới, chưa từng thấy?",
+    "options": [
+      "A. Underfitting",
+      "B. Overfitting",
+      "C. Chuẩn hóa (Normalization)",
+      "D. Giảm chiều (Dimensionality Reduction)"
+    ],
+    "correct": 1,
+    "explanation": "Mục 4.2.2 'Overfitting' mô tả hiện tượng này là 'Khi mô hình học quá kỹ dữ liệu huấn luyện và hoạt động kém trên dữ liệu mới'. Underfitting là khi mô hình quá đơn giản để nắm bắt mối quan hệ trong dữ liệu. Chuẩn hóa và giảm chiều là các kỹ thuật tiền xử lý dữ liệu.",
+    "difficulty": "medium"
+  },
+  {
+    "question": "Kỹ thuật Thị giác máy tính (Computer Vision) nào tập trung vào việc xác định vị trí và loại đối tượng trong ảnh bằng cách dự đoán tọa độ của các hộp bao (bounding boxes) và gán nhãn phân loại cho từng hộp?",
+    "options": [
+      "A. Phân loại ảnh (Image Classification)",
+      "B. Phát hiện đối tượng (Object Detection)",
+      "C. Phân đoạn ảnh (Image Segmentation)",
+      "D. Tạo ảnh (Image Generation)"
+    ],
+    "correct": 1,
+    "explanation": "Theo mục 8.4 'Object Detection Basics (YOLO, SSD)', Phát hiện đối tượng (Object Detection) là kỹ thuật giúp 'xác định vị trí và loại đối tượng trong ảnh bằng cách: • Dự đoán tọa độ của các hộp bao (bounding boxes) • Gán nhãn phân loại (class label) cho từng hộp'. Phân loại ảnh chỉ gán một nhãn cho toàn bộ ảnh. Phân đoạn ảnh nhận diện chi tiết từng phần trong ảnh. Tạo ảnh là một ứng dụng của GANs.",
+    "difficulty": "medium"
+  },
+  {
+    "question": "Trong huấn luyện mạng nơ-ron sâu, kỹ thuật nào cho phép tính toán gradient của hàm mất mát đối với các trọng số của mạng, từ đó cập nhật trọng số để tối ưu hóa mô hình?",
+    "options": [
+      "A. Lan truyền tiến (Forward Propagation)",
+      "B. Lan truyền ngược (Backpropagation)",
+      "C. Chuẩn hóa hàng loạt (Batch Normalization)",
+      "D. Dropout"
+    ],
+    "correct": 1,
+    "explanation": "Mục 5.3 'Lan truyền ngược (Backpropagation)' tóm tắt rằng kỹ thuật này 'Cho phép huấn luyện mạng nơ-ron sâu' và 'Sử dụng quy tắc chuỗi để tính gradient'. Lan truyền tiến là quá trình tính toán đầu ra của mạng. Batch Normalization và Dropout là các kỹ thuật điều chuẩn (regularization) để cải thiện quá trình huấn luyện.",
+    "difficulty": "medium"
+  },
+  {
+    "question": "Phương pháp tối ưu hóa nào sau đây cập nhật trọng số của mô hình sau khi xử lý một tập hợp con (mini-batch) của dữ liệu huấn luyện, thay vì toàn bộ tập dữ liệu hoặc từng mẫu riêng lẻ?",
+    "options": [
+      "A. Gradient Descent (Batch Gradient Descent)",
+      "B. Stochastic Gradient Descent (SGD)",
+      "C. Mini-Batch Gradient Descent",
+      "D. Newton's Method"
+    ],
+    "correct": 2,
+    "explanation": "Mục 6.2 'Stochastic Gradient Descent (SGD) và Mini-Batch Gradient Descent' mô tả các biến thể của Gradient Descent. Mini-Batch Gradient Descent cập nhật trọng số sau khi xử lý một tập hợp con (mini-batch) dữ liệu. Batch Gradient Descent sử dụng toàn bộ tập dữ liệu, trong khi SGD sử dụng từng mẫu dữ liệu riêng lẻ.",
+    "difficulty": "medium"
+  },
+  {
+    "question": "Cơ chế 'Attention Mechanism' đóng vai trò quan trọng trong kiến trúc Transformer, cho phép mô hình làm gì?",
+    "options": [
+      "A. Giảm chiều dữ liệu đầu vào một cách hiệu quả.",
+      "B. Tập trung vào các phần quan trọng khác nhau của chuỗi đầu vào khi tạo ra một phần của chuỗi đầu ra.",
+      "C. Thực hiện các phép toán convolution trên dữ liệu văn bản.",
+      "D. Đảm bảo tính tuần tự của các từ trong câu."
+    ],
+    "correct": 1,
+    "explanation": "Mục 7.2 'Cơ bản về Transformer và Attention Mechanism' giới thiệu về cơ chế Attention. Mặc dù không nêu rõ chi tiết chức năng, nhưng trong bối cảnh NLP và Transformer, Attention Mechanism cho phép mô hình gán trọng số khác nhau cho các phần khác nhau của chuỗi đầu vào, từ đó tập trung vào những thông tin quan trọng nhất khi xử lý hoặc tạo ra đầu ra. Các lựa chọn A, C, D không phải là vai trò chính của Attention.",
+    "difficulty": "medium"
+  },
+  {
+    "question": "Mạng đối kháng tạo sinh (GAN) bao gồm hai thành phần chính cạnh tranh với nhau. Hai thành phần đó là gì và vai trò của chúng?",
+    "options": [
+      "A. Encoder (Mã hóa) và Decoder (Giải mã) để nén và giải nén dữ liệu.",
+      "B. Generator (Bộ tạo) để tạo dữ liệu giả và Discriminator (Bộ phân biệt) để phân biệt dữ liệu thật/giả.",
+      "C. Feature Extractor (Trích xuất đặc trưng) và Classifier (Bộ phân loại) để nhận diện đối tượng.",
+      "D. Query (Truy vấn) và Key (Khóa) để tính toán sự tương đồng trong cơ chế Attention."
+    ],
+    "correct": 1,
+    "explanation": "Mục 8.9 'Introduction to GANs (Generating Images)' giải thích rằng GAN bao gồm hai thành phần chính: 'Generator (G): Tạo ảnh giả từ nhiễu ngẫu nhiên' và 'Discriminator (D): Phân biệt ảnh thật và ảnh giả'. Chúng cạnh tranh nhau trong một trò chơi đối kháng.",
+    "difficulty": "medium"
+  },
+  {
+    "question": "Tại sao việc tinh chỉnh siêu tham số (Hyperparameter Tuning) lại quan trọng trong quá trình phát triển mô hình học máy và đâu là hai phương pháp phổ biến được đề cập?",
+    "options": [
+      "A. Để giảm kích thước dữ liệu; phương pháp là PCA và t-SNE.",
+      "B. Để tránh overfitting; phương pháp là Dropout và Batch Normalization.",
+      "C. Để cải thiện hiệu suất mô hình; phương pháp là Tìm kiếm lưới (Grid Search) và Tìm kiếm ngẫu nhiên (Random Search).",
+      "D. Để tăng tốc độ huấn luyện; phương pháp là SGD và Adam."
+    ],
+    "correct": 2,
+    "explanation": "Mục 4.3 'Tinh Chỉnh Siêu Tham Số (Hyperparameter Tuning)' nêu rõ tầm quan trọng của việc này (mặc dù không trực tiếp nói 'cải thiện hiệu suất', nhưng đó là mục tiêu chính) và giới thiệu 'Tìm Kiếm Lưới (Grid Search)' (4.3.2) cùng 'Tìm Kiếm Ngẫu Nhiên (Random Search)' (4.3.3) là các phương pháp phổ biến. Các lựa chọn A là kỹ thuật giảm chiều, B là kỹ thuật điều chuẩn, và D là các thuật toán tối ưu hóa.",
+    "difficulty": "medium"
+  }
+]

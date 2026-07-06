@@ -6,16 +6,19 @@
 Frontend (Next.js)
   -> FastAPI Backend
   -> Document Processor
-  -> FAISS Local Index
+  -> VectorStore Provider (Chroma Local DB by default)
   -> ResourceGenerator
   -> Local Generated Artifacts
 ```
 
-Public product surface chỉ có 4 output:
-- Book
-- Slide
+Public product surface (per `CLAUDE.md`) là **Document-to-Study-Pack**, gồm 5 output chính:
+- Study Guide PDF (Book)
+- Mindmap (3-level interactive)
 - Quiz
-- Vid
+- Flashcards
+- High-yield summary
+
+Slide và Vid là output bổ sung (optional/sau).
 
 ## 2. Upload & Indexing Flow
 
@@ -24,14 +27,14 @@ Public product surface chỉ có 4 output:
 3. Backend validate extension, empty file và size <= 50MB mỗi file.
 4. Backend lưu files vào `uploads/{course_id}/`, tạo `course_id`, ghi metadata vào `questions/course_{course_id}_meta.json`.
 5. Background thread parse text từng tài liệu bằng document processor.
-6. Text được chunk, embed bằng Gemini embeddings và lưu vào một FAISS local index chung cho `course_id`.
+6. Text được chunk, embed bằng Gemini embeddings và lưu vào Chroma collection `ai_course_chunks` theo `course_id`.
 7. Khi index sẵn sàng, status chuyển thành `ready`.
 
 ## 3. Generation Flow
 
 ```text
 course_id
-  -> load FAISS vectorstore
+  -> load configured vectorstore
   -> retrieve top-k chunks from the full corpus
   -> clean internal extraction markers
   -> prompt Gemini
@@ -46,7 +49,25 @@ Resource generation nằm trong `ResourceGenerator`:
 - `generate_quiz_v2`
 - `generate_vid`
 
-FAISS metadata vẫn được giữ nội bộ cho retrieval/debug, nhưng public response không trả `page`, `source`, `chunk_id`, `citations`.
+Vector metadata vẫn được giữ nội bộ cho retrieval/debug, nhưng public response không trả `page`, `source`, `chunk_id`, `citations`.
+
+### 3.1 Mindmap Generation Flow
+
+Mindmap không được tạo trực tiếp từ raw chunks. Pipeline ưu tiên theo thứ tự:
+
+```text
+clean chunks (context_cleaner)
+  -> book plan / teaching notes (đã lưu, hoặc tạo mới)
+  -> build_mindmap_from_book (3-level: chapter -> lesson -> concept/formula/example/warning/exercise)
+  -> quality gate (_evaluate_mindmap_quality_gate)
+  -> mindmap JSON (root/nodes/edges/quality_report)
+  -> frontend render (InteractiveMindmapCanvas, lazy-loaded)
+```
+
+- `GET /api/course/{course_id}/mindmap`: trả mindmap đã lưu, hoặc build từ book plan (không gọi LLM).
+- `POST /api/course/{course_id}/mindmap/regenerate`: thử LLM generation từ clean chunks (`MINDMAP_GENERATION_PROMPT`) trước, fallback về book plan, rồi fallback về shallow mindmap (`generate_fallback_shallow_mindmap`) khi context không đủ.
+- Quality gate reject/hạ điểm khi phát hiện: `Contents`/`Mục lục`, dot leaders, số trang thô làm tiêu đề, debug markers (`BẮT ĐẦU DỮ LIỆU`, `KẾT THÚC DỮ LIỆU`, `MÃ ĐỊNH DANH TRANG`, `NỘI DUNG:`), generic filler (`Ý chính`, `Ghi nhớ ý chính`), hoặc node quan trọng thiếu `source_chunk_ids`.
+- Frontend: `/mindmap/[id]` dynamic-imports `InteractiveMindmapCanvas` với `ssr:false` (không load lên dashboard chính) để giữ nhẹ cho máy 8GB RAM; không dùng thư viện graph nặng (d3/react-flow/cytoscape) — cây được vẽ bằng CSS/flexbox thuần với zoom/pan, search, filter theo `type`/`importance`, expand/collapse, panel chi tiết node, và export JSON/PNG.
 
 ## 4. Backend Modules
 
@@ -55,8 +76,10 @@ FAISS metadata vẫn được giữ nội bộ cho retrieval/debug, nhưng publi
 | `backend.main` | FastAPI routes, validation, response shape |
 | `backend.services.course_gen` | Course lifecycle, lazy loading, LRU cache |
 | `backend.services.doc_processor` | PDF/DOCX/TXT extraction |
-| `backend.services.resource_gen` | Book, Slide, Quiz, Vid generation and artifact export |
-| `backend.vector_db.faiss_manager` | FAISS create/load/list/drop |
+| `backend.services.resource_gen` | Book, Mindmap, Slide, Quiz, Vid generation and artifact export |
+| `backend.vector_db.manager` | Provider selection for Chroma/FAISS |
+| `backend.vector_db.chroma_store` | Chroma create/load/list/drop and retrieval |
+| `backend.vector_db.faiss_manager` | Legacy FAISS create/load/list/drop |
 | `backend.core.prompts` | Prompt templates for 4 outputs |
 | `backend.core.config` | Paths, model factories, utility helpers |
 
@@ -65,15 +88,18 @@ FAISS metadata vẫn được giữ nội bộ cho retrieval/debug, nhưng publi
 | Path | Purpose |
 | --- | --- |
 | `uploads/{course_id}/` | Original uploaded files for one corpus |
-| `indices/faiss_{course_id}/` | FAISS index |
-| `indices/faiss_{course_id}.json` | FAISS metadata |
+| `data/chroma/` | Chroma persistent local DB |
+| `indices/chroma_{course_id}.json` | Chroma preprocessing metadata |
+| `indices/faiss_{course_id}/` | Legacy FAISS index when `VECTOR_DB_PROVIDER=faiss` |
+| `indices/faiss_{course_id}.json` | Legacy FAISS metadata |
 | `questions/course_{course_id}_meta.json` | Course lifecycle metadata |
 | `questions/course_{course_id}_questions.json` | Quiz JSON |
-| `questions/course_{course_id}_quiz.pdf` | Quiz PDF |
+| `questions/course_{course_id}_answer_key.pdf` | Quiz answer key PDF |
 | `books/course_{course_id}_book.json` | Book JSON |
 | `books/course_{course_id}_book.pdf` | Book PDF |
+| `mindmaps/course_{course_id}_mindmap.json` | Mindmap JSON (root/nodes/edges/quality_report) |
 | `slides/course_{course_id}_slides.json` | Slide JSON |
-| `slides/course_{course_id}_slides.pdf` | Slide PDF |
+| `slides/course_{course_id}_slides.pptx` | Slide PPTX |
 | `videos/course_{course_id}/vid.json` | Vid metadata |
 | `videos/course_{course_id}/vid.mp4` | Vid MP4 |
 
@@ -84,7 +110,7 @@ FAISS metadata vẫn được giữ nội bộ cho retrieval/debug, nhưng publi
 | Public outputs | Book, Slide, Quiz, Vid | Hackathon scope rõ, ít phân tán |
 | Multi-document | One `course_id` per uploaded corpus | User cần tạo học liệu từ nhiều tài liệu cùng lúc |
 | AI boundary | Frontend -> FastAPI -> LLM | Không expose API key ở client |
-| Retrieval | FAISS local | Dễ chạy demo, không cần external vector DB |
-| Artifact export | JSON + PDF/MP4 where applicable | UI học nhanh, file dễ chia sẻ |
+| Retrieval | Chroma local default, FAISS legacy | Dễ chạy demo, không cần Milvus/external vector DB |
+| Artifact export | Book PDF, Slide PPTX, Quiz key PDF, Vid MP4 | File tải xuống khớp đúng 4 output public |
 | Public metadata | Không trả page/source/chunk | Product mới không hiển thị source metadata |
 | Auth | Không có trong v1 | Tập trung core generation flow |

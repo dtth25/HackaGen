@@ -1,0 +1,58 @@
+[
+  {
+    "title": "Tổng quan các bài toán lập trình thi đấu",
+    "content": "- Giới thiệu về các dạng bài toán thường gặp trong lập trình thi đấu.\n- Tập trung vào các bài toán từ đề thi tuyển chọn.\n- Nâng cao tư duy giải quyết vấn đề và kỹ năng thuật toán.",
+    "layout_hint": "title-and-content",
+    "visual_type": "concept",
+    "image_suggestion": "Biểu tượng lập trình, mã nguồn trên màn hình máy tính, huy chương hoặc cúp tượng trưng cho thành công."
+  },
+  {
+    "title": "Các Dạng Bài Toán Chính",
+    "content": "- **Bài toán trên cây (Tree Problems)**: Xử lý cấu trúc dữ liệu dạng cây.\n- **Bài toán quy hoạch động (Dynamic Programming)**: Tối ưu hóa với các truy vấn đoạn.\n- **Bài toán trên lưới (Grid/Matrix Problems)**: Thao tác và tối ưu trên ma trận.\n- **Bài toán tổ hợp và đếm (Combinatorics & Counting)**: Đếm số lượng cấu hình thỏa mãn.",
+    "layout_hint": "title-and-content",
+    "visual_type": "concept",
+    "image_suggestion": "Bốn biểu tượng nhỏ: một cây đồ thị, một biểu đồ DP, một lưới caro, và một biểu tượng sigma hoặc tổ hợp."
+  },
+  {
+    "title": "Bài toán 1: MEX trên cây (TREEMEX.cpp)",
+    "content": "- **Mục tiêu**: Tính tổng độ đẹp của tất cả các cặp đỉnh (i, j) trên cây.\n- **Độ đẹp (beauty(i, j))**: Được định nghĩa là MEX của tập đỉnh trên đường đi đơn giản giữa i và j.\n- **MEX (Minimum EXcluded)**: Số nguyên không âm nhỏ nhất không xuất hiện trong một tập hợp.\n- **Thách thức**: Xử lý hiệu quả trên cây lớn và tính toán MEX.",
+    "layout_hint": "title-and-content",
+    "visual_type": "concept",
+    "image_suggestion": "Một cây đồ thị đơn giản với 5-7 đỉnh được đánh số. Một đường đi giữa hai đỉnh được tô màu nổi bật, kèm theo chú thích 'MEX({...}) = ?'."
+  },
+  {
+    "title": "Bài toán 2: Ba lô với Truy vấn đoạn (KNAPSACK.cpp)",
+    "content": "- **Mục tiêu**: Tìm tổng giá trị lớn nhất khi chọn vật phẩm trong một đoạn cho trước.\n- **Đầu vào**: N vật phẩm (trọng lượng Wi, giá trị Vi) và Q truy vấn (Lj, Rj, Cj).\n- **Ràng buộc**: Tổng trọng lượng của các vật phẩm được chọn không vượt quá Cj.\n- **Thách thức**: Kết hợp bài toán ba lô cổ điển với truy vấn trên đoạn lớn.",
+    "layout_hint": "title-and-content",
+    "visual_type": "concept",
+    "image_suggestion": "Hình ảnh một cái ba lô với các vật phẩm có nhãn 'W:x, V:y'. Một thanh trượt hoặc mũi tên chỉ ra một đoạn [Lj, Rj] trên một dãy vật phẩm."
+  },
+  {
+    "title": "Bài toán 3: Bàn cờ đẹp (CHESSBOARD.cpp)",
+    "content": "- **Mục tiêu**: Tìm số ô ít nhất cần đổi màu để bàn cờ trở thành 'đẹp'.\n- **Định nghĩa 'đẹp'**: Mọi bảng con vuông có cạnh chẵn đều chứa một số lẻ ô đen.\n- **Đầu vào**: Bàn cờ kích thước N x M với trạng thái ban đầu (trắng/đen).\n- **Thách thức**: Tối ưu hóa biến đổi trên ma trận lớn, tìm kiếm cấu hình tối thiểu.",
+    "layout_hint": "title-and-content",
+    "visual_type": "concept",
+    "image_suggestion": "Một bàn cờ caro 4x4 hoặc 6x6 với một số ô được tô đen/trắng. Một hình vuông con 2x2 hoặc 4x4 được khoanh vùng nổi bật."
+  },
+  {
+    "title": "Bài toán 4: Đếm dãy số thỏa mãn tổng (BOUNDED.cpp)",
+    "content": "- **Mục tiêu**: Đếm số lượng dãy số không âm x = (x1, ..., xN) thỏa mãn điều kiện.\n- **Điều kiện**: Tổng `sum(Ai * xi)` không vượt quá M.\n- **Đầu vào**: Dãy số nguyên dương A = (A1, ..., AN) và số nguyên dương M.\n- **Kết quả**: In ra số dư của kết quả khi chia cho `10^9 + 7` (modulo lớn).",
+    "layout_hint": "title-and-content",
+    "visual_type": "concept",
+    "image_suggestion": "Một công thức toán học với dấu sigma: Σ(Ai * xi) ≤ M. Các biến x1, x2, ..., xN được biểu diễn bằng các hộp rỗng."
+  },
+  {
+    "title": "Các Kỹ thuật Giải quyết Vấn đề Chung",
+    "content": "- **Quy hoạch động (DP)**: Giải quyết các bài toán tối ưu có cấu trúc con chồng chéo.\n- **Cấu trúc dữ liệu (Data Structures)**: Sử dụng cây phân đoạn, cây Fenwick để xử lý truy vấn nhanh.\n- **Lý thuyết số & Tổ hợp**: Áp dụng cho các bài toán đếm, tính toán modulo.\n- **Thuật toán trên đồ thị**: Duyệt cây (DFS/BFS), tìm đường đi, xử lý các thuộc tính đồ thị.",
+    "layout_hint": "title-and-content",
+    "visual_type": "concept",
+    "image_suggestion": "Một sơ đồ tư duy (mind map) với các nhánh chính: 'Dynamic Programming', 'Data Structures', 'Number Theory & Combinatorics', 'Graph Algorithms', mỗi nhánh có các từ khóa liên quan."
+  },
+  {
+    "title": "Kết luận và Hướng phát triển",
+    "content": "- Các bài toán đa dạng, đòi hỏi sự kết hợp nhiều kiến thức và kỹ năng.\n- Kỹ năng phân tích đề bài và lựa chọn thuật toán phù hợp là chìa khóa.\n- Thực hành thường xuyên giúp nâng cao tư duy giải quyết vấn đề và hiệu suất code.\n- Luôn tìm hiểu các kỹ thuật mới và tối ưu hóa giải pháp.",
+    "layout_hint": "title-and-content",
+    "visual_type": "concept",
+    "image_suggestion": "Biểu tượng 'mục tiêu đạt được' hoặc 'phát triển kỹ năng' với các mũi tên đi lên, thể hiện sự tiến bộ và học hỏi liên tục."
+  }
+]
