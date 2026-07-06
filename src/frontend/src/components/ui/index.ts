@@ -54,3 +54,4 @@ export {
   AccordionTrigger,
   AccordionContent,
 } from "@/components/ui/accordion";
+export { QualityScoreBadge } from "@/components/ui/QualityScoreBadge";

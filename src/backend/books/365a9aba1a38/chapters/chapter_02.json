@@ -1,0 +1,77 @@
+{
+  "chapter_index": 2,
+  "title": "Chapter 2 học có giám sát supervised learning",
+  "overview": "Chapter 2 Học có giám sát – Supervised Learning 2.1 Giới thiệu Học có giám sát (Supervised Learning) là một nhánh quan trọng trong học máy (Machine Learning).",
+  "learning_outcomes": [
+    "Nắm vững và vận dụng Chapter 2 học có giám sát supervised learning trong thực tiễn."
+  ],
+  "lessons": [
+    {
+      "lesson_index": 1,
+      "title": "Nguyên lý và cơ chế hoạt động của Chapter 2 học có giám sát supervised learning",
+      "duration_minutes": 30,
+      "core_idea": "Học có giám sát là một phương pháp trong học máy, nơi mô hình học từ dữ liệu đã có nhãn (đầu vào và đầu ra đã biết) để dự đoán đầu ra cho dữ liệu mới. Nó bao gồm hai loại bài toán chính: Hồi quy (Regression) cho giá trị liên tục và Phân loại (Classification) cho nhãn rời rạc.",
+      "why_it_matters": "Học có giám sát là nền tảng cho vô số ứng dụng trí tuệ nhân tạo trong đời sống và công nghiệp, từ dự đoán giá nhà, nhận diện hình ảnh, phân loại email spam cho đến chẩn đoán bệnh, giúp tự động hóa và đưa ra quyết định thông minh hơn.",
+      "learning_objectives": [
+        "Hiểu định nghĩa và vai trò của Học có giám sát trong lĩnh vực học máy.",
+        "Nắm vững ý tưởng cơ bản và cơ chế hoạt động của các mô hình Học có giám sát.",
+        "Phân biệt được hai loại bài toán chính trong Học có giám sát: Hồi quy và Phân loại, cùng với các ví dụ minh họa."
+      ],
+      "explanation": "Học có giám sát (Supervised Learning) là một trong những nhánh quan trọng nhất của học máy (Machine Learning). Ý tưởng cốt lõi của phương pháp này là học một mô hình từ một tập dữ liệu đã có sẵn các cặp 'đầu vào' (features) và 'đầu ra' (labels) tương ứng. Nói cách khác, chúng ta cung cấp cho mô hình các ví dụ đã được 'giám sát' hay 'gắn nhãn' đúng, để nó có thể học cách ánh xạ từ đầu vào đến đầu ra. Cơ chế hoạt động diễn ra như sau: Đầu tiên, chúng ta có một tập dữ liệu huấn luyện bao gồm nhiều mẫu, mỗi mẫu có các đặc trưng đầu vào và một nhãn đầu ra đã biết. Mô hình sẽ phân tích mối quan hệ giữa các đặc trưng đầu vào và nhãn đầu ra này. Mục tiêu là 'học' một hàm hoặc một quy tắc tổng quát từ dữ liệu này. Sau khi quá trình huấn luyện hoàn tất, mô hình đã học được có thể được sử dụng để dự đoán đầu ra cho các dữ liệu đầu vào mới, chưa từng thấy trước đây mà không cần biết trước nhãn của chúng. Học có giám sát được chia thành hai loại bài toán chính dựa trên tính chất của đầu ra cần dự đoán: 1. **Hồi quy (Regression)**: Đây là loại bài toán mà đầu ra cần dự đoán là một giá trị số liên tục. Ví dụ, dự đoán giá nhà dựa trên diện tích, số phòng, vị trí; dự đoán nhiệt độ ngày mai; hoặc dự đoán doanh số bán hàng của một sản phẩm. Kết quả dự đoán không phải là một danh mục cụ thể mà là một con số nằm trong một khoảng giá trị. 2. **Phân loại (Classification)**: Đây là loại bài toán mà đầu ra cần dự đoán là một nhãn hoặc danh mục rời rạc. Ví dụ, phân loại email là 'spam' hay 'không spam'; nhận diện hình ảnh là 'mèo' hay 'chó'; hoặc chẩn đoán bệnh là 'có bệnh' hay 'không bệnh'. Kết quả dự đoán là việc gán một mẫu dữ liệu vào một trong các lớp (class) đã định trước.",
+      "must_know_points": [
+        "Học có giám sát yêu cầu dữ liệu huấn luyện phải có nhãn (đầu vào và đầu ra đã biết).",
+        "Mục tiêu chính là xây dựng một mô hình có khả năng dự đoán đầu ra cho dữ liệu mới.",
+        "Hai loại bài toán cơ bản là Hồi quy (dự đoán giá trị số liên tục) và Phân loại (dự đoán nhãn rời rạc)."
+      ],
+      "key_concepts": [
+        {
+          "term": "Học có giám sát (Supervised Learning)",
+          "definition": "Một phương pháp trong học máy, nơi mô hình được huấn luyện trên một tập dữ liệu đã có sẵn các cặp đầu vào (features) và đầu ra mong muốn (labels). Mục tiêu là học một ánh xạ từ đầu vào đến đầu ra để có thể dự đoán đầu ra cho dữ liệu mới chưa từng thấy."
+        },
+        {
+          "term": "Đặc trưng (Features)",
+          "definition": "Các thuộc tính hoặc biến đầu vào của dữ liệu được sử dụng để huấn luyện mô hình và đưa ra dự đoán. Ví dụ: diện tích nhà, số phòng, màu sắc."
+        },
+        {
+          "term": "Nhãn (Labels)",
+          "definition": "Giá trị đầu ra mong muốn hoặc kết quả mục tiêu tương ứng với mỗi tập hợp đặc trưng đầu vào trong dữ liệu huấn luyện. Ví dụ: giá nhà, 'spam'/'không spam'."
+        },
+        {
+          "term": "Hồi quy (Regression)",
+          "definition": "Một loại bài toán trong học có giám sát nhằm dự đoán một giá trị đầu ra liên tục, ví dụ như giá nhà, nhiệt độ, doanh số bán hàng."
+        },
+        {
+          "term": "Phân loại (Classification)",
+          "definition": "Một loại bài toán trong học có giám sát nhằm dự đoán một nhãn hoặc danh mục rời rạc, ví dụ như phân loại email là spam hay không spam, nhận diện hình ảnh là mèo hay chó."
+        }
+      ],
+      "example": "Để minh họa, hãy xem xét hai ví dụ: 1. **Ví dụ Hồi quy**: Bạn muốn dự đoán giá bán của một căn hộ mới trên thị trường. Dữ liệu huấn luyện của bạn sẽ bao gồm thông tin về các căn hộ đã bán trước đó (diện tích, số phòng ngủ, vị trí, năm xây dựng – đây là các 'features') và giá bán thực tế của chúng (đây là 'labels'). Mô hình học có giám sát sẽ học mối quan hệ giữa các đặc trưng này và giá bán để khi bạn nhập thông tin về một căn hộ mới, nó có thể dự đoán giá bán ước tính. 2. **Ví dụ Phân loại**: Bạn muốn xây dựng một hệ thống để tự động phân loại email đến là 'spam' hay 'không spam'. Dữ liệu huấn luyện của bạn sẽ bao gồm hàng ngàn email (nội dung, người gửi, tiêu đề – đây là các 'features') và nhãn đã được gán thủ công cho từng email là 'spam' hoặc 'không spam' (đây là 'labels'). Mô hình sẽ học các mẫu đặc trưng của email spam và email hợp lệ để khi một email mới đến, nó có thể phân loại chính xác.",
+      "common_misunderstanding": {
+        "mistake": "Sinh viên thường nhầm lẫn giữa Học có giám sát (Supervised Learning) và Học không giám sát (Unsupervised Learning).",
+        "correction": "Điểm khác biệt cốt lõi là Học có giám sát luôn yêu cầu dữ liệu huấn luyện phải có 'nhãn' (labels) – tức là chúng ta biết trước đầu ra đúng cho mỗi đầu vào. Ngược lại, Học không giám sát làm việc với dữ liệu không có nhãn, mục tiêu là tìm kiếm cấu trúc ẩn, mẫu hoặc nhóm trong dữ liệu mà không có bất kỳ thông tin đầu ra nào được cung cấp trước."
+      },
+      "practice_activity": "Hãy tìm và mô tả 3 ví dụ thực tế khác nhau cho bài toán Hồi quy và 3 ví dụ cho bài toán Phân loại. Đối với mỗi ví dụ, hãy giải thích tại sao nó thuộc loại đó và xác định rõ ràng đâu là 'đặc trưng đầu vào' (features) và đâu là 'nhãn đầu ra' (labels) mà mô hình sẽ học.",
+      "quick_check": [
+        {
+          "question": "Điểm khác biệt cơ bản nhất giữa Học có giám sát và Học không giám sát là gì?",
+          "answer": "Học có giám sát yêu cầu dữ liệu có nhãn (đầu vào và đầu ra đã biết), trong khi Học không giám sát làm việc với dữ liệu không có nhãn.",
+          "explanation": "Sự hiện diện của 'nhãn' (labels) trong dữ liệu huấn luyện là yếu tố phân biệt chính. Trong học có giám sát, mô hình được 'dạy' bằng các ví dụ đúng, còn trong học không giám sát, mô hình tự tìm kiếm cấu trúc mà không có 'giáo viên'."
+        },
+        {
+          "question": "Nếu bạn muốn dự đoán nhiệt độ cao nhất của ngày mai ở Hà Nội, đây là bài toán Hồi quy hay Phân loại?",
+          "answer": "Hồi quy.",
+          "explanation": "Nhiệt độ là một giá trị số liên tục (ví dụ: 28.5 độ C, 30 độ C), không phải là một danh mục hay nhãn rời rạc. Do đó, đây là một bài toán Hồi quy."
+        },
+        {
+          "question": "Để phân loại một bức ảnh là 'mèo', 'chó' hay 'chim', bạn cần loại dữ liệu đầu ra nào?",
+          "answer": "Nhãn rời rạc (ví dụ: 'mèo', 'chó', 'chim').",
+          "explanation": "Đây là một bài toán phân loại đa lớp, nơi đầu ra thuộc về một trong các danh mục đã định trước. Mỗi bức ảnh sẽ được gán một nhãn cụ thể trong số các lựa chọn."
+        }
+      ],
+      "source_chunk_ids": [
+        "chunk_23"
+      ]
+    }
+  ],
+  "chapter_summary": "Chương 2 giới thiệu về Học có giám sát (Supervised Learning), một nhánh quan trọng của học máy. Chúng ta đã tìm hiểu nguyên lý hoạt động cơ bản của nó, dựa trên việc học từ dữ liệu có nhãn (đầu vào và đầu ra đã biết) để xây dựng mô hình dự đoán. Chương này cũng làm rõ hai loại bài toán chính trong học có giám sát: Hồi quy, dùng để dự đoán các giá trị số liên tục, và Phân loại, dùng để dự đoán các nhãn hoặc danh mục rời rạc, cùng với các ví dụ minh họa cụ thể cho từng loại."
+}

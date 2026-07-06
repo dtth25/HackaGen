@@ -1,0 +1,158 @@
+{
+  "title": "Giáo trình học tập từ tài liệu",
+  "subtitle": "Bản học liệu trọng tâm cho sinh viên",
+  "audience": "Sinh viên đại học",
+  "description": "Bản sách MVP dành cho Sinh viên đại học, được dựng trực tiếp từ các đoạn nội dung đã index trong tài liệu.",
+  "estimated_duration": "3-5 giờ",
+  "table_of_contents": [
+    {
+      "chapter_index": 1,
+      "title": "Chương 1: Bài gi ing trí tu i nhân tio"
+    }
+  ],
+  "chapters": [
+    {
+      "chapter_index": 1,
+      "title": "Chương 1: Bài gi ing trí tu i nhân tio",
+      "overview": "Hệ thống hóa một nhóm nội dung trọng tâm trong tài liệu.",
+      "description": "Hệ thống hóa một nhóm nội dung trọng tâm trong tài liệu.",
+      "learning_outcomes": [
+        "Hiểu trọng tâm",
+        "Vận dụng vào ví dụ ngắn"
+      ],
+      "lessons": [
+        {
+          "lesson_index": 1,
+          "title": "Bài 1.1: Bài gi ing trí tu i nhân tio",
+          "lesson_title": "Bài 1.1: Bài gi ing trí tu i nhân tio",
+          "duration": "20-30 phút",
+          "duration_minutes": 25,
+          "objectives": [
+            "Hiểu định nghĩa và nguyên lý hoạt động của Bài gi ing trí tu i nhân tio.",
+            "Phân tích ứng dụng thực tế của Bài gi ing trí tu i nhân tio dựa vào dữ liệu tài liệu."
+          ],
+          "learning_objectives": [
+            "Trình bày rõ khái niệm cốt lõi về Bài gi ing trí tu i nhân tio.",
+            "Vận dụng kiến thức Bài gi ing trí tu i nhân tio vào giải quyết bài toán cụ thể trong tài liệu."
+          ],
+          "core_idea": "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành khoa h Ic máy tính nh Im t Io",
+          "why_it_matters": "Kiến thức về Bài gi ing trí tu i nhân tio đóng vai trò thiết yếu giúp sinh viên làm chủ các học phần nâng cao tiếp theo.",
+          "lecture": "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành khoa h Ic máy tính nh Im t Io ra các máy móc ho Ic h I th Ing có kh I n Ing mô ph Ing trí tu I con ng IIi II gi Ii quy It v In II. HIc máy (Machine Learning - ML) là m It t Ip con c Ia AI, cho phép h I th Ing t I h Ic t I d I li Iu mà không c In IIIc l Ip trình t IIng minh cho t Ing b IIc x I lý. Ch IIng 1: Các Mô Hình HIc Máy Ph I Bi In 1.1 HIc có giám sát (Supervised Learning) HIc có giám sát s I d Ing t Ip d I li Iu Iã IIIc gán nhãn (labeled data) II hu In luy I",
+          "explanation": "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành khoa h Ic máy tính nh Im t Io ra các máy móc ho Ic h I th Ing có kh I n Ing mô ph Ing trí tu I con ng IIi II gi Ii quy It v In II. HIc máy (Machine Learning - ML) là m It t Ip con c Ia AI, cho phép h I th Ing t I h Ic t I d I li Iu mà không c In IIIc l Ip trình t IIng minh cho t Ing b IIc x I lý. Ch IIng 1: Các Mô Hình HIc Máy Ph I Bi In 1.1 HIc có giám sát (Supervised Learning) HIc có giám sát s I d Ing t Ip d I li Iu Iã IIIc gán nhãn (labeled data) II hu In luy I",
+          "simple_explanation": "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành khoa h Ic máy tính nh Im t Io ra các máy móc ho Ic h I th Ing có kh I n Ing mô ph Ing trí tu I con ng IIi II gi Ii quy It v In II. HIc máy (Machine Learning - ML) là m It t Ip con c Ia AI, cho phép h I th Ing t I h Ic t I d I li Iu mà không c In IIIc l Ip trình t IIng minh cho t Ing b IIc x I lý. Ch IIng 1: Các Mô Hình HIc Máy Ph I Bi In 1.1 HIc có giám sát (Supervised Learning) HIc có giám sát s I d Ing t Ip d I li Iu Iã IIIc gán nhãn (labeled data) II hu In luy I",
+          "key_points": [
+            "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành khoa h Ic máy tính nh Im t Io",
+            "Đặc điểm nhận diện chính của Bài gi ing trí tu i nhân tio trong phân tích thực tế.",
+            "Quy trình triển khai tiêu chuẩn của Bài gi ing trí tu i nhân tio theo tài liệu."
+          ],
+          "must_know_points": [
+            "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành khoa h Ic máy tính nh Im t Io",
+            "Phân biệt rõ bản chất và điều kiện áp dụng của Bài gi ing trí tu i nhân tio.",
+            "Lưu ý các giới hạn kỹ thuật khi thao tác với Bài gi ing trí tu i nhân tio."
+          ],
+          "key_concepts": [
+            {
+              "term": "Bài gi ing trí tu i nhân tio",
+              "definition": "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành khoa h Ic máy tính nh Im t Io"
+            }
+          ],
+          "example": "Ví dụ minh họa cho Bài gi ing trí tu i nhân tio: Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành khoa h Ic máy tính nh Im t Io",
+          "common_misunderstanding": {
+            "mistake": "Cho rằng Bài gi ing trí tu i nhân tio có thể áp dụng tùy tiện mà không xét đến đặc thù dữ liệu.",
+            "correction": "Cần căn cứ theo nguyên lý chuẩn: Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành khoa h Ic máy tính nh Im t Io"
+          },
+          "common_mistake": {
+            "mistake": "Cho rằng Bài gi ing trí tu i nhân tio có thể áp dụng tùy tiện mà không xét đến đặc thù dữ liệu.",
+            "correction": "Cần căn cứ theo nguyên lý chuẩn: Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành khoa h Ic máy tính nh Im t Io"
+          },
+          "activity": "Phân tích 2 tình huống ứng dụng của Bài gi ing trí tu i nhân tio trong thực tế và chỉ ra yếu tố quyết định thành công.",
+          "practice_activity": "Phân tích 2 tình huống ứng dụng của Bài gi ing trí tu i nhân tio trong thực tế và chỉ ra yếu tố quyết định thành công.",
+          "assessment": [
+            "Vai trò cốt lõi của Bài gi ing trí tu i nhân tio là gì?",
+            "Điều kiện để áp dụng thành công Bài gi ing trí tu i nhân tio theo tài liệu?"
+          ],
+          "quick_check": [
+            {
+              "question": "Khái niệm cốt lõi của Bài gi ing trí tu i nhân tio được phát biểu như thế nào?",
+              "answer": "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành khoa h Ic máy tính nh Im t Io",
+              "explanation": "Dựa theo nội dung gốc: Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành khoa h Ic máy tính nh Im t Io"
+            }
+          ],
+          "active_recall_questions": [
+            {
+              "question": "Hãy tóm tắt nguyên lý của Bài gi ing trí tu i nhân tio trong 2 câu.",
+              "answer": "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành khoa h Ic máy tính nh Im t Io"
+            }
+          ],
+          "flashcards": [
+            {
+              "front": "Bài gi ing trí tu i nhân tio",
+              "back": "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành khoa h Ic máy tính nh Im t Io"
+            }
+          ],
+          "mini_practice": {
+            "task": "Thiết kế một sơ đồ khối hoặc bảng so sánh cho Bài gi ing trí tu i nhân tio.",
+            "solution_hint": "Đảm bảo thể hiện rõ định nghĩa: Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành khoa h Ic máy tính nh Im t Io"
+          },
+          "exam_focus": [
+            "Định nghĩa Bài gi ing trí tu i nhân tio",
+            "Ứng dụng bài toán",
+            "Lỗi sai thường gặp"
+          ]
+        }
+      ],
+      "chapter_summary": "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành khoa h Ic máy tính nh Im t Io",
+      "chapter_quiz": [
+        {
+          "question": "Khái niệm cốt lõi của Bài gi ing trí tu i nhân tio được phát biểu như thế nào?",
+          "answer": "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành khoa h Ic máy tính nh Im t Io",
+          "explanation": "Dựa theo nội dung gốc: Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành khoa h Ic máy tính nh Im t Io"
+        }
+      ]
+    }
+  ],
+  "glossary": [
+    {
+      "term": "Bài gi ing trí tu i nhân tio",
+      "plain_vietnamese": "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành khoa h Ic máy tính nh Im t Io ra các máy móc ho Ic h I th Ing có kh I",
+      "definition": "Bài Gi Ing: Trí Tu I Nhân TIo & HIc Máy CI BIn Khái quát chung và Ing d Ing trong th Ic t I Trí tu I nhân t Io (Artificial Intelligence - AI) là ngành khoa h Ic máy tính nh Im t Io ra các máy móc ho Ic h I th Ing có kh I",
+      "related_chapter": 1
+    }
+  ],
+  "is_final": true,
+  "quality_score": 92,
+  "source_grounding_score": 92,
+  "warnings": [
+    "Không đủ ngữ cảnh sạch để tạo học liệu chất lượng. Vui lòng dùng PDF rõ hơn hoặc bật OCR."
+  ],
+  "fixes_needed": [],
+  "quality_report": {
+    "is_final": true,
+    "quality_score": 92,
+    "source_grounding_score": 92,
+    "score": 40,
+    "is_university_ready": false,
+    "is_user_friendly": true,
+    "engagement_score": 92,
+    "learning_score": 92,
+    "visual_score": 92,
+    "problems": [
+      "Có thể còn lỗi dính chữ tiếng Việt."
+    ],
+    "issues": [
+      "Có thể còn lỗi dính chữ tiếng Việt."
+    ],
+    "warnings": [
+      "Không đủ ngữ cảnh sạch để tạo học liệu chất lượng. Vui lòng dùng PDF rõ hơn hoặc bật OCR."
+    ],
+    "fixes_needed": [],
+    "used_chunks": 0,
+    "ignored_noisy_chunks": 0,
+    "source_chunk_ids": [],
+    "retrieved_chunks_count": 1,
+    "usable_chunks_count": 1,
+    "noisy_chunks_count": 0,
+    "context_quality_score": 40,
+    "can_generate": false
+  }
+}

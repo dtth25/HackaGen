@@ -1,0 +1,282 @@
+{
+  "deck_title": "Bài giảng: tổng quan kiến thức",
+  "subtitle": "Học liệu trình chiếu dựa trên Vector DB/RAG",
+  "audience": "Sinh viên đại học / người tự học",
+  "estimated_duration_minutes": 45,
+  "learning_outcomes": [
+    "Nắm được các khái niệm trọng tâm.",
+    "Vận dụng nội dung vào ví dụ và câu hỏi kiểm tra nhanh."
+  ],
+  "slides": [
+    {
+      "slide_index": 1,
+      "slide_type": "concept",
+      "title": "1. Chapter 1 giới thiệu về python cho trí",
+      "subtitle": "",
+      "key_message": "Chapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo Chương này giới thiệu các kiến thức lập trình cơ bản cần thiết cho c",
+      "key_idea": "Chapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo Chương này giới thiệu các kiến thức lập trình cơ bản cần thiết cho c",
+      "bullets": [
+        "Chapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo Chương này giới thiệu các kiến thức lập trình cơ bản cần thiết cho c",
+        "Phân tích cơ chế hoạt động và điều kiện áp dụng.",
+        "Liên hệ khái niệm với tình huống và ví dụ cụ thể."
+      ],
+      "content": "- Chapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo Chương này giới thiệu các kiến thức lập trình cơ bản cần thiết cho c - Phân tích cơ chế hoạt động và điều kiện áp dụng. - Liên hệ khái niệm với tình huống và ví dụ cụ thể.",
+      "visual": {
+        "type": "concept",
+        "description": "Sơ đồ trực quan tóm tắt định nghĩa, thành phần và ứng dụng cốt lõi.",
+        "labels": []
+      },
+      "visual_type": "concept",
+      "image_suggestion": "Sơ đồ trực quan tóm tắt định nghĩa, thành phần và ứng dụng cốt lõi.",
+      "speaker_notes": "Chapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo Chương này giới thiệu các kiến thức lập trình cơ bản cần thiết cho các dự án Trí tuệ Nhân tạo (AI), sử dụng Python làm ngôn ngữchính. Chúng ta sẽtìm hiểu các khái niệm",
+      "note": "Chapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo Chương này giới thiệu các kiến thức lập trình cơ bản cần thiết cho các dự án Trí tuệ Nhân tạo (AI), sử dụng Python làm ngôn ngữchính. Chúng ta sẽtìm hiểu các khái niệm",
+      "example_or_application": "",
+      "quick_check": {
+        "question": "Khái niệm này giải quyết vấn đề gì trong thực tế?",
+        "answer": "Chapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo Chương này giới thiệu các kiến thức lập trình cơ bản cần thiết cho c"
+      },
+      "layout_hint": "concept-with-visual"
+    },
+    {
+      "slide_index": 2,
+      "slide_type": "two_column",
+      "title": "2. Chapter 2 học có giám sát supervised learning",
+      "subtitle": "",
+      "key_message": "Chapter 2 Học có giám sát – Supervised Learning 2.1 Giới thiệu Học có giám sát (Supervised Learning) là một nhánh quan t",
+      "key_idea": "Chapter 2 Học có giám sát – Supervised Learning 2.1 Giới thiệu Học có giám sát (Supervised Learning) là một nhánh quan t",
+      "bullets": [
+        "Chapter 2 Học có giám sát – Supervised Learning 2.1 Giới thiệu Học có giám sát (Supervised Learning) là một nhánh quan t",
+        "Phân tích cơ chế hoạt động và điều kiện áp dụng.",
+        "Liên hệ khái niệm với tình huống và ví dụ cụ thể."
+      ],
+      "content": "- Chapter 2 Học có giám sát – Supervised Learning 2.1 Giới thiệu Học có giám sát (Supervised Learning) là một nhánh quan t - Phân tích cơ chế hoạt động và điều kiện áp dụng. - Liên hệ khái niệm với tình huống và ví dụ cụ thể.",
+      "visual": {
+        "type": "two_column",
+        "description": "Sơ đồ trực quan tóm tắt định nghĩa, thành phần và ứng dụng cốt lõi.",
+        "labels": []
+      },
+      "visual_type": "two_column",
+      "image_suggestion": "Sơ đồ trực quan tóm tắt định nghĩa, thành phần và ứng dụng cốt lõi.",
+      "speaker_notes": "Chapter 2 Học có giám sát – Supervised Learning 2.1 Giới thiệu Học có giám sát (Supervised Learning) là một nhánh quan trọng trong học máy (Machine Learning). Ý tưởng cơ bản là: từ một tập dữ liệu đã biết đầu vào (featur",
+      "note": "Chapter 2 Học có giám sát – Supervised Learning 2.1 Giới thiệu Học có giám sát (Supervised Learning) là một nhánh quan trọng trong học máy (Machine Learning). Ý tưởng cơ bản là: từ một tập dữ liệu đã biết đầu vào (featur",
+      "example_or_application": "",
+      "quick_check": {
+        "question": "Khái niệm này giải quyết vấn đề gì trong thực tế?",
+        "answer": "Chapter 2 Học có giám sát – Supervised Learning 2.1 Giới thiệu Học có giám sát (Supervised Learning) là một nhánh quan t"
+      },
+      "layout_hint": "concept-with-visual"
+    },
+    {
+      "slide_index": 3,
+      "slide_type": "process_flow",
+      "title": "3. 27 3 5 phân cụm phân cấp hierarchical",
+      "subtitle": "",
+      "key_message": "27 3.5 Phân Cụm Phân Cấp (Hierarchical Clustering) 28 3.5.1 Giới thiệu 28 3.5.2 Cách Thuật Toán Hoạt Động 28 3.5.3 Ví dụ",
+      "key_idea": "27 3.5 Phân Cụm Phân Cấp (Hierarchical Clustering) 28 3.5.1 Giới thiệu 28 3.5.2 Cách Thuật Toán Hoạt Động 28 3.5.3 Ví dụ",
+      "bullets": [
+        "27 3.5 Phân Cụm Phân Cấp (Hierarchical Clustering) 28 3.5.1 Giới thiệu 28 3.5.2 Cách Thuật Toán Hoạt Động 28 3.5.3 Ví dụ",
+        "Phân tích cơ chế hoạt động và điều kiện áp dụng.",
+        "Liên hệ khái niệm với tình huống và ví dụ cụ thể."
+      ],
+      "content": "- 27 3.5 Phân Cụm Phân Cấp (Hierarchical Clustering) 28 3.5.1 Giới thiệu 28 3.5.2 Cách Thuật Toán Hoạt Động 28 3.5.3 Ví dụ - Phân tích cơ chế hoạt động và điều kiện áp dụng. - Liên hệ khái niệm với tình huống và ví dụ cụ thể.",
+      "visual": {
+        "type": "process_flow",
+        "description": "Sơ đồ trực quan tóm tắt định nghĩa, thành phần và ứng dụng cốt lõi.",
+        "labels": []
+      },
+      "visual_type": "process_flow",
+      "image_suggestion": "Sơ đồ trực quan tóm tắt định nghĩa, thành phần và ứng dụng cốt lõi.",
+      "speaker_notes": "27 3.5 Phân Cụm Phân Cấp (Hierarchical Clustering) 28 3.5.1 Giới thiệu 28 3.5.2 Cách Thuật Toán Hoạt Động 28 3.5.3 Ví dụ Minh Họa 29 3.5.4 Ứng Dụng Thực Tiễn 30 4 Đánh Giá Trong Trí Tuệ Nhân Tạo - Evaluation 31 4.1 Các C",
+      "note": "27 3.5 Phân Cụm Phân Cấp (Hierarchical Clustering) 28 3.5.1 Giới thiệu 28 3.5.2 Cách Thuật Toán Hoạt Động 28 3.5.3 Ví dụ Minh Họa 29 3.5.4 Ứng Dụng Thực Tiễn 30 4 Đánh Giá Trong Trí Tuệ Nhân Tạo - Evaluation 31 4.1 Các C",
+      "example_or_application": "",
+      "quick_check": {
+        "question": "Khái niệm này giải quyết vấn đề gì trong thực tế?",
+        "answer": "27 3.5 Phân Cụm Phân Cấp (Hierarchical Clustering) 28 3.5.1 Giới thiệu 28 3.5.2 Cách Thuật Toán Hoạt Động 28 3.5.3 Ví dụ"
+      },
+      "layout_hint": "concept-with-visual"
+    },
+    {
+      "slide_index": 4,
+      "slide_type": "summary",
+      "title": "4. Chapter 1 giới thiệu về python cho trí",
+      "subtitle": "",
+      "key_message": "Chapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo print(i) Đoạn mã trên sẽin ra các sốtừ0 đến 4.",
+      "key_idea": "Chapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo print(i) Đoạn mã trên sẽin ra các sốtừ0 đến 4.",
+      "bullets": [
+        "Chapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo print(i) Đoạn mã trên sẽin ra các sốtừ0 đến 4.",
+        "Phân tích cơ chế hoạt động và điều kiện áp dụng.",
+        "Liên hệ khái niệm với tình huống và ví dụ cụ thể."
+      ],
+      "content": "- Chapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo print(i) Đoạn mã trên sẽin ra các sốtừ0 đến 4. - Phân tích cơ chế hoạt động và điều kiện áp dụng. - Liên hệ khái niệm với tình huống và ví dụ cụ thể.",
+      "visual": {
+        "type": "summary",
+        "description": "Sơ đồ trực quan tóm tắt định nghĩa, thành phần và ứng dụng cốt lõi.",
+        "labels": []
+      },
+      "visual_type": "summary",
+      "image_suggestion": "Sơ đồ trực quan tóm tắt định nghĩa, thành phần và ứng dụng cốt lõi.",
+      "speaker_notes": "Chapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo print(i) Đoạn mã trên sẽin ra các sốtừ0 đến 4. Lưu ý hàm range(N) trong Python tạo ra dãy sốlên đến N-1, khác với C++ , bạn dùng điều kiện i < N. Bài tập thực hành: Viế",
+      "note": "Chapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo print(i) Đoạn mã trên sẽin ra các sốtừ0 đến 4. Lưu ý hàm range(N) trong Python tạo ra dãy sốlên đến N-1, khác với C++ , bạn dùng điều kiện i < N. Bài tập thực hành: Viế",
+      "example_or_application": "",
+      "quick_check": {
+        "question": "Khái niệm này giải quyết vấn đề gì trong thực tế?",
+        "answer": "Chapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo print(i) Đoạn mã trên sẽin ra các sốtừ0 đến 4."
+      },
+      "layout_hint": "concept-with-visual"
+    },
+    {
+      "slide_index": 5,
+      "slide_type": "concept",
+      "title": "5. Chapter 2 học có giám sát supervised learning",
+      "subtitle": "",
+      "key_message": "Chapter 2 Học có giám sát – Supervised Learning Mục tiêu là tìm w, b đểsai sốnhỏnhất.",
+      "key_idea": "Chapter 2 Học có giám sát – Supervised Learning Mục tiêu là tìm w, b đểsai sốnhỏnhất.",
+      "bullets": [
+        "Chapter 2 Học có giám sát – Supervised Learning Mục tiêu là tìm w, b đểsai sốnhỏnhất.",
+        "Phân tích cơ chế hoạt động và điều kiện áp dụng.",
+        "Liên hệ khái niệm với tình huống và ví dụ cụ thể."
+      ],
+      "content": "- Chapter 2 Học có giám sát – Supervised Learning Mục tiêu là tìm w, b đểsai sốnhỏnhất. - Phân tích cơ chế hoạt động và điều kiện áp dụng. - Liên hệ khái niệm với tình huống và ví dụ cụ thể.",
+      "visual": {
+        "type": "concept",
+        "description": "Sơ đồ trực quan tóm tắt định nghĩa, thành phần và ứng dụng cốt lõi.",
+        "labels": []
+      },
+      "visual_type": "concept",
+      "image_suggestion": "Sơ đồ trực quan tóm tắt định nghĩa, thành phần và ứng dụng cốt lõi.",
+      "speaker_notes": "Chapter 2 Học có giám sát – Supervised Learning Mục tiêu là tìm w, b đểsai sốnhỏnhất. Sửdụng hàm mất mát bình phương: L = 1 n n ∑ i=1 (yi −ˆyi)2 from sklearn.linear_model import Linear Regression model = Linear Regressio",
+      "note": "Chapter 2 Học có giám sát – Supervised Learning Mục tiêu là tìm w, b đểsai sốnhỏnhất. Sửdụng hàm mất mát bình phương: L = 1 n n ∑ i=1 (yi −ˆyi)2 from sklearn.linear_model import Linear Regression model = Linear Regressio",
+      "example_or_application": "",
+      "quick_check": {
+        "question": "Khái niệm này giải quyết vấn đề gì trong thực tế?",
+        "answer": "Chapter 2 Học có giám sát – Supervised Learning Mục tiêu là tìm w, b đểsai sốnhỏnhất."
+      },
+      "layout_hint": "concept-with-visual"
+    },
+    {
+      "slide_index": 6,
+      "slide_type": "two_column",
+      "title": "6. Chapter 5 neural networks 5 1 kiến thức",
+      "subtitle": "",
+      "key_message": "Chapter 5 Neural Networks 5.1 Kiến thức cơ bản về Perceptron Lý thuyết Perceptron là dạng đơn giản nhất của mạng nơ-ron.",
+      "key_idea": "Chapter 5 Neural Networks 5.1 Kiến thức cơ bản về Perceptron Lý thuyết Perceptron là dạng đơn giản nhất của mạng nơ-ron.",
+      "bullets": [
+        "Chapter 5 Neural Networks 5.1 Kiến thức cơ bản về Perceptron Lý thuyết Perceptron là dạng đơn giản nhất của mạng nơ-ron.",
+        "Phân tích cơ chế hoạt động và điều kiện áp dụng.",
+        "Liên hệ khái niệm với tình huống và ví dụ cụ thể."
+      ],
+      "content": "- Chapter 5 Neural Networks 5.1 Kiến thức cơ bản về Perceptron Lý thuyết Perceptron là dạng đơn giản nhất của mạng nơ-ron. - Phân tích cơ chế hoạt động và điều kiện áp dụng. - Liên hệ khái niệm với tình huống và ví dụ cụ thể.",
+      "visual": {
+        "type": "two_column",
+        "description": "Sơ đồ trực quan tóm tắt định nghĩa, thành phần và ứng dụng cốt lõi.",
+        "labels": []
+      },
+      "visual_type": "two_column",
+      "image_suggestion": "Sơ đồ trực quan tóm tắt định nghĩa, thành phần và ứng dụng cốt lõi.",
+      "speaker_notes": "Chapter 5 Neural Networks 5.1 Kiến thức cơ bản về Perceptron Lý thuyết Perceptron là dạng đơn giản nhất của mạng nơ-ron. Nó là một bộphân loại nhịphân tuyến tính, nhận nhiều đầu vào, áp dụng trọng sốvà độlệch, sau đó tru",
+      "note": "Chapter 5 Neural Networks 5.1 Kiến thức cơ bản về Perceptron Lý thuyết Perceptron là dạng đơn giản nhất của mạng nơ-ron. Nó là một bộphân loại nhịphân tuyến tính, nhận nhiều đầu vào, áp dụng trọng sốvà độlệch, sau đó tru",
+      "example_or_application": "",
+      "quick_check": {
+        "question": "Khái niệm này giải quyết vấn đề gì trong thực tế?",
+        "answer": "Chapter 5 Neural Networks 5.1 Kiến thức cơ bản về Perceptron Lý thuyết Perceptron là dạng đơn giản nhất của mạng nơ-ron."
+      },
+      "layout_hint": "concept-with-visual"
+    },
+    {
+      "slide_index": 7,
+      "slide_type": "process_flow",
+      "title": "7. Chapter 8 computer vision 4 một sốứng dụng",
+      "subtitle": "",
+      "key_message": "Chapter 8 Computer Vision 4.",
+      "key_idea": "Chapter 8 Computer Vision 4.",
+      "bullets": [
+        "Chapter 8 Computer Vision 4.",
+        "Phân tích cơ chế hoạt động và điều kiện áp dụng.",
+        "Liên hệ khái niệm với tình huống và ví dụ cụ thể."
+      ],
+      "content": "- Chapter 8 Computer Vision 4. - Phân tích cơ chế hoạt động và điều kiện áp dụng. - Liên hệ khái niệm với tình huống và ví dụ cụ thể.",
+      "visual": {
+        "type": "process_flow",
+        "description": "Sơ đồ trực quan tóm tắt định nghĩa, thành phần và ứng dụng cốt lõi.",
+        "labels": []
+      },
+      "visual_type": "process_flow",
+      "image_suggestion": "Sơ đồ trực quan tóm tắt định nghĩa, thành phần và ứng dụng cốt lõi.",
+      "speaker_notes": "Chapter 8 Computer Vision 4. Một sốứng dụng thực tế • Nhận dạng chữviết tay (ví dụ: số CMND, biển sốxe) • Phân loại động vật (mèo, chó, ngựa) • Hệthống giám sát an ninh 5. Các khái niệm quan trọng cần nhớ • Epoch: Sốlần",
+      "note": "Chapter 8 Computer Vision 4. Một sốứng dụng thực tế • Nhận dạng chữviết tay (ví dụ: số CMND, biển sốxe) • Phân loại động vật (mèo, chó, ngựa) • Hệthống giám sát an ninh 5. Các khái niệm quan trọng cần nhớ • Epoch: Sốlần",
+      "example_or_application": "",
+      "quick_check": {
+        "question": "Khái niệm này giải quyết vấn đề gì trong thực tế?",
+        "answer": "Chapter 8 Computer Vision 4."
+      },
+      "layout_hint": "concept-with-visual"
+    },
+    {
+      "slide_index": 8,
+      "slide_type": "summary",
+      "title": "8. 5 3 lan truyền ngược backpropagation tóm tắt",
+      "subtitle": "",
+      "key_message": "5.3 Lan truyền ngược (Backpropagation) Tóm tắt • Cho phép huấn luyện mạng nơ-ron sâu.",
+      "key_idea": "5.3 Lan truyền ngược (Backpropagation) Tóm tắt • Cho phép huấn luyện mạng nơ-ron sâu.",
+      "bullets": [
+        "5.3 Lan truyền ngược (Backpropagation) Tóm tắt • Cho phép huấn luyện mạng nơ-ron sâu.",
+        "Phân tích cơ chế hoạt động và điều kiện áp dụng.",
+        "Liên hệ khái niệm với tình huống và ví dụ cụ thể."
+      ],
+      "content": "- 5.3 Lan truyền ngược (Backpropagation) Tóm tắt • Cho phép huấn luyện mạng nơ-ron sâu. - Phân tích cơ chế hoạt động và điều kiện áp dụng. - Liên hệ khái niệm với tình huống và ví dụ cụ thể.",
+      "visual": {
+        "type": "summary",
+        "description": "Sơ đồ trực quan tóm tắt định nghĩa, thành phần và ứng dụng cốt lõi.",
+        "labels": []
+      },
+      "visual_type": "summary",
+      "image_suggestion": "Sơ đồ trực quan tóm tắt định nghĩa, thành phần và ứng dụng cốt lõi.",
+      "speaker_notes": "5.3 Lan truyền ngược (Backpropagation) Tóm tắt • Cho phép huấn luyện mạng nơ-ron sâu. • Sửdụng quy tắc chuỗi đểtính gradient. • Được triển khai trong các thư viện hiện đại (vd: Py Torch, Tensor Flow). 43",
+      "note": "5.3 Lan truyền ngược (Backpropagation) Tóm tắt • Cho phép huấn luyện mạng nơ-ron sâu. • Sửdụng quy tắc chuỗi đểtính gradient. • Được triển khai trong các thư viện hiện đại (vd: Py Torch, Tensor Flow). 43",
+      "example_or_application": "",
+      "quick_check": {
+        "question": "Khái niệm này giải quyết vấn đề gì trong thực tế?",
+        "answer": "5.3 Lan truyền ngược (Backpropagation) Tóm tắt • Cho phép huấn luyện mạng nơ-ron sâu."
+      },
+      "layout_hint": "concept-with-visual"
+    }
+  ],
+  "final_quiz": [
+    {
+      "question": "Sau bài này, khái niệm nào là quan trọng nhất cần nhớ?",
+      "answer": "Chapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo Chương này giới thiệu các kiến thức lập trình cơ bản cần thiết cho c",
+      "source_chunk_ids": []
+    }
+  ],
+  "quality_report": {
+    "is_final": true,
+    "quality_score": 77,
+    "source_grounding_score": 77,
+    "score": 75,
+    "is_university_ready": false,
+    "is_user_friendly": true,
+    "engagement_score": 77,
+    "learning_score": 77,
+    "visual_score": 77,
+    "problems": [
+      "Có dấu hiệu dòng mục lục kèm số trang.",
+      "Có thể còn lỗi dính chữ tiếng Việt."
+    ],
+    "issues": [
+      "Có dấu hiệu dòng mục lục kèm số trang.",
+      "Có thể còn lỗi dính chữ tiếng Việt."
+    ],
+    "warnings": [
+      "Không đủ ngữ cảnh sạch để tạo học liệu chất lượng. Vui lòng dùng PDF rõ hơn hoặc bật OCR."
+    ],
+    "fixes_needed": [],
+    "used_chunks": 0,
+    "ignored_noisy_chunks": 0,
+    "source_chunk_ids": [],
+    "retrieved_chunks_count": 15,
+    "usable_chunks_count": 10,
+    "noisy_chunks_count": 0,
+    "context_quality_score": 66,
+    "can_generate": false
+  }
+}

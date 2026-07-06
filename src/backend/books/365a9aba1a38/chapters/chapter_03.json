@@ -1,0 +1,84 @@
+{
+  "chapter_index": 3,
+  "title": "3 5 phân cụm phân cấp hierarchical",
+  "overview": "27 3.5 Phân Cụm Phân Cấp (Hierarchical Clustering) 28 3.5.1 Giới thiệu 28 3.5.2 Cách Thuật Toán Hoạt Động 28 3.5.3 Ví dụ Minh Họa 29 3.5.4 Ứng Dụng Thực Tiễn 30",
+  "learning_outcomes": [
+    "Nắm vững và vận dụng 27 3 5 phân cụm phân cấp hierarchical trong thực tiễn."
+  ],
+  "lessons": [
+    {
+      "lesson_index": 1,
+      "title": "Nguyên lý và cơ chế hoạt động của 27 3 5 phân cụm phân cấp hierarchical",
+      "duration_minutes": 30,
+      "core_idea": "Phân cụm phân cấp là một phương pháp phân cụm dữ liệu xây dựng một cấu trúc phân cấp các cụm, không yêu cầu xác định trước số lượng cụm K.",
+      "why_it_matters": "Phương pháp này giúp khám phá cấu trúc tự nhiên của dữ liệu, cung cấp cái nhìn sâu sắc về mối quan hệ giữa các điểm dữ liệu và cho phép người dùng linh hoạt chọn số lượng cụm phù hợp sau khi quá trình phân cụm hoàn tất.",
+      "learning_objectives": [
+        "Giải thích được khái niệm và mục tiêu của phân cụm phân cấp.",
+        "Mô tả được hai phương pháp chính: gom cụm (Agglomerative) và chia tách (Divisive).",
+        "Hiểu và áp dụng các tiêu chí liên kết (linkage criteria) khác nhau.",
+        "Đọc và diễn giải được biểu đồ cây (Dendrogram)."
+      ],
+      "explanation": "Phân cụm phân cấp (Hierarchical Clustering) là một kỹ thuật phân cụm dữ liệu mạnh mẽ, tạo ra một cấu trúc phân cấp các cụm, thường được biểu diễn dưới dạng biểu đồ cây (dendrogram). Điểm đặc biệt của phương pháp này là nó không yêu cầu người dùng phải xác định trước số lượng cụm K, điều này khác biệt so với các thuật toán như K-Means. Có hai cách tiếp cận chính trong phân cụm phân cấp: 1. **Phân cụm gom cụm (Agglomerative Hierarchical Clustering - 'bottom-up'):** * Đây là phương pháp phổ biến hơn. Nó bắt đầu bằng cách coi mỗi điểm dữ liệu là một cụm riêng biệt. * Sau đó, thuật toán lặp đi lặp lại việc hợp nhất hai cụm gần nhất thành một cụm lớn hơn. * Quá trình này tiếp tục cho đến khi tất cả các điểm dữ liệu được hợp nhất thành một cụm duy nhất, hoặc một tiêu chí dừng nào đó được thỏa mãn. 2. **Phân cụm chia tách (Divisive Hierarchical Clustering - 'top-down'):** * Phương pháp này bắt đầu với tất cả các điểm dữ liệu nằm trong một cụm lớn duy nhất. * Sau đó, thuật toán lặp đi lặp lại việc chia tách cụm lớn nhất thành hai cụm nhỏ hơn. * Quá trình này tiếp tục cho đến khi mỗi điểm dữ liệu trở thành một cụm riêng biệt, hoặc một tiêu chí dừng nào đó được thỏa mãn. Để xác định 'gần nhất' giữa các cụm, thuật toán sử dụng các **tiêu chí liên kết (linkage criteria)** và **đo lường khoảng cách (distance metrics)**. Các tiêu chí liên kết phổ biến bao gồm: * **Liên kết đơn (Single Linkage):** Khoảng cách giữa hai cụm được định nghĩa là khoảng cách nhỏ nhất giữa bất kỳ cặp điểm nào, trong đó một điểm thuộc cụm này và một điểm thuộc cụm kia. Phương pháp này có xu hướng tạo ra các cụm 'dài' và 'mỏng'. * **Liên kết hoàn chỉnh (Complete Linkage):** Khoảng cách giữa hai cụm được định nghĩa là khoảng cách lớn nhất giữa bất kỳ cặp điểm nào, trong đó một điểm thuộc cụm này và một điểm thuộc cụm kia. Phương pháp này có xu hướng tạo ra các cụm 'tròn' và nhỏ gọn hơn. * **Liên kết trung bình (Average Linkage):** Khoảng cách giữa hai cụm được định nghĩa là khoảng cách trung bình của tất cả các cặp điểm có thể có giữa hai cụm. * **Phương pháp Ward (Ward's Method):** Mục tiêu là giảm thiểu phương sai tổng thể trong các cụm được hợp nhất. Nó tìm cặp cụm mà việc hợp nhất chúng sẽ dẫn đến sự gia tăng nhỏ nhất về tổng bình phương khoảng cách từ các điểm đến tâm cụm của chúng (tức là giảm thiểu sự mất mát thông tin). Kết quả của phân cụm phân cấp thường được trực quan hóa bằng **biểu đồ cây (Dendrogram)**. Biểu đồ này hiển thị trình tự các cụm được hợp nhất (hoặc chia tách) và khoảng cách tương ứng tại mỗi bước. Bằng cách cắt ngang dendrogram ở một mức độ khoảng cách nhất định, chúng ta có thể xác định số lượng cụm mong muốn.",
+      "must_know_points": [
+        "Phân cụm phân cấp xây dựng một cấu trúc cây (phân cấp) của các cụm.",
+        "Không cần xác định số lượng cụm K trước.",
+        "Hai phương pháp chính là Agglomerative (gom cụm từ dưới lên) và Divisive (chia tách từ trên xuống).",
+        "Tiêu chí liên kết (Single, Complete, Average Linkage, Ward's Method) và đo lường khoảng cách là yếu tố then chốt để xác định sự 'gần' giữa các cụm.",
+        "Biểu đồ cây (Dendrogram) là công cụ trực quan hóa chính để hiểu kết quả và chọn số lượng cụm."
+      ],
+      "key_concepts": [
+        {
+          "term": "Phân cụm phân cấp (Hierarchical Clustering)",
+          "definition": "Một phương pháp phân cụm dữ liệu xây dựng một cấu trúc phân cấp các cụm, thường được biểu diễn dưới dạng biểu đồ cây (dendrogram), không yêu cầu xác định trước số lượng cụm."
+        },
+        {
+          "term": "Phân cụm gom cụm (Agglomerative Clustering)",
+          "definition": "Phương pháp 'từ dưới lên' bắt đầu với mỗi điểm dữ liệu là một cụm riêng biệt và liên tục hợp nhất các cụm gần nhất cho đến khi đạt được một cụm duy nhất hoặc tiêu chí dừng."
+        },
+        {
+          "term": "Phân cụm chia tách (Divisive Clustering)",
+          "definition": "Phương pháp 'từ trên xuống' bắt đầu với tất cả các điểm dữ liệu trong một cụm duy nhất và liên tục chia tách cụm lớn nhất thành các cụm nhỏ hơn cho đến khi mỗi điểm là một cụm riêng biệt hoặc tiêu chí dừng."
+        },
+        {
+          "term": "Biểu đồ cây (Dendrogram)",
+          "definition": "Một biểu đồ dạng cây trực quan hóa cấu trúc phân cấp của các cụm, hiển thị trình tự hợp nhất/chia tách và khoảng cách tương ứng giữa các cụm."
+        },
+        {
+          "term": "Tiêu chí liên kết (Linkage Criteria)",
+          "definition": "Quy tắc được sử dụng để tính khoảng cách giữa hai cụm, ví dụ: liên kết đơn, liên kết hoàn chỉnh, liên kết trung bình, phương pháp Ward."
+        },
+        {
+          "term": "Khoảng cách Euclidean",
+          "definition": "Một phép đo khoảng cách phổ biến giữa hai điểm trong không gian Euclidean, thường được sử dụng trong phân cụm để xác định sự 'gần' của các điểm dữ liệu."
+        }
+      ],
+      "example": "Giả sử chúng ta có 5 điểm dữ liệu 1D: A(1), B(2), C(5), D(6), E(7). **Các bước của Agglomerative Clustering (sử dụng khoảng cách Euclidean và liên kết đơn):** 1. **Khởi tạo:** Mỗi điểm là một cụm riêng biệt: {A}, {B}, {C}, {D}, {E}. 2. **Bước 1:** Tìm hai cụm gần nhất. Khoảng cách(A,B) = |1-2| = 1. Hợp nhất {A} và {B} thành {A,B}. Các cụm: {A,B}, {C}, {D}, {E}. 3. **Bước 2:** Tìm hai cụm gần nhất. Khoảng cách(D,E) = |6-7| = 1. Hợp nhất {D} và {E} thành {D,E}. Các cụm: {A,B}, {C}, {D,E}. 4. **Bước 3:** Tìm hai cụm gần nhất. Khoảng cách(C,D) = |5-6| = 1. Khoảng cách(C, {D,E}) = min(|5-6|, |5-7|) = min(1, 2) = 1. Hợp nhất {C} và {D,E} thành {C,D,E}. Các cụm: {A,B}, {C,D,E}. 5. **Bước 4:** Tìm hai cụm gần nhất. Khoảng cách({A,B}, {C,D,E}) = min(|1-5|, |1-6|, |1-7|, |2-5|, |2-6|, |2-7|) = min(4, 5, 6, 3, 4, 5) = 3. Hợp nhất {A,B} và {C,D,E} thành {A,B,C,D,E}. Các cụm: {A,B,C,D,E}. Biểu đồ cây (dendrogram) sẽ thể hiện rõ trình tự hợp nhất này, cho phép chúng ta 'cắt' ở các mức khoảng cách khác nhau để có được số lượng cụm mong muốn (ví dụ, cắt ở khoảng cách 1 sẽ cho 3 cụm: {A,B}, {C}, {D,E}).",
+      "common_misunderstanding": {
+        "mistake": "Nhầm lẫn rằng phân cụm phân cấp tự động cho ra số lượng cụm tối ưu.",
+        "correction": "Phân cụm phân cấp tạo ra một cấu trúc phân cấp. Việc chọn số lượng cụm K cuối cùng vẫn là một quyết định của người dùng, thường dựa trên việc phân tích biểu đồ cây (dendrogram) và kiến thức chuyên môn về miền dữ liệu. Dendrogram giúp trực quan hóa các cụm tiềm năng ở các mức độ phân cấp khác nhau, nhưng không tự động chọn K."
+      },
+      "practice_activity": "Vẽ biểu đồ cây (dendrogram) cho một tập dữ liệu nhỏ gồm 6 điểm 1D: {2, 3, 8, 9, 10, 15} sử dụng phương pháp Agglomerative Clustering với khoảng cách Euclidean và tiêu chí liên kết hoàn chỉnh (Complete Linkage). Xác định số lượng cụm nếu bạn cắt dendrogram ở mức khoảng cách 2.",
+      "quick_check": [
+        {
+          "question": "Điểm khác biệt chính giữa Agglomerative và Divisive Hierarchical Clustering là gì?",
+          "answer": "Agglomerative bắt đầu với các cụm đơn lẻ và hợp nhất chúng (bottom-up), trong khi Divisive bắt đầu với một cụm lớn và chia tách nó (top-down).",
+          "explanation": "Agglomerative là phương pháp gom cụm từ dưới lên, từng bước hợp nhất các cụm nhỏ nhất. Divisive là phương pháp chia tách từ trên xuống, bắt đầu từ một cụm lớn và chia nhỏ dần."
+        },
+        {
+          "question": "Nếu bạn muốn các cụm có hình dạng 'tròn' và nhỏ gọn, bạn nên ưu tiên tiêu chí liên kết nào?",
+          "answer": "Liên kết hoàn chỉnh (Complete Linkage) hoặc Phương pháp Ward (Ward's Method).",
+          "explanation": "Liên kết hoàn chỉnh có xu hướng tạo ra các cụm nhỏ gọn hơn vì nó dựa trên khoảng cách lớn nhất giữa các điểm trong hai cụm. Phương pháp Ward cũng hướng tới việc tạo ra các cụm có phương sai nội bộ thấp, tức là các cụm chặt chẽ."
+        },
+        {
+          "question": "Biểu đồ cây (Dendrogram) có vai trò gì trong phân cụm phân cấp?",
+          "answer": "Biểu đồ cây trực quan hóa cấu trúc phân cấp của các cụm và giúp người dùng quyết định số lượng cụm K bằng cách 'cắt' biểu đồ ở một mức khoảng cách nhất định.",
+          "explanation": "Dendrogram là công cụ thiết yếu để hiểu quá trình hợp nhất/chia tách và là cơ sở để đưa ra quyết định về số lượng cụm cuối cùng dựa trên ngưỡng khoảng cách."
+        }
+      ],
+      "source_chunk_ids": [
+        "chunk_4"
+      ]
+    }
+  ],
+  "chapter_summary": "Chương 3.5 giới thiệu về Phân Cụm Phân Cấp (Hierarchical Clustering), một phương pháp phân cụm không yêu cầu xác định trước số lượng cụm. Chương này đã trình bày nguyên lý hoạt động của hai phương pháp chính là gom cụm (Agglomerative) và chia tách (Divisive), cùng với các tiêu chí liên kết quan trọng như Single, Complete, Average Linkage và Ward's Method. Sinh viên cũng đã được học cách trực quan hóa kết quả bằng biểu đồ cây (Dendrogram) và hiểu cách chọn số lượng cụm phù hợp từ biểu đồ này."
+}

@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { Navbar } from "@/components/layout/Navbar";
 import { MainContent } from "@/components/layout/MainContent";
+import { SiteFooter } from "@/components/layout/SiteFooter";
+import { DocumentTitleProvider } from "@/components/layout/DocumentTitleContext";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -16,9 +18,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AI Course Generator",
-  description:
-    "Upload tài liệu PDF, DOCX, TXT và tạo đúng 4 output học tập: Book, Slide, Quiz và Vid.",
+  title: "Study Pack AI",
+  description: "Tạo Sách, Mindmap, Quiz và Flashcards từ tài liệu của bạn.",
 };
 
 export default function RootLayout({
@@ -27,14 +28,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="vi" className="h-full antialiased">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} min-h-full flex flex-col bg-background text-foreground`}
-      >
-        <Navbar />
-        <div className="flex flex-1">
-          <MainContent>{children}</MainContent>
-        </div>
+    <html lang="vi" className={`dark ${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
+      <body className="min-h-full flex flex-col bg-background text-foreground">
+        <DocumentTitleProvider>
+          <Navbar />
+          <div className="flex flex-1">
+            <MainContent>{children}</MainContent>
+          </div>
+          <SiteFooter />
+        </DocumentTitleProvider>
         <Toaster richColors position="bottom-right" />
       </body>
     </html>

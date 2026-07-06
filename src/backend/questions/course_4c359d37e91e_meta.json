@@ -1,0 +1,119 @@
+{
+  "course_id": "4c359d37e91e",
+  "user_id": "cf88da73-b387-4b7a-a74d-0ee7983dbf1f",
+  "source_path": "uploads\\4c359d37e91e\\01_1783269958_book.pdf",
+  "source_paths": [
+    "uploads\\4c359d37e91e\\01_1783269958_book.pdf"
+  ],
+  "pdf_path": "uploads\\4c359d37e91e\\01_1783269958_book.pdf",
+  "filenames": [
+    "01_1783269958_book.pdf"
+  ],
+  "file_count": 1,
+  "status": "ready",
+  "stage": "completed",
+  "created_at": 1783269958.7420733,
+  "processing_started_at": 1783269958.743074,
+  "progress": 100,
+  "progress_message": "Hoàn thành!",
+  "preprocess_job_id": "85ce8f35a43449c698e00cc6b6ea7ea5",
+  "job_type": "preprocess",
+  "job_status": "running",
+  "ready_at": 1783269960.7403378,
+  "file_hash": "2439793a9fb74389b1660106fc0ff615a82cf715ae6ab6b4c9a994e38c6a77cd",
+  "total_processing_time": 1.9,
+  "preprocess_profile": {
+    "exists": true,
+    "provider": "chroma",
+    "persist_dir": "data\\chroma",
+    "collection_name": "ai_course_chunks",
+    "num_chunks": 384,
+    "num_chunks_before_filter": 384,
+    "num_pages": 296,
+    "num_extracted_chars": 409835,
+    "total_file_size_bytes": 1099959,
+    "embedding_batch_size": 64,
+    "num_embedding_batches": 0,
+    "embedding_requests_sent": 0,
+    "embedding_cache_hits": 384,
+    "embedding_cache_misses": 0,
+    "embedding_retry_count": 0,
+    "embedding_rate_limit_per_minute": 72,
+    "embedding_throttle_sleep_seconds": 0.0,
+    "step_times": {
+      "extract_text": 0.41,
+      "chunking": 0.14,
+      "embedding": 0.53,
+      "chroma_insert": 0.77,
+      "vector_insert": 0.77
+    },
+    "total_preprocess_seconds": 1.88,
+    "created_at": 1783269960.7113602,
+    "document_quality_report": {
+      "document_id": "4c359d37e91e",
+      "file_name": "01_1783269958_book.pdf",
+      "file_type": "pdf",
+      "page_count": 296,
+      "text_extraction_success": true,
+      "extracted_char_count": 440386,
+      "average_chars_per_page": 1487,
+      "detected_language": "mixed",
+      "document_type": "code_document",
+      "is_scanned_pdf": false,
+      "is_scanned_or_image_based": false,
+      "has_toc_noise": true,
+      "has_dot_leaders": true,
+      "has_many_page_numbers": true,
+      "has_broken_spacing": false,
+      "has_code": true,
+      "has_formulas": true,
+      "has_tables": true,
+      "quality_score": 85,
+      "clean_context_score": 60,
+      "content_depth_score": 100,
+      "generation_readiness": "full",
+      "warnings": [
+        "Phát hiện nhiễu định dạng mục lục hoặc dòng chấm lửng rải rác."
+      ],
+      "recommended_action": "generate_with_warning",
+      "recommended_actions": [
+        "Có thể tạo đầy đủ học liệu (Study Guide, Slides, Quiz, Video) từ tài liệu này.",
+        "Hệ thống sẽ tự động loại bỏ các đoạn mục lục/chấm lửng khỏi ngữ cảnh sinh nội dung."
+      ],
+      "pdf_type": "code_document"
+    }
+  },
+  "document_quality_report": {
+    "document_id": "4c359d37e91e",
+    "file_name": "01_1783269958_book.pdf",
+    "file_type": "pdf",
+    "page_count": 296,
+    "text_extraction_success": true,
+    "extracted_char_count": 440386,
+    "average_chars_per_page": 1487,
+    "detected_language": "mixed",
+    "document_type": "code_document",
+    "is_scanned_pdf": false,
+    "is_scanned_or_image_based": false,
+    "has_toc_noise": true,
+    "has_dot_leaders": true,
+    "has_many_page_numbers": true,
+    "has_broken_spacing": false,
+    "has_code": true,
+    "has_formulas": true,
+    "has_tables": true,
+    "quality_score": 85,
+    "clean_context_score": 60,
+    "content_depth_score": 100,
+    "generation_readiness": "full",
+    "warnings": [
+      "Phát hiện nhiễu định dạng mục lục hoặc dòng chấm lửng rải rác."
+    ],
+    "recommended_action": "generate_with_warning",
+    "recommended_actions": [
+      "Có thể tạo đầy đủ học liệu (Study Guide, Slides, Quiz, Video) từ tài liệu này.",
+      "Hệ thống sẽ tự động loại bỏ các đoạn mục lục/chấm lửng khỏi ngữ cảnh sinh nội dung."
+    ],
+    "pdf_type": "code_document"
+  }
+}

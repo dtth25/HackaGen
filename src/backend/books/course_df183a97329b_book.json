@@ -1,0 +1,694 @@
+{
+  "title": "Giáo trình học tập từ tài liệu",
+  "subtitle": "Bản học liệu trọng tâm cho sinh viên",
+  "audience": "",
+  "description": "Bản sách MVP dành cho sinh viên, được dựng trực tiếp từ các đoạn nội dung đã index trong tài liệu.",
+  "estimated_duration": "",
+  "table_of_contents": [
+    {
+      "chapter_index": 1,
+      "title": ""
+    },
+    {
+      "chapter_index": 2,
+      "title": ""
+    },
+    {
+      "chapter_index": 3,
+      "title": ""
+    },
+    {
+      "chapter_index": 4,
+      "title": ""
+    },
+    {
+      "chapter_index": 5,
+      "title": ""
+    },
+    {
+      "chapter_index": 6,
+      "title": ""
+    }
+  ],
+  "chapters": [
+    {
+      "chapter_index": 1,
+      "title": "",
+      "overview": "Hệ thống hóa một nhóm nội dung trọng tâm trong tài liệu.",
+      "description": "Hệ thống hóa một nhóm nội dung trọng tâm trong tài liệu.",
+      "learning_outcomes": [
+        "",
+        ""
+      ],
+      "lessons": [
+        {
+          "lesson_index": 1,
+          "title": "",
+          "lesson_title": "",
+          "duration": "",
+          "duration_minutes": 25,
+          "objectives": [
+            "Nắm được ý chính và thuật ngữ trọng tâm của phần này.",
+            "Giải thích lại nội dung bằng ngôn ngữ của người học."
+          ],
+          "learning_objectives": [
+            "Nhận diện được khái niệm cốt lõi trong phần tài liệu này.",
+            "Vận dụng ý chính vào một ví dụ hoặc câu hỏi kiểm tra nhanh."
+          ],
+          "core_idea": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 11] NỘ I DUNG: Chapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo Chương này giới thiệu các kiến thức lập trình cơ bản",
+          "why_it_matters": "Đây là nền tảng để sinh viên hiểu các phần sau thay vì chỉ ghi nhớ rời rạc.",
+          "lecture": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 11] NỘ I DUNG: Chapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo Chương này giới thiệu các kiến thức lập trình cơ bản cần thiết cho các dựán Trí tuệ Nhân tạo (AI), sử dụng Python làm ngôn ngữchính. Chúng ta sẽtìm hiểu các khái niệm cơ bản của Python, các thư viện thiết yếu và các bài thực hành giúp bạn phát triển mô hình và dựán AI. Vì bạn đã giỏi C++, chương này tập trung so sánh Python và C++, kèm theo các ví dụbằng mã lệnh Python đểgiúp bạn xây dựng nền tảng vững chắc cho hành trình AI của mình. 1.1 Cơ bản về Python Python là ngôn ngữlập trình cấp c",
+          "explanation": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 11] NỘ I DUNG: Chapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo Chương này giới thiệu các kiến thức lập trình cơ bản cần thiết cho các dựán Trí tuệ Nhân tạo (AI), sử dụng Python làm ngôn ngữchính. Chúng ta sẽtìm hiểu các khái niệm cơ bản của Python, các thư viện thiết yếu và các bài thực hành giúp bạn phát triển mô hình và dựán AI. Vì bạn đã giỏi C++, chương này tập trung so sánh Python và C++, kèm theo các ví dụbằng mã lệnh Python đểgiúp bạn xây dựng nền tảng vững chắc cho hành trình AI của mình. 1.1 Cơ bản về Python Python là ngôn ngữlập trình cấp c",
+          "simple_explanation": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 11] NỘ I DUNG: Chapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo Chương này giới thiệu các kiến thức lập trình cơ bản cần thiết cho các dựán Trí tuệ Nhân tạo (AI), sử dụng Python làm ngôn ngữchính. Chúng ta sẽtìm hiểu các khái niệm cơ bản của Python, các thư viện thiết yếu và các bài thực hành giúp bạn phát triển mô hình và dựán AI. Vì bạn đã giỏi C++, chương này tập trung so sánh Python và C++, kèm theo các ví dụbằng mã lệnh Python đểgiúp bạn xây dựng nền tảng vững chắc cho hành trình AI của mình. 1.1 Cơ bản về Python Python là ngôn ngữlập trình cấp c",
+          "key_points": [
+            "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 11] NỘ I DUNG: Chapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo Chương này giới thiệu các kiến thức lập trình cơ bản",
+            "Liên hệ khái niệm với ví dụ cụ thể trong tài liệu.",
+            "Tự diễn giải lại bằng câu hỏi: khái niệm này dùng để giải quyết vấn đề gì?"
+          ],
+          "must_know_points": [
+            "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 11] NỘ I DUNG: Chapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo Chương này giới thiệu các kiến thức lập trình cơ bản",
+            "Phân biệt định nghĩa, ví dụ và điều kiện áp dụng.",
+            "Ghi nhớ lỗi hiểu sai thường gặp khi áp dụng khái niệm."
+          ],
+          "key_concepts": [
+            {
+              "term": "",
+              "definition": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 11] NỘ I DUNG: Chapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo Chương này giới thiệu các kiến thức lập trình cơ bản"
+            }
+          ],
+          "example": "Ví dụ: lấy một tình huống nhỏ trong tài liệu và giải thích bằng khái niệm 'Bắ t đầ u dữ liệ u truy'.",
+          "common_misunderstanding": "Nhầm việc nhớ nguyên văn với hiểu bản chất. Cách đúng là tự giải thích lại bằng ví dụ.",
+          "common_mistake": {
+            "mistake": "Học thuộc đoạn văn nhưng không biết khi nào dùng.",
+            "correction": "Gắn mỗi khái niệm với một ví dụ và một câu hỏi kiểm tra nhanh."
+          },
+          "activity": "Tóm tắt phần này bằng 3 gạch đầu dòng và nêu 1 ví dụ minh họa.",
+          "practice_activity": "Tự viết một ví dụ mới và giải thích vì sao ví dụ đó phù hợp với khái niệm.",
+          "assessment": [
+            "",
+            "Chi tiết nào trong tài liệu giúp củng cố trọng tâm đó?"
+          ],
+          "quick_check": [
+            {
+              "question": "",
+              "answer": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 11] NỘ I DUNG: Chapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo Chương này giới thiệu các kiến thức lập trình cơ bản"
+            }
+          ],
+          "active_recall_questions": [
+            {
+              "question": "Nếu phải giải thích nội dung này trong 30 giây, bạn sẽ nói gì?",
+              "answer": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 11] NỘ I DUNG: Chapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo Chương này giới thiệu các kiến thức lập trình cơ bản"
+            }
+          ],
+          "flashcards": [
+            {
+              "front": "",
+              "back": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 11] NỘ I DUNG: Chapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo Chương này giới thiệu các kiến thức lập trình cơ bản"
+            }
+          ],
+          "mini_practice": {
+            "task": "Viết một câu hỏi trắc nghiệm ngắn từ nội dung vừa học.",
+            "solution_hint": "Bắt đầu bằng khái niệm chính và một phương án nhiễu dễ nhầm."
+          },
+          "exam_focus": [
+            "",
+            "",
+            ""
+          ],
+          "source_chunk_ids": [
+            ""
+          ]
+        }
+      ],
+      "chapter_summary": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 11] NỘ I DUNG: Chapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo Chương này giới thiệu các kiến thức lập trình cơ bản",
+      "chapter_quiz": [
+        {
+          "question": "",
+          "answer": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 11] NỘ I DUNG: Chapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo Chương này giới thiệu các kiến thức lập trình cơ bản"
+        }
+      ]
+    },
+    {
+      "chapter_index": 2,
+      "title": "",
+      "overview": "Hệ thống hóa một nhóm nội dung trọng tâm trong tài liệu.",
+      "description": "Hệ thống hóa một nhóm nội dung trọng tâm trong tài liệu.",
+      "learning_outcomes": [
+        "",
+        ""
+      ],
+      "lessons": [
+        {
+          "lesson_index": 1,
+          "title": "",
+          "lesson_title": "",
+          "duration": "",
+          "duration_minutes": 25,
+          "objectives": [
+            "Nắm được ý chính và thuật ngữ trọng tâm của phần này.",
+            "Giải thích lại nội dung bằng ngôn ngữ của người học."
+          ],
+          "learning_objectives": [
+            "Nhận diện được khái niệm cốt lõi trong phần tài liệu này.",
+            "Vận dụng ý chính vào một ví dụ hoặc câu hỏi kiểm tra nhanh."
+          ],
+          "core_idea": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 21] NỘ I DUNG: Chapter 2 Học có giám sát – Supervised Learning 2.1 Giới thiệu Học có giám sát (Supervised Learning) là m",
+          "why_it_matters": "Đây là nền tảng để sinh viên hiểu các phần sau thay vì chỉ ghi nhớ rời rạc.",
+          "lecture": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 21] NỘ I DUNG: Chapter 2 Học có giám sát – Supervised Learning 2.1 Giới thiệu Học có giám sát (Supervised Learning) là một nhánh quan trọng trong học máy (Machine Learning). Ý tưởng cơ bản là: từ một tập dữ liệu đã biết đầu vào (features) và đầu ra (labels), ta học một mô hình đểdựđoán đầu ra mới khi có dữ liệu đầu vào mới. Hai loại bài toán chính: • Regression (Hồi quy): Dựđoán đầu ra là giá trịsốliên tục. • Classification (Phân loại): Dựđoán đầu ra là nhãn rời rạc (ví dụ: ”cat” hay ”dog”). 2.2 Linear Regression (Hồi quy tuyến tính) Dùng đểdựđoán giá tr",
+          "explanation": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 21] NỘ I DUNG: Chapter 2 Học có giám sát – Supervised Learning 2.1 Giới thiệu Học có giám sát (Supervised Learning) là một nhánh quan trọng trong học máy (Machine Learning). Ý tưởng cơ bản là: từ một tập dữ liệu đã biết đầu vào (features) và đầu ra (labels), ta học một mô hình đểdựđoán đầu ra mới khi có dữ liệu đầu vào mới. Hai loại bài toán chính: • Regression (Hồi quy): Dựđoán đầu ra là giá trịsốliên tục. • Classification (Phân loại): Dựđoán đầu ra là nhãn rời rạc (ví dụ: ”cat” hay ”dog”). 2.2 Linear Regression (Hồi quy tuyến tính) Dùng đểdựđoán giá tr",
+          "simple_explanation": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 21] NỘ I DUNG: Chapter 2 Học có giám sát – Supervised Learning 2.1 Giới thiệu Học có giám sát (Supervised Learning) là một nhánh quan trọng trong học máy (Machine Learning). Ý tưởng cơ bản là: từ một tập dữ liệu đã biết đầu vào (features) và đầu ra (labels), ta học một mô hình đểdựđoán đầu ra mới khi có dữ liệu đầu vào mới. Hai loại bài toán chính: • Regression (Hồi quy): Dựđoán đầu ra là giá trịsốliên tục. • Classification (Phân loại): Dựđoán đầu ra là nhãn rời rạc (ví dụ: ”cat” hay ”dog”). 2.2 Linear Regression (Hồi quy tuyến tính) Dùng đểdựđoán giá tr",
+          "key_points": [
+            "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 21] NỘ I DUNG: Chapter 2 Học có giám sát – Supervised Learning 2.1 Giới thiệu Học có giám sát (Supervised Learning) là m",
+            "Liên hệ khái niệm với ví dụ cụ thể trong tài liệu.",
+            "Tự diễn giải lại bằng câu hỏi: khái niệm này dùng để giải quyết vấn đề gì?"
+          ],
+          "must_know_points": [
+            "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 21] NỘ I DUNG: Chapter 2 Học có giám sát – Supervised Learning 2.1 Giới thiệu Học có giám sát (Supervised Learning) là m",
+            "Phân biệt định nghĩa, ví dụ và điều kiện áp dụng.",
+            "Ghi nhớ lỗi hiểu sai thường gặp khi áp dụng khái niệm."
+          ],
+          "key_concepts": [
+            {
+              "term": "",
+              "definition": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 21] NỘ I DUNG: Chapter 2 Học có giám sát – Supervised Learning 2.1 Giới thiệu Học có giám sát (Supervised Learning) là m"
+            }
+          ],
+          "example": "Ví dụ: lấy một tình huống nhỏ trong tài liệu và giải thích bằng khái niệm 'Bắ t đầ u dữ liệ u truy'.",
+          "common_misunderstanding": "Nhầm việc nhớ nguyên văn với hiểu bản chất. Cách đúng là tự giải thích lại bằng ví dụ.",
+          "common_mistake": {
+            "mistake": "Học thuộc đoạn văn nhưng không biết khi nào dùng.",
+            "correction": "Gắn mỗi khái niệm với một ví dụ và một câu hỏi kiểm tra nhanh."
+          },
+          "activity": "Tóm tắt phần này bằng 3 gạch đầu dòng và nêu 1 ví dụ minh họa.",
+          "practice_activity": "Tự viết một ví dụ mới và giải thích vì sao ví dụ đó phù hợp với khái niệm.",
+          "assessment": [
+            "",
+            "Chi tiết nào trong tài liệu giúp củng cố trọng tâm đó?"
+          ],
+          "quick_check": [
+            {
+              "question": "",
+              "answer": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 21] NỘ I DUNG: Chapter 2 Học có giám sát – Supervised Learning 2.1 Giới thiệu Học có giám sát (Supervised Learning) là m"
+            }
+          ],
+          "active_recall_questions": [
+            {
+              "question": "Nếu phải giải thích nội dung này trong 30 giây, bạn sẽ nói gì?",
+              "answer": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 21] NỘ I DUNG: Chapter 2 Học có giám sát – Supervised Learning 2.1 Giới thiệu Học có giám sát (Supervised Learning) là m"
+            }
+          ],
+          "flashcards": [
+            {
+              "front": "",
+              "back": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 21] NỘ I DUNG: Chapter 2 Học có giám sát – Supervised Learning 2.1 Giới thiệu Học có giám sát (Supervised Learning) là m"
+            }
+          ],
+          "mini_practice": {
+            "task": "Viết một câu hỏi trắc nghiệm ngắn từ nội dung vừa học.",
+            "solution_hint": "Bắt đầu bằng khái niệm chính và một phương án nhiễu dễ nhầm."
+          },
+          "exam_focus": [
+            "",
+            "",
+            ""
+          ],
+          "source_chunk_ids": [
+            ""
+          ]
+        }
+      ],
+      "chapter_summary": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 21] NỘ I DUNG: Chapter 2 Học có giám sát – Supervised Learning 2.1 Giới thiệu Học có giám sát (Supervised Learning) là m",
+      "chapter_quiz": [
+        {
+          "question": "",
+          "answer": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 21] NỘ I DUNG: Chapter 2 Học có giám sát – Supervised Learning 2.1 Giới thiệu Học có giám sát (Supervised Learning) là m"
+        }
+      ]
+    },
+    {
+      "chapter_index": 3,
+      "title": "",
+      "overview": "Hệ thống hóa một nhóm nội dung trọng tâm trong tài liệu.",
+      "description": "Hệ thống hóa một nhóm nội dung trọng tâm trong tài liệu.",
+      "learning_outcomes": [
+        "",
+        ""
+      ],
+      "lessons": [
+        {
+          "lesson_index": 1,
+          "title": "",
+          "lesson_title": "",
+          "duration": "",
+          "duration_minutes": 25,
+          "objectives": [
+            "Nắm được ý chính và thuật ngữ trọng tâm của phần này.",
+            "Giải thích lại nội dung bằng ngôn ngữ của người học."
+          ],
+          "learning_objectives": [
+            "Nhận diện được khái niệm cốt lõi trong phần tài liệu này.",
+            "Vận dụng ý chính vào một ví dụ hoặc câu hỏi kiểm tra nhanh."
+          ],
+          "core_idea": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 12] NỘ I DUNG: Chapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo print(i) Đoạn mã trên sẽin ra các sốtừ0 đến 4.",
+          "why_it_matters": "Đây là nền tảng để sinh viên hiểu các phần sau thay vì chỉ ghi nhớ rời rạc.",
+          "lecture": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 12] NỘ I DUNG: Chapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo print(i) Đoạn mã trên sẽin ra các sốtừ0 đến 4. Lưu ý hàm range(N) trong Python tạo ra dãy sốlên đến N-1, khác với C++, bạn dùng điều kiện i < N. Bài tập thực hành: Viết chương trình Python in ra tất cảcác sốchẵn từ10 đến 50 sử dụng vòng lặp for. 1.1.2 Hàm trong Python Hàm trong Python được định nghĩa bằng từkhóa def, như ví dụsau: # Function that adds two numbers def add_numbers(a, b): return a + b # Function call result = add_numbers(3, 4) print(result) Hàm add_numbers nhận hai tham sốvà",
+          "explanation": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 12] NỘ I DUNG: Chapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo print(i) Đoạn mã trên sẽin ra các sốtừ0 đến 4. Lưu ý hàm range(N) trong Python tạo ra dãy sốlên đến N-1, khác với C++, bạn dùng điều kiện i < N. Bài tập thực hành: Viết chương trình Python in ra tất cảcác sốchẵn từ10 đến 50 sử dụng vòng lặp for. 1.1.2 Hàm trong Python Hàm trong Python được định nghĩa bằng từkhóa def, như ví dụsau: # Function that adds two numbers def add_numbers(a, b): return a + b # Function call result = add_numbers(3, 4) print(result) Hàm add_numbers nhận hai tham sốvà",
+          "simple_explanation": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 12] NỘ I DUNG: Chapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo print(i) Đoạn mã trên sẽin ra các sốtừ0 đến 4. Lưu ý hàm range(N) trong Python tạo ra dãy sốlên đến N-1, khác với C++, bạn dùng điều kiện i < N. Bài tập thực hành: Viết chương trình Python in ra tất cảcác sốchẵn từ10 đến 50 sử dụng vòng lặp for. 1.1.2 Hàm trong Python Hàm trong Python được định nghĩa bằng từkhóa def, như ví dụsau: # Function that adds two numbers def add_numbers(a, b): return a + b # Function call result = add_numbers(3, 4) print(result) Hàm add_numbers nhận hai tham sốvà",
+          "key_points": [
+            "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 12] NỘ I DUNG: Chapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo print(i) Đoạn mã trên sẽin ra các sốtừ0 đến 4.",
+            "Liên hệ khái niệm với ví dụ cụ thể trong tài liệu.",
+            "Tự diễn giải lại bằng câu hỏi: khái niệm này dùng để giải quyết vấn đề gì?"
+          ],
+          "must_know_points": [
+            "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 12] NỘ I DUNG: Chapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo print(i) Đoạn mã trên sẽin ra các sốtừ0 đến 4.",
+            "Phân biệt định nghĩa, ví dụ và điều kiện áp dụng.",
+            "Ghi nhớ lỗi hiểu sai thường gặp khi áp dụng khái niệm."
+          ],
+          "key_concepts": [
+            {
+              "term": "",
+              "definition": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 12] NỘ I DUNG: Chapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo print(i) Đoạn mã trên sẽin ra các sốtừ0 đến 4."
+            }
+          ],
+          "example": "Ví dụ: lấy một tình huống nhỏ trong tài liệu và giải thích bằng khái niệm 'Bắ t đầ u dữ liệ u truy'.",
+          "common_misunderstanding": "Nhầm việc nhớ nguyên văn với hiểu bản chất. Cách đúng là tự giải thích lại bằng ví dụ.",
+          "common_mistake": {
+            "mistake": "Học thuộc đoạn văn nhưng không biết khi nào dùng.",
+            "correction": "Gắn mỗi khái niệm với một ví dụ và một câu hỏi kiểm tra nhanh."
+          },
+          "activity": "Tóm tắt phần này bằng 3 gạch đầu dòng và nêu 1 ví dụ minh họa.",
+          "practice_activity": "Tự viết một ví dụ mới và giải thích vì sao ví dụ đó phù hợp với khái niệm.",
+          "assessment": [
+            "",
+            "Chi tiết nào trong tài liệu giúp củng cố trọng tâm đó?"
+          ],
+          "quick_check": [
+            {
+              "question": "",
+              "answer": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 12] NỘ I DUNG: Chapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo print(i) Đoạn mã trên sẽin ra các sốtừ0 đến 4."
+            }
+          ],
+          "active_recall_questions": [
+            {
+              "question": "Nếu phải giải thích nội dung này trong 30 giây, bạn sẽ nói gì?",
+              "answer": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 12] NỘ I DUNG: Chapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo print(i) Đoạn mã trên sẽin ra các sốtừ0 đến 4."
+            }
+          ],
+          "flashcards": [
+            {
+              "front": "",
+              "back": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 12] NỘ I DUNG: Chapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo print(i) Đoạn mã trên sẽin ra các sốtừ0 đến 4."
+            }
+          ],
+          "mini_practice": {
+            "task": "Viết một câu hỏi trắc nghiệm ngắn từ nội dung vừa học.",
+            "solution_hint": "Bắt đầu bằng khái niệm chính và một phương án nhiễu dễ nhầm."
+          },
+          "exam_focus": [
+            "",
+            "",
+            ""
+          ],
+          "source_chunk_ids": [
+            ""
+          ]
+        }
+      ],
+      "chapter_summary": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 12] NỘ I DUNG: Chapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo print(i) Đoạn mã trên sẽin ra các sốtừ0 đến 4.",
+      "chapter_quiz": [
+        {
+          "question": "",
+          "answer": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 12] NỘ I DUNG: Chapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo print(i) Đoạn mã trên sẽin ra các sốtừ0 đến 4."
+        }
+      ]
+    },
+    {
+      "chapter_index": 4,
+      "title": "",
+      "overview": "Hệ thống hóa một nhóm nội dung trọng tâm trong tài liệu.",
+      "description": "Hệ thống hóa một nhóm nội dung trọng tâm trong tài liệu.",
+      "learning_outcomes": [
+        "",
+        ""
+      ],
+      "lessons": [
+        {
+          "lesson_index": 1,
+          "title": "",
+          "lesson_title": "",
+          "duration": "",
+          "duration_minutes": 25,
+          "objectives": [
+            "Nắm được ý chính và thuật ngữ trọng tâm của phần này.",
+            "Giải thích lại nội dung bằng ngôn ngữ của người học."
+          ],
+          "learning_objectives": [
+            "Nhận diện được khái niệm cốt lõi trong phần tài liệu này.",
+            "Vận dụng ý chính vào một ví dụ hoặc câu hỏi kiểm tra nhanh."
+          ],
+          "core_idea": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 22] NỘ I DUNG: Chapter 2 Học có giám sát – Supervised Learning Mục tiêu là tìm w, b đểsai sốnhỏnhất.",
+          "why_it_matters": "Đây là nền tảng để sinh viên hiểu các phần sau thay vì chỉ ghi nhớ rời rạc.",
+          "lecture": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 22] NỘ I DUNG: Chapter 2 Học có giám sát – Supervised Learning Mục tiêu là tìm w, b đểsai sốnhỏnhất. Sửdụng hàm mất mát bình phương: L = 1 n n ∑ i=1 (yi −ˆyi)2 from sklearn.linear_model import Linear Regression model = Linear Regression() model.fit(X_train, y_train) 2.3 Logistic Regression (Hồi quy logistic) Thường dùng cho bài toán phân loại nhịphân. Mô hình tính xác suất bằng hàm sigmoid: P(y = 1|x) = 1 1 + e−w T x−b Hàm mất mát: log loss (cross entropy) L = −1 n ∑ [yi log(ˆyi) + (1 −yi) log(1 −ˆyi)] from sklearn.linear_model import Logistic Regression",
+          "explanation": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 22] NỘ I DUNG: Chapter 2 Học có giám sát – Supervised Learning Mục tiêu là tìm w, b đểsai sốnhỏnhất. Sửdụng hàm mất mát bình phương: L = 1 n n ∑ i=1 (yi −ˆyi)2 from sklearn.linear_model import Linear Regression model = Linear Regression() model.fit(X_train, y_train) 2.3 Logistic Regression (Hồi quy logistic) Thường dùng cho bài toán phân loại nhịphân. Mô hình tính xác suất bằng hàm sigmoid: P(y = 1|x) = 1 1 + e−w T x−b Hàm mất mát: log loss (cross entropy) L = −1 n ∑ [yi log(ˆyi) + (1 −yi) log(1 −ˆyi)] from sklearn.linear_model import Logistic Regression",
+          "simple_explanation": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 22] NỘ I DUNG: Chapter 2 Học có giám sát – Supervised Learning Mục tiêu là tìm w, b đểsai sốnhỏnhất. Sửdụng hàm mất mát bình phương: L = 1 n n ∑ i=1 (yi −ˆyi)2 from sklearn.linear_model import Linear Regression model = Linear Regression() model.fit(X_train, y_train) 2.3 Logistic Regression (Hồi quy logistic) Thường dùng cho bài toán phân loại nhịphân. Mô hình tính xác suất bằng hàm sigmoid: P(y = 1|x) = 1 1 + e−w T x−b Hàm mất mát: log loss (cross entropy) L = −1 n ∑ [yi log(ˆyi) + (1 −yi) log(1 −ˆyi)] from sklearn.linear_model import Logistic Regression",
+          "key_points": [
+            "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 22] NỘ I DUNG: Chapter 2 Học có giám sát – Supervised Learning Mục tiêu là tìm w, b đểsai sốnhỏnhất.",
+            "Liên hệ khái niệm với ví dụ cụ thể trong tài liệu.",
+            "Tự diễn giải lại bằng câu hỏi: khái niệm này dùng để giải quyết vấn đề gì?"
+          ],
+          "must_know_points": [
+            "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 22] NỘ I DUNG: Chapter 2 Học có giám sát – Supervised Learning Mục tiêu là tìm w, b đểsai sốnhỏnhất.",
+            "Phân biệt định nghĩa, ví dụ và điều kiện áp dụng.",
+            "Ghi nhớ lỗi hiểu sai thường gặp khi áp dụng khái niệm."
+          ],
+          "key_concepts": [
+            {
+              "term": "",
+              "definition": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 22] NỘ I DUNG: Chapter 2 Học có giám sát – Supervised Learning Mục tiêu là tìm w, b đểsai sốnhỏnhất."
+            }
+          ],
+          "example": "Ví dụ: lấy một tình huống nhỏ trong tài liệu và giải thích bằng khái niệm 'Bắ t đầ u dữ liệ u truy'.",
+          "common_misunderstanding": "Nhầm việc nhớ nguyên văn với hiểu bản chất. Cách đúng là tự giải thích lại bằng ví dụ.",
+          "common_mistake": {
+            "mistake": "Học thuộc đoạn văn nhưng không biết khi nào dùng.",
+            "correction": "Gắn mỗi khái niệm với một ví dụ và một câu hỏi kiểm tra nhanh."
+          },
+          "activity": "Tóm tắt phần này bằng 3 gạch đầu dòng và nêu 1 ví dụ minh họa.",
+          "practice_activity": "Tự viết một ví dụ mới và giải thích vì sao ví dụ đó phù hợp với khái niệm.",
+          "assessment": [
+            "",
+            "Chi tiết nào trong tài liệu giúp củng cố trọng tâm đó?"
+          ],
+          "quick_check": [
+            {
+              "question": "",
+              "answer": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 22] NỘ I DUNG: Chapter 2 Học có giám sát – Supervised Learning Mục tiêu là tìm w, b đểsai sốnhỏnhất."
+            }
+          ],
+          "active_recall_questions": [
+            {
+              "question": "Nếu phải giải thích nội dung này trong 30 giây, bạn sẽ nói gì?",
+              "answer": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 22] NỘ I DUNG: Chapter 2 Học có giám sát – Supervised Learning Mục tiêu là tìm w, b đểsai sốnhỏnhất."
+            }
+          ],
+          "flashcards": [
+            {
+              "front": "",
+              "back": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 22] NỘ I DUNG: Chapter 2 Học có giám sát – Supervised Learning Mục tiêu là tìm w, b đểsai sốnhỏnhất."
+            }
+          ],
+          "mini_practice": {
+            "task": "Viết một câu hỏi trắc nghiệm ngắn từ nội dung vừa học.",
+            "solution_hint": "Bắt đầu bằng khái niệm chính và một phương án nhiễu dễ nhầm."
+          },
+          "exam_focus": [
+            "",
+            "",
+            ""
+          ],
+          "source_chunk_ids": [
+            ""
+          ]
+        }
+      ],
+      "chapter_summary": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 22] NỘ I DUNG: Chapter 2 Học có giám sát – Supervised Learning Mục tiêu là tìm w, b đểsai sốnhỏnhất.",
+      "chapter_quiz": [
+        {
+          "question": "",
+          "answer": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 22] NỘ I DUNG: Chapter 2 Học có giám sát – Supervised Learning Mục tiêu là tìm w, b đểsai sốnhỏnhất."
+        }
+      ]
+    },
+    {
+      "chapter_index": 5,
+      "title": "",
+      "overview": "Hệ thống hóa một nhóm nội dung trọng tâm trong tài liệu.",
+      "description": "Hệ thống hóa một nhóm nội dung trọng tâm trong tài liệu.",
+      "learning_outcomes": [
+        "",
+        ""
+      ],
+      "lessons": [
+        {
+          "lesson_index": 1,
+          "title": "",
+          "lesson_title": "",
+          "duration": "",
+          "duration_minutes": 25,
+          "objectives": [
+            "Nắm được ý chính và thuật ngữ trọng tâm của phần này.",
+            "Giải thích lại nội dung bằng ngôn ngữ của người học."
+          ],
+          "learning_objectives": [
+            "Nhận diện được khái niệm cốt lõi trong phần tài liệu này.",
+            "Vận dụng ý chính vào một ví dụ hoặc câu hỏi kiểm tra nhanh."
+          ],
+          "core_idea": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 49] NỘ I DUNG: Chapter 5 Neural Networks 5.1 Kiến thức cơ bản về Perceptron Lý thuyết Perceptron là dạng đơn giản nhất c",
+          "why_it_matters": "Đây là nền tảng để sinh viên hiểu các phần sau thay vì chỉ ghi nhớ rời rạc.",
+          "lecture": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 49] NỘ I DUNG: Chapter 5 Neural Networks 5.1 Kiến thức cơ bản về Perceptron Lý thuyết Perceptron là dạng đơn giản nhất của mạng nơ-ron. Nó là một bộphân loại nhịphân tuyến tính, nhận nhiều đầu vào, áp dụng trọng sốvà độlệch, sau đó truyền qua một hàm kích hoạt. y = f (∑ wixi + b ) Trong đó: • xi: Đặc trưng đầu vào • wi: Trọng số • b: Độlệch (bias) • f: Hàm kích hoạt (thường là hàm bước) Mã Python import numpy as np def step_function(x): return 1 if x >= 0 else 0 39 === KẾ T THÚC DỮ LIỆ U TRANG 49 ===",
+          "explanation": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 49] NỘ I DUNG: Chapter 5 Neural Networks 5.1 Kiến thức cơ bản về Perceptron Lý thuyết Perceptron là dạng đơn giản nhất của mạng nơ-ron. Nó là một bộphân loại nhịphân tuyến tính, nhận nhiều đầu vào, áp dụng trọng sốvà độlệch, sau đó truyền qua một hàm kích hoạt. y = f (∑ wixi + b ) Trong đó: • xi: Đặc trưng đầu vào • wi: Trọng số • b: Độlệch (bias) • f: Hàm kích hoạt (thường là hàm bước) Mã Python import numpy as np def step_function(x): return 1 if x >= 0 else 0 39 === KẾ T THÚC DỮ LIỆ U TRANG 49 ===",
+          "simple_explanation": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 49] NỘ I DUNG: Chapter 5 Neural Networks 5.1 Kiến thức cơ bản về Perceptron Lý thuyết Perceptron là dạng đơn giản nhất của mạng nơ-ron. Nó là một bộphân loại nhịphân tuyến tính, nhận nhiều đầu vào, áp dụng trọng sốvà độlệch, sau đó truyền qua một hàm kích hoạt. y = f (∑ wixi + b ) Trong đó: • xi: Đặc trưng đầu vào • wi: Trọng số • b: Độlệch (bias) • f: Hàm kích hoạt (thường là hàm bước) Mã Python import numpy as np def step_function(x): return 1 if x >= 0 else 0 39 === KẾ T THÚC DỮ LIỆ U TRANG 49 ===",
+          "key_points": [
+            "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 49] NỘ I DUNG: Chapter 5 Neural Networks 5.1 Kiến thức cơ bản về Perceptron Lý thuyết Perceptron là dạng đơn giản nhất c",
+            "Liên hệ khái niệm với ví dụ cụ thể trong tài liệu.",
+            "Tự diễn giải lại bằng câu hỏi: khái niệm này dùng để giải quyết vấn đề gì?"
+          ],
+          "must_know_points": [
+            "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 49] NỘ I DUNG: Chapter 5 Neural Networks 5.1 Kiến thức cơ bản về Perceptron Lý thuyết Perceptron là dạng đơn giản nhất c",
+            "Phân biệt định nghĩa, ví dụ và điều kiện áp dụng.",
+            "Ghi nhớ lỗi hiểu sai thường gặp khi áp dụng khái niệm."
+          ],
+          "key_concepts": [
+            {
+              "term": "",
+              "definition": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 49] NỘ I DUNG: Chapter 5 Neural Networks 5.1 Kiến thức cơ bản về Perceptron Lý thuyết Perceptron là dạng đơn giản nhất c"
+            }
+          ],
+          "example": "Ví dụ: lấy một tình huống nhỏ trong tài liệu và giải thích bằng khái niệm 'Bắ t đầ u dữ liệ u truy'.",
+          "common_misunderstanding": "Nhầm việc nhớ nguyên văn với hiểu bản chất. Cách đúng là tự giải thích lại bằng ví dụ.",
+          "common_mistake": {
+            "mistake": "Học thuộc đoạn văn nhưng không biết khi nào dùng.",
+            "correction": "Gắn mỗi khái niệm với một ví dụ và một câu hỏi kiểm tra nhanh."
+          },
+          "activity": "Tóm tắt phần này bằng 3 gạch đầu dòng và nêu 1 ví dụ minh họa.",
+          "practice_activity": "Tự viết một ví dụ mới và giải thích vì sao ví dụ đó phù hợp với khái niệm.",
+          "assessment": [
+            "",
+            "Chi tiết nào trong tài liệu giúp củng cố trọng tâm đó?"
+          ],
+          "quick_check": [
+            {
+              "question": "",
+              "answer": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 49] NỘ I DUNG: Chapter 5 Neural Networks 5.1 Kiến thức cơ bản về Perceptron Lý thuyết Perceptron là dạng đơn giản nhất c"
+            }
+          ],
+          "active_recall_questions": [
+            {
+              "question": "Nếu phải giải thích nội dung này trong 30 giây, bạn sẽ nói gì?",
+              "answer": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 49] NỘ I DUNG: Chapter 5 Neural Networks 5.1 Kiến thức cơ bản về Perceptron Lý thuyết Perceptron là dạng đơn giản nhất c"
+            }
+          ],
+          "flashcards": [
+            {
+              "front": "",
+              "back": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 49] NỘ I DUNG: Chapter 5 Neural Networks 5.1 Kiến thức cơ bản về Perceptron Lý thuyết Perceptron là dạng đơn giản nhất c"
+            }
+          ],
+          "mini_practice": {
+            "task": "Viết một câu hỏi trắc nghiệm ngắn từ nội dung vừa học.",
+            "solution_hint": "Bắt đầu bằng khái niệm chính và một phương án nhiễu dễ nhầm."
+          },
+          "exam_focus": [
+            "",
+            "",
+            ""
+          ],
+          "source_chunk_ids": [
+            ""
+          ]
+        }
+      ],
+      "chapter_summary": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 49] NỘ I DUNG: Chapter 5 Neural Networks 5.1 Kiến thức cơ bản về Perceptron Lý thuyết Perceptron là dạng đơn giản nhất c",
+      "chapter_quiz": [
+        {
+          "question": "",
+          "answer": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 49] NỘ I DUNG: Chapter 5 Neural Networks 5.1 Kiến thức cơ bản về Perceptron Lý thuyết Perceptron là dạng đơn giản nhất c"
+        }
+      ]
+    },
+    {
+      "chapter_index": 6,
+      "title": "",
+      "overview": "Hệ thống hóa một nhóm nội dung trọng tâm trong tài liệu.",
+      "description": "Hệ thống hóa một nhóm nội dung trọng tâm trong tài liệu.",
+      "learning_outcomes": [
+        "",
+        ""
+      ],
+      "lessons": [
+        {
+          "lesson_index": 1,
+          "title": "",
+          "lesson_title": "",
+          "duration": "",
+          "duration_minutes": 25,
+          "objectives": [
+            "Nắm được ý chính và thuật ngữ trọng tâm của phần này.",
+            "Giải thích lại nội dung bằng ngôn ngữ của người học."
+          ],
+          "learning_objectives": [
+            "Nhận diện được khái niệm cốt lõi trong phần tài liệu này.",
+            "Vận dụng ý chính vào một ví dụ hoặc câu hỏi kiểm tra nhanh."
+          ],
+          "core_idea": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 140] NỘ I DUNG: Chapter 8 Computer Vision 4.",
+          "why_it_matters": "Đây là nền tảng để sinh viên hiểu các phần sau thay vì chỉ ghi nhớ rời rạc.",
+          "lecture": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 140] NỘ I DUNG: Chapter 8 Computer Vision 4. Một sốứng dụng thực tế • Nhận dạng chữviết tay (ví dụ: số CMND, biển sốxe) • Phân loại động vật (mèo, chó, ngựa) • Hệthống giám sát an ninh 5. Các khái niệm quan trọng cần nhớ • Epoch: Sốlần toàn bộdữ liệu được đưa qua mô hình. • Loss Function: Hàm đánh giá sai sốgiữa đầu ra và nhãn thật. • Accuracy: Tỉlệdựđoán đúng. • Overfitting: Khi mô hình học quá kỹdữ liệu huấn luyện và hoạt động kém trên dữ liệu mới. 6. Bài tập thực hành Bài tập 1 Thay đổi mô hình CNN đơn giản ởtrên bằng cách: • Thêm một lớp convolution",
+          "explanation": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 140] NỘ I DUNG: Chapter 8 Computer Vision 4. Một sốứng dụng thực tế • Nhận dạng chữviết tay (ví dụ: số CMND, biển sốxe) • Phân loại động vật (mèo, chó, ngựa) • Hệthống giám sát an ninh 5. Các khái niệm quan trọng cần nhớ • Epoch: Sốlần toàn bộdữ liệu được đưa qua mô hình. • Loss Function: Hàm đánh giá sai sốgiữa đầu ra và nhãn thật. • Accuracy: Tỉlệdựđoán đúng. • Overfitting: Khi mô hình học quá kỹdữ liệu huấn luyện và hoạt động kém trên dữ liệu mới. 6. Bài tập thực hành Bài tập 1 Thay đổi mô hình CNN đơn giản ởtrên bằng cách: • Thêm một lớp convolution",
+          "simple_explanation": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 140] NỘ I DUNG: Chapter 8 Computer Vision 4. Một sốứng dụng thực tế • Nhận dạng chữviết tay (ví dụ: số CMND, biển sốxe) • Phân loại động vật (mèo, chó, ngựa) • Hệthống giám sát an ninh 5. Các khái niệm quan trọng cần nhớ • Epoch: Sốlần toàn bộdữ liệu được đưa qua mô hình. • Loss Function: Hàm đánh giá sai sốgiữa đầu ra và nhãn thật. • Accuracy: Tỉlệdựđoán đúng. • Overfitting: Khi mô hình học quá kỹdữ liệu huấn luyện và hoạt động kém trên dữ liệu mới. 6. Bài tập thực hành Bài tập 1 Thay đổi mô hình CNN đơn giản ởtrên bằng cách: • Thêm một lớp convolution",
+          "key_points": [
+            "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 140] NỘ I DUNG: Chapter 8 Computer Vision 4.",
+            "Liên hệ khái niệm với ví dụ cụ thể trong tài liệu.",
+            "Tự diễn giải lại bằng câu hỏi: khái niệm này dùng để giải quyết vấn đề gì?"
+          ],
+          "must_know_points": [
+            "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 140] NỘ I DUNG: Chapter 8 Computer Vision 4.",
+            "Phân biệt định nghĩa, ví dụ và điều kiện áp dụng.",
+            "Ghi nhớ lỗi hiểu sai thường gặp khi áp dụng khái niệm."
+          ],
+          "key_concepts": [
+            {
+              "term": "",
+              "definition": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 140] NỘ I DUNG: Chapter 8 Computer Vision 4."
+            }
+          ],
+          "example": "Ví dụ: lấy một tình huống nhỏ trong tài liệu và giải thích bằng khái niệm 'Bắ t đầ u dữ liệ u truy'.",
+          "common_misunderstanding": "Nhầm việc nhớ nguyên văn với hiểu bản chất. Cách đúng là tự giải thích lại bằng ví dụ.",
+          "common_mistake": {
+            "mistake": "Học thuộc đoạn văn nhưng không biết khi nào dùng.",
+            "correction": "Gắn mỗi khái niệm với một ví dụ và một câu hỏi kiểm tra nhanh."
+          },
+          "activity": "Tóm tắt phần này bằng 3 gạch đầu dòng và nêu 1 ví dụ minh họa.",
+          "practice_activity": "Tự viết một ví dụ mới và giải thích vì sao ví dụ đó phù hợp với khái niệm.",
+          "assessment": [
+            "",
+            "Chi tiết nào trong tài liệu giúp củng cố trọng tâm đó?"
+          ],
+          "quick_check": [
+            {
+              "question": "",
+              "answer": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 140] NỘ I DUNG: Chapter 8 Computer Vision 4."
+            }
+          ],
+          "active_recall_questions": [
+            {
+              "question": "Nếu phải giải thích nội dung này trong 30 giây, bạn sẽ nói gì?",
+              "answer": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 140] NỘ I DUNG: Chapter 8 Computer Vision 4."
+            }
+          ],
+          "flashcards": [
+            {
+              "front": "",
+              "back": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 140] NỘ I DUNG: Chapter 8 Computer Vision 4."
+            }
+          ],
+          "mini_practice": {
+            "task": "Viết một câu hỏi trắc nghiệm ngắn từ nội dung vừa học.",
+            "solution_hint": "Bắt đầu bằng khái niệm chính và một phương án nhiễu dễ nhầm."
+          },
+          "exam_focus": [
+            "",
+            "",
+            ""
+          ],
+          "source_chunk_ids": [
+            ""
+          ]
+        }
+      ],
+      "chapter_summary": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 140] NỘ I DUNG: Chapter 8 Computer Vision 4.",
+      "chapter_quiz": [
+        {
+          "question": "",
+          "answer": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 140] NỘ I DUNG: Chapter 8 Computer Vision 4."
+        }
+      ]
+    }
+  ],
+  "glossary": [
+    {
+      "term": "",
+      "plain_vietnamese": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 11] NỘ I DUNG: Chapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo Chương này giới thiệu các kiến thức lập trình cơ bản cần thiết cho các dựán Trí tuệ Nhân tạo",
+      "definition": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 11] NỘ I DUNG: Chapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo Chương này giới thiệu các kiến thức lập trình cơ bản cần thiết cho các dựán Trí tuệ Nhân tạo",
+      "related_chapter": 1,
+      "source_chunk_ids": [
+        ""
+      ]
+    },
+    {
+      "term": "",
+      "plain_vietnamese": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 21] NỘ I DUNG: Chapter 2 Học có giám sát – Supervised Learning 2.1 Giới thiệu Học có giám sát (Supervised Learning) là một nhánh quan trọng trong học máy (Machi",
+      "definition": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 21] NỘ I DUNG: Chapter 2 Học có giám sát – Supervised Learning 2.1 Giới thiệu Học có giám sát (Supervised Learning) là một nhánh quan trọng trong học máy (Machi",
+      "related_chapter": 2,
+      "source_chunk_ids": [
+        ""
+      ]
+    },
+    {
+      "term": "",
+      "plain_vietnamese": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 12] NỘ I DUNG: Chapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo print(i) Đoạn mã trên sẽin ra các sốtừ0 đến 4.",
+      "definition": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 12] NỘ I DUNG: Chapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo print(i) Đoạn mã trên sẽin ra các sốtừ0 đến 4.",
+      "related_chapter": 3,
+      "source_chunk_ids": [
+        ""
+      ]
+    },
+    {
+      "term": "",
+      "plain_vietnamese": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 22] NỘ I DUNG: Chapter 2 Học có giám sát – Supervised Learning Mục tiêu là tìm w, b đểsai sốnhỏnhất.",
+      "definition": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 22] NỘ I DUNG: Chapter 2 Học có giám sát – Supervised Learning Mục tiêu là tìm w, b đểsai sốnhỏnhất.",
+      "related_chapter": 4,
+      "source_chunk_ids": [
+        ""
+      ]
+    },
+    {
+      "term": "",
+      "plain_vietnamese": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 49] NỘ I DUNG: Chapter 5 Neural Networks 5.1 Kiến thức cơ bản về Perceptron Lý thuyết Perceptron là dạng đơn giản nhất của mạng nơ-ron.",
+      "definition": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 49] NỘ I DUNG: Chapter 5 Neural Networks 5.1 Kiến thức cơ bản về Perceptron Lý thuyết Perceptron là dạng đơn giản nhất của mạng nơ-ron.",
+      "related_chapter": 5,
+      "source_chunk_ids": [
+        ""
+      ]
+    },
+    {
+      "term": "",
+      "plain_vietnamese": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 140] NỘ I DUNG: Chapter 8 Computer Vision 4.",
+      "definition": "=== BẮ T ĐẦ U DỮ LIỆ U TRUY XUẤ T === [MÃ ĐỊ NH DANH TRANG: 140] NỘ I DUNG: Chapter 8 Computer Vision 4.",
+      "related_chapter": 6,
+      "source_chunk_ids": [
+        ""
+      ]
+    }
+  ],
+  "quality_report": {
+    "score": 92,
+    "is_university_ready": true,
+    "is_user_friendly": true,
+    "engagement_score": 92,
+    "learning_score": 92,
+    "visual_score": 92,
+    "problems": [
+      "Có thể còn lỗi dính chữ tiếng Việt."
+    ],
+    "issues": [
+      "Có thể còn lỗi dính chữ tiếng Việt."
+    ],
+    "warnings": [
+      "Có thể còn lỗi dính chữ tiếng Việt."
+    ],
+    "fixes_needed": [],
+    "used_chunks": 0,
+    "ignored_noisy_chunks": 8,
+    "source_chunk_ids": []
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "course_id": "1d7e3e78ce21",
+  "source_path": "uploads\\1d7e3e78ce21\\01_1782626974_AI_for_A0.pdf",
+  "source_paths": [
+    "uploads\\1d7e3e78ce21\\01_1782626974_AI_for_A0.pdf"
+  ],
+  "pdf_path": "uploads\\1d7e3e78ce21\\01_1782626974_AI_for_A0.pdf",
+  "filenames": [
+    "01_1782626974_AI_for_A0.pdf"
+  ],
+  "file_count": 1,
+  "status": "failed",
+  "stage": "failed",
+  "created_at": 1782626974.9579082,
+  "processing_started_at": 1782626974.9594254,
+  "progress": -1,
+  "progress_message": "Lỗi: Error embedding content: 429 You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits",
+  "error": "Error embedding content: 429 You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/embed_content_free_tier_requests, limit: 100, model: gemini-embedding-1.0\nPlease retry in 42.971358037s. [links {\n  description: \"Learn more about Gemini API quotas\"\n  url: \"https://ai.google.dev/gemini-api/docs/rate-limits\"\n}\n, violations {\n  quota_metric: \"generativelanguage.googleapis.com/embed_content_free_tier_requests\"\n  quota_id: \"EmbedContentRequestsPerMinutePerUserPerProjectPerModel-FreeTier\"\n  quota_dimensions {\n    key: \"model\"\n    value: \"gemini-embedding-1.0\"\n  }\n  quota_dimensions {\n    key: \"location\"\n    value: \"global\"\n  }\n  quota_value: 100\n}\n, retry_delay {\n  seconds: 42\n}\n]"
+}

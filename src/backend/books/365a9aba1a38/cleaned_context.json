@@ -1,0 +1,127 @@
+{
+  "book_id": "365a9aba1a38",
+  "cleaned_context": "[source_chunk_id: chunk_14]\nChapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo Chương này giới thiệu các kiến thức lập trình cơ bản cần thiết cho các dự án Trí tuệ Nhân tạo (AI), sử dụng Python làm ngôn ngữchính. Chúng ta sẽtìm hiểu các khái niệm cơ bản của Python, các thư viện thiết yếu và các bài thực hành giúp bạn phát triển mô hình và dự án AI. Vì bạn đã giỏi C++, chương này tập trung so sánh Python và C++, kèm theo các ví dụbằng mã lệnh Python đểgiúp bạn xây dựng nền tảng vững chắc cho hành trình AI của mình. 1.1 Cơ bản về Python Python là ngôn ngữlập trình cấp cao, linh hoạt, được sử dụng rộng rãi trong lĩnh vực AI nhờsựđơn giản và hệsinh thái thư viện phong phú. Trong phần này, chúng ta sẽôn lại các khái niệm thiết yếu của Python. 1.1.1 Vòng lặp và Cấu trúc điều khiển Python hỗtrợcác cấu trúc điều khiển cơ bản như vòng lặp và câu lệnh điều kiện, điều bạn đã quen thuộc trong C++. Dưới đây là ví dụvềvòng lặp đơn giản: # A simple for loop in Python for i in range(5): 1\n\n[source_chunk_id: chunk_23]\nChapter 2 Học có giám sát – Supervised Learning 2.1 Giới thiệu Học có giám sát (Supervised Learning) là một nhánh quan trọng trong học máy (Machine Learning). Ý tưởng cơ bản là: từ một tập dữ liệu đã biết đầu vào (features) và đầu ra (labels), ta học một mô hình đểdựđoán đầu ra mới khi có dữ liệu đầu vào mới. Hai loại bài toán chính: • Regression (Hồi quy): Dựđoán đầu ra là giá trịsốliên tục. • Classification (Phân loại): Dựđoán đầu ra là nhãn rời rạc (ví dụ: ”cat” hay ”dog”). 2.2 Linear Regression (Hồi quy tuyến tính) Dùng đểdựđoán giá trịliên tục. Mô hình: ˆy = w T x + b 11\n\n[source_chunk_id: chunk_4]\n27 3.5 Phân Cụm Phân Cấp (Hierarchical Clustering) 28 3.5.1 Giới thiệu 28 3.5.2 Cách Thuật Toán Hoạt Động 28 3.5.3 Ví dụ Minh Họa 29 3.5.4 Ứng Dụng Thực Tiễn 30 4 Đánh Giá Trong Trí Tuệ Nhân Tạo - Evaluation 31 4.1 Các Chỉ Số Đánh Giá Mô Hình 31 4.1.1 Độ Chính Xác (Accuracy) 31 4.1.2 Độ Chính Xác Của Dự Đoán Dương (Precision) 32 4.1.3 Khả Năng Thu Hồi (Recall) 32 4\n\n[source_chunk_id: chunk_15]\nChapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo print(i) Đoạn mã trên sẽin ra các sốtừ0 đến 4. Lưu ý hàm range(N) trong Python tạo ra dãy sốlên đến N-1, khác với C++ , bạn dùng điều kiện i < N. Bài tập thực hành: Viết chương trình Python in ra tất cảcác sốchẵn từ10 đến 50 sử dụng vòng lặp for. 1.1.2 Hàm trong Python Hàm trong Python được định nghĩa bằng từkhóa def, như ví dụsau: # Function that adds two numbers def add_numbers(a, b): return a + b # Function call result = add_numbers(3, 4) print(result) Hàm add_numbers nhận hai tham sốvà trảvềtổng của chúng. Trong Python, ta sử dụng từkhóa return đểtrảvềgiá trị. Bài tập thực hành: Viết hàm Python nhận vào một chuỗi và trảvềchuỗi đó được đảo ngược. 1.2 Num Py và Pandas đểxửlý dữ liệu Dữliệu là nền tảng của AI, và hai thư viện Python được sử dụng rộng rãi nhất đểxửlý và thao tác dữ liệu là Num Py và Pandas. 1.2.1 Num Py Num Py là thư viện hỗtrợcác mảng nhiều chiều và ma trận. Thư viện cũng cung cấp một tập hợp lớn các hàm toán học đểt\n\n[source_chunk_id: chunk_24]\nChapter 2 Học có giám sát – Supervised Learning Mục tiêu là tìm w, b đểsai sốnhỏnhất. Sửdụng hàm mất mát bình phương: L = 1 n n ∑ i=1 (yi −ˆyi)2 from sklearn.linear_model import Linear Regression model = Linear Regression() model.fit(X_train , y_train) 2.3 Logistic Regression (Hồi quy logistic) Thường dùng cho bài toán phân loại nhịphân. Mô hình tính xác suất bằng hàm sigmoid: P(y = 1|x) = 1 1 + e−w T x−b Hàm mất mát: log loss (cross entropy) L = −1 n ∑ [yi log(ˆyi) + (1 −yi) log(1 −ˆyi)] from sklearn.linear_model import Logistic Regression model = Logistic Regression() model.fit(X_train , y_train) 2.4 K-Nearest Neighbors (K-NN) Không có quá trình huấn luyện. Khi dựđoán, ta tìm K điểm gần nhất và lấy nhãn phổbiến nhất đểdựđoán. Ưu điểm: Dễhiểu, dễcài đặt. Nhược điểm: Tốn bộnhớ, chậm khi dữ liệu lớn. from sklearn.neighbors import KNeighbors Classifier model = KNeighbors Classifier(n_neighbors=5) model.fit(X_train , y_train) 12\n\n[source_chunk_id: chunk_51]\nChapter 5 Neural Networks 5.1 Kiến thức cơ bản về Perceptron Lý thuyết Perceptron là dạng đơn giản nhất của mạng nơ-ron. Nó là một bộphân loại nhịphân tuyến tính, nhận nhiều đầu vào, áp dụng trọng sốvà độlệch, sau đó truyền qua một hàm kích hoạt. y = f (∑ wixi + b ) Trong đó: • xi: Đặc trưng đầu vào • wi: Trọng số • b: Độlệch (bias) • f: Hàm kích hoạt (thường là hàm bước) Mã Python import numpy as np def step_function(x): return 1 if x >= 0 else 0 39\n\n[source_chunk_id: chunk_139]\nChapter 8 Computer Vision 4. Một sốứng dụng thực tế • Nhận dạng chữviết tay (ví dụ: số CMND, biển sốxe) • Phân loại động vật (mèo, chó, ngựa) • Hệthống giám sát an ninh 5. Các khái niệm quan trọng cần nhớ • Epoch: Sốlần toàn bộdữ liệu được đưa qua mô hình. • Loss Function: Hàm đánh giá sai sốgiữa đầu ra và nhãn thật. • Accuracy: Tỉlệdựđoán đúng. • Overfitting: Khi mô hình học quá kỹdữ liệu huấn luyện và hoạt động kém trên dữ liệu mới. 6. Bài tập thực hành Bài tập 1 Thay đổi mô hình CNN đơn giản ởtrên bằng cách: • Thêm một lớp convolution mới với 32 filters • Dùng Re LU + Max Pooling sau lớp đó • In ra kích thước tensor sau mỗi lớp 130\n\n[source_chunk_id: chunk_55]\n5.3 Lan truyền ngược (Backpropagation) Tóm tắt • Cho phép huấn luyện mạng nơ-ron sâu. • Sửdụng quy tắc chuỗi đểtính gradient. • Được triển khai trong các thư viện hiện đại (vd: Py Torch, Tensor Flow). 43\n\n[source_chunk_id: chunk_2]\n12 2.5 Decision Trees (Cây quyết định) 13 2.6 Random Forests (Rừng ngẫu nhiên) 13 2.7 Gradient Boosting 13 3\n\n[source_chunk_id: chunk_19]\nChapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo model.fit(X_train , y_train) # Make predictions y_pred = model.predict(X_test) # Evaluate the model accuracy = accuracy_score(y_test, y_pred) print(\"Accuracy:\", accuracy) Bài tập thực hành: Huấn luyện mô hình hồi quy logistic với một tập dữ liệu bất kỳvà đánh giá độchính xác. 1.5 Cơ bản về Py Torch Py Torch là một framework học sâu hỗtrợxây dựng và huấn luyện mạng nơ- ron. Nó sử dụng biểu đồtính toán động, rất linh hoạt cho cảnghiên cứu và triển khai. 1.5.1 Giới thiệu về Tensor Tensor là cấu trúc dữ liệu cốt lõi trong Py Torch, tương tựnhư mảng trong Num Py, nhưng hỗtrợtính toán tựđộng và GPU. Ví dụtạo và thao tác với Tensor: import torch # Create a tensor tensor = torch.tensor([[1, 2], [3, 4]]) # Perform operations on the tensor tensor_add = tensor + 2 print(tensor_add) Bài tập thực hành: 6\n\n[source_chunk_id: chunk_44]\nChapter 4 Đánh Giá Trong Trí Tuệ Nhân Tạo - Evaluation 4.1.2 Độ Chính Xác Của Dự Đoán Dương (Precision) Precision đo lường trong sốcác dựđoán dương thì có bao nhiêu là thực sự dương. Precision = TP TP + FP Ví dụ Python: from sklearn.metrics import precision_score print(\"Precision:\", precision_score(y_true, y_pred)) 4.1.3 Khả Năng Thu Hồi (Recall) Recall là tỷlệcác quan sát dương được dựđoán đúng trên tổng sốquan sát dương. Recall = TP TP + FN Ví dụ Python: from sklearn.metrics import recall_score print(\"Recall:\", recall_score(y_true, y_pred)) 4.1.4 F1-Score F1 Score là trung bình điều hòa của Precision và Recall. F1 = 2 · Precision · Recall Precision + Recall Ví dụ Python: from sklearn.metrics import f1_score print(\"F1 Score:\", f1_score(y_true, y_pred)) 32\n\n[source_chunk_id: chunk_43]\nChapter 4 Đánh Giá Trong Trí Tuệ Nhân Tạo - Evaluation 4.1 Các Chỉ Số Đánh Giá Mô Hình Đánh giá hiệu suất của mô hình là rất quan trọng đểxác định mức độmô hình có thểtổng quát hóa lên dữ liệu chưa thấy trước đó. Dưới đây là một số chỉsốcơ bản: 4.1.1 Độ Chính Xác (Accuracy) Độchính xác là tỷlệgiữa sốmẫu dựđoán đúng trên tổng sốmẫu. Độchính xác = TP + TN TP + TN + FP + FN Ví dụ Python: from sklearn.metrics import accuracy_score y_true = [1, 0, 1, 1, 0, 1, 0] y_pred = [1, 0, 1, 0, 0, 1, 1] print(\"Accuracy:\", accuracy_score(y_true, y_pred)) 31\n\n[source_chunk_id: chunk_27]\nChapter 3 Học không giám sát – Unsupervised Learning Giới thiệu Trong bức tranh rộng lớn của học máy, học không giám sát là một phương pháp mạnh mẽnhưng thường bịđánh giá thấp. Khác với học có giám sát, nơi các thuật toán học từdữ liệu đã được gán nhãn, học không giám sát đi sâu vào những điều chưa biết — khám phá ra các cấu trúc, mẫu hình và mối quan hệẩn trong dữ liệu mà không cần đến bất kỳnhãn hay kết quảđịnh sẵn nào. Vềbản chất, học không giám sát nhằm mục đích hiểu dữ liệu bằng cách tổ chức chúng theo những cách có ý nghĩa. Điều này bao gồm việc gom nhóm các điểm dữ liệu tương tựlại với nhau, giảm sốchiều đểđơn giản hóa các bộ dữ liệu phức tạp, và khám phá các đặc trưng tiềm ẩn có thểnắm bắt được bản chất của không gian đầu vào. Những phương pháp này là không thểthiếu trong các tình huống mà việc gán nhãn cho dữ liệu là không khảthi, tốn kém hoặc thậm chí là bất khảthi. Chương này sẽcung cấp một cái nhìn tổng quan toàn diện vềhọc không giám sát, bắt đầu với các khái niệm nền tảng\n\n[source_chunk_id: chunk_40]\nChapter 3 Học không giám sát – Unsupervised Learning • Thiên văn học: Tìm kiếm cụm sao hoặc cấu trúc thiên hà từdữ liệu không gian. Khảnăng gán nhãn cho dữ liệu nhiễu giúp DBSCAN đặc biệt hữu ích trong các lĩnh vực thực tếnơi dữ liệu không liên quan hoặc bất thường xuất hiện thường xuyên. 3.5 Phân Cụm Phân Cấp (Hierarchical Clustering) 3.5.1 Giới thiệu Phân cụm phân cấp là một kỹthuật học không giám sát được sử dụng để nhóm các đối tượng tương tựvào các cụm dựa trên độtương đồng của chúng. Không giống như các phương pháp phân vùng như k-means, phân cụm phân cấp không yêu cầu xác định sốlượng cụm trước. Thay vào đó, nó xây dựng một cấu trúc dạng cây gọi là dendrogram, đại diện cho các nhóm dữ liệu lồng vào nhau và mức độgần gũi của chúng. Phương pháp này đặc biệt hữu ích khi cấu trúc dữ liệu có tính phân cấp, hoặc khi bạn muốn khám phá các mức độchi tiết khác nhau trong phân cụm. Phân cụm phân cấp có tính trực quan, dễhiểu và hoạt động tốt với các tập dữ liệu nhỏđến vừa, nơi mà mối quan\n\n[source_chunk_id: chunk_104]\nChapter 7 NLP 2.2 Công thức toán học (Skip-gram) Cho chuỗi từw1, w2, , w T . Mục tiêu tối đa hóa xác suất: T ∏ t=1 ∏ −c≤j≤c,j̸=0 P(wt+j | wt) với P(w O | w I) = exp ( v′ w O ⊤vw I ) ∑|V | w=1 exp ( v′w ⊤vw I ), trong đó vw là vector input của từw, v′ w là vector output. Giải pháp tối ưu: Dùng Negative Sampling đểthay thế Softmax toàn phần, giảm độphức tạp tính toán. 7.1.3 3. Mô hình Glo Ve 3.1 Ý tưởng Glo Ve (Global Vectors) dựa trên ma trận tần suất đồng xuất hiện X, với Xij đếm sốlần từi và j xuất hiện cùng nhau trong một cửa sổ. 3.2 Công thức toán học Mục tiêu tối thiểu hóa: J = |V | ∑ i,j=1 f(Xij) ( w⊤ i ˜wj + bi + ˜bj −log Xij )2, với hàm trọng số f(x) = { (x/xmax)α nếu x < xmax, 1 ngược lại. Thường chọn α = 3/4, xmax = 100. 94\n\n[source_chunk_id: chunk_28]\nChapter 3 Học không giám sát – Unsupervised Learning vềcác ứng dụng thực tiễn, những thách thức, và các chiến lược đánh giá liên quan đến các bài toán học không giám sát. Kết thúc chương này, bạn sẽcó một nền tảng vững chắc vềcách các thuật toán học không giám sát có thểđược tận dụng đểkhám phá cấu trúc ẩn trong dữ liệu — từđó cho phép xây dựng các hệthống thông minh hơn, linh hoạt hơn, có khảnăng học hỏi mà không cần chỉdẫn rõ ràng. 3.1 Phân cụm K-Means 3.1.1 Giới thiệu Hãy tưởng tượng bạn là một người thủthư đang cốgắng sắp xếp hàng ngàn cuốn sách mà không biết thểloại của chúng. Sẽra sao nếu bạn có thểtự động nhóm các cuốn sách tương tựnhau dựa trên mô tảcủa chúng? Đó chính là lúc Thuật toán Phân cụm K-Means phát huy tác dụng — một thuật toán học không giám sát mạnh mẽgiúp tìm ra các nhóm tựnhiên trong dữ liệu mà không cần ví dụđã được gán nhãn. Cốt lõi của K-Means là trảlời một câu hỏi đơn giản: Chúng ta có thểnhóm các điểm dữ liệu này thành K cụm riêng biệt dựa trên mức độtương đồ\n\n[source_chunk_id: chunk_136]\n8.2 Pooling Techniques (Max, Average) 7. Kết luận Pooling là công cụquan trọng trong CNN giúp giảm kích thước dữ liệu đầu vào và làm nổi bật các đặc trưng quan trọng. Hiểu rõ cách dùng Max và Average Pooling sẽgiúp bạn áp dụng hiệu quảhơn vào các bài toán thịgiác máy tính trong cuộc thi AI. 127\n\n[source_chunk_id: chunk_21]\nChapter 1 Giới thiệu về Python cho Trí tuệ Nhân tạo # Move model to GPU model.to(device) Bài tập thực hành: Tạo một mạng nơ-ron đơn giản với Py Torch và huấn luyện trên một tập dữ liệu, thửnghiệm trên cả CPU và GPU (nếu có), và so sánh thời gian huấn luyện. 1.8 Sửdụng Weights and Biases đểtheo dõi thực nghiệm Weights and Biases (W&B) là công cụphổbiến đểtheo dõi quá trình huấn luyện mô hình AI. Bạn có thểghi lại siêu tham số, độchính xác, loss và nhiều chỉsốkhác. Ví dụkhởi tạo W&B: import wandb # Initialize W&B wandb.init(project=\"my-ai-project\") # Log a hyperparameter wandb.config.learning_rate = 0.001 Bài tập thực hành: Thiết lập W&B đểtheo dõi quá trình huấn luyện của một mạng nơ-ron đơn giản trên một tập dữ liệu tùy chọn. 1.9 Kết luận Chương này cung cấp kiến thức nền tảng về Python cho AI. Chúng ta đã điểm qua các thư viện thiết yếu như Num Py, Pandas, Matplotlib, và Py Torch, cũng như các thực hành tốt vềtái tạo kết quảvà huấn luyện mô hình. Sau chương 8",
+  "chunk_count": 24,
+  "chunks": [
+    {
+      "chunk_id": "1",
+      "page": 3,
+      "content": "=== BẮT ĐẦU DỮ LIỆU TRUY XUẤT === [MÃ ĐỊNH DANH TRANG: 3] NỘI DUNG: Contents 1 Giới thiệu vềPython cho Trí tuệNhân tạo 1 1.1 Cơ bản vềPython . . . . . . . . . . . . . . . . . . . . . . . . . 1 1.1.1 V"
+    },
+    {
+      "chunk_id": "14",
+      "page": 11,
+      "content": "=== BẮT ĐẦU DỮ LIỆU TRUY XUẤT === [MÃ ĐỊNH DANH TRANG: 11] NỘI DUNG: Chapter 1 Giới thiệu vềPython cho Trí tuệ Nhân tạo Chương này giới thiệu các kiến thức lập trình cơ bản cần thiết cho các dựán Trí "
+    },
+    {
+      "chunk_id": "13",
+      "page": 9,
+      "content": "=== BẮT ĐẦU DỮ LIỆU TRUY XUẤT === [MÃ ĐỊNH DANH TRANG: 9] NỘI DUNG: Contents 7.9 LLM Agents: Cơ bản và Ứng dụng . . . . . . . . . . . . . . . . 118 7.9.1 Ý tưởng chính . . . . . . . . . . . . . . . . "
+    },
+    {
+      "chunk_id": "23",
+      "page": 21,
+      "content": "=== BẮT ĐẦU DỮ LIỆU TRUY XUẤT === [MÃ ĐỊNH DANH TRANG: 21] NỘI DUNG: Chapter 2 Học có giám sát – Supervised Learning 2.1 Giới thiệu Học có giám sát (Supervised Learning) là một nhánh quan trọng trong "
+    },
+    {
+      "chunk_id": "5",
+      "page": 5,
+      "content": "=== BẮT ĐẦU DỮ LIỆU TRUY XUẤT === [MÃ ĐỊNH DANH TRANG: 5] NỘI DUNG: Contents 4.1.4 F1-Score . . . . . . . . . . . . . . . . . . . . . . . . . . . 32 4.1.5 So Sánh Giữa Các ChỉSố. . . . . . . . . . . ."
+    },
+    {
+      "chunk_id": "4",
+      "page": 4,
+      "content": ". . . . . . . . . . . . . . . . . . . . 27 3.5 Phân Cụm Phân Cấp (Hierarchical Clustering) . . . . . . . . . 28 3.5.1 Giới thiệu . . . . . . . . . . . . . . . . . . . . . . . . . . 28 3.5.2 Cách Thuật"
+    },
+    {
+      "chunk_id": "3",
+      "page": 4,
+      "content": "=== BẮT ĐẦU DỮ LIỆU TRUY XUẤT === [MÃ ĐỊNH DANH TRANG: 4] NỘI DUNG: Contents 2.8 Support Vector Machines (SVM) . . . . . . . . . . . . . . . . . 14 3 Học không giám sát – Unsupervised Learning 15 3.1 "
+    },
+    {
+      "chunk_id": "15",
+      "page": 12,
+      "content": "=== BẮT ĐẦU DỮ LIỆU TRUY XUẤT === [MÃ ĐỊNH DANH TRANG: 12] NỘI DUNG: Chapter 1 Giới thiệu vềPython cho Trí tuệNhân tạo print(i) Đoạn mã trên sẽin ra các sốtừ0 đến 4. Lưu ý hàm range(N) trong Python tạ"
+    },
+    {
+      "chunk_id": "24",
+      "page": 22,
+      "content": "=== BẮT ĐẦU DỮ LIỆU TRUY XUẤT === [MÃ ĐỊNH DANH TRANG: 22] NỘI DUNG: Chapter 2 Học có giám sát – Supervised Learning Mục tiêu là tìm w, b đểsai sốnhỏnhất. Sửdụng hàm mất mát bình phương: L = 1 n n ∑ i"
+    },
+    {
+      "chunk_id": "51",
+      "page": 49,
+      "content": "=== BẮT ĐẦU DỮ LIỆU TRUY XUẤT === [MÃ ĐỊNH DANH TRANG: 49] NỘI DUNG: Chapter 5 Neural Networks 5.1 Kiến thức cơ bản vềPerceptron Lý thuyết Perceptron là dạng đơn giản nhất của mạng nơ-ron. Nó là một b"
+    },
+    {
+      "chunk_id": "139",
+      "page": 140,
+      "content": "=== BẮT ĐẦU DỮ LIỆU TRUY XUẤT === [MÃ ĐỊNH DANH TRANG: 140] NỘI DUNG: Chapter 8 Computer Vision 4. Một sốứng dụng thực tế • Nhận dạng chữviết tay (ví dụ: sốCMND, biển sốxe) • Phân loại động vật (mèo, "
+    },
+    {
+      "chunk_id": "55",
+      "page": 53,
+      "content": "=== BẮT ĐẦU DỮ LIỆU TRUY XUẤT === [MÃ ĐỊNH DANH TRANG: 53] NỘI DUNG: 5.3 Lan truyền ngược (Backpropagation) Tóm tắt • Cho phép huấn luyện mạng nơ-ron sâu. • Sửdụng quy tắc chuỗi đểtính gradient. • Đượ"
+    },
+    {
+      "chunk_id": "9",
+      "page": 7,
+      "content": "=== BẮT ĐẦU DỮ LIỆU TRUY XUẤT === [MÃ ĐỊNH DANH TRANG: 7] NỘI DUNG: Contents 6.8.2 Gaussian Noise . . . . . . . . . . . . . . . . . . . . . . . 77 6.8.3 Khi nào sửdụng? . . . . . . . . . . . . . . . ."
+    },
+    {
+      "chunk_id": "2",
+      "page": 3,
+      "content": "12 2.5 Decision Trees (Cây quyết định) . . . . . . . . . . . . . . . . . 13 2.6 Random Forests (Rừng ngẫu nhiên) . . . . . . . . . . . . . . . 13 2.7 Gradient Boosting . . . . . . . . . . . . . . . . "
+    },
+    {
+      "chunk_id": "19",
+      "page": 16,
+      "content": "=== BẮT ĐẦU DỮ LIỆU TRUY XUẤT === [MÃ ĐỊNH DANH TRANG: 16] NỘI DUNG: Chapter 1 Giới thiệu vềPython cho Trí tuệNhân tạo model.fit(X_train , y_train) # Make predictions y_pred = model.predict(X_test) # "
+    },
+    {
+      "chunk_id": "44",
+      "page": 42,
+      "content": "=== BẮT ĐẦU DỮ LIỆU TRUY XUẤT === [MÃ ĐỊNH DANH TRANG: 42] NỘI DUNG: Chapter 4 Đánh Giá Trong Trí TuệNhân Tạo - Evaluation 4.1.2 ĐộChính Xác Của DựĐoán Dương (Precision) Precision đo lường trong sốcác"
+    },
+    {
+      "chunk_id": "43",
+      "page": 41,
+      "content": "=== BẮT ĐẦU DỮ LIỆU TRUY XUẤT === [MÃ ĐỊNH DANH TRANG: 41] NỘI DUNG: Chapter 4 Đánh Giá Trong Trí TuệNhân Tạo - Evaluation 4.1 Các ChỉSốĐánh Giá Mô Hình Đánh giá hiệu suất của mô hình là rất quan trọn"
+    },
+    {
+      "chunk_id": "27",
+      "page": 25,
+      "content": "=== BẮT ĐẦU DỮ LIỆU TRUY XUẤT === [MÃ ĐỊNH DANH TRANG: 25] NỘI DUNG: Chapter 3 Học không giám sát – Unsupervised Learning Giới thiệu Trong bức tranh rộng lớn của học máy, học không giám sát là một phư"
+    },
+    {
+      "chunk_id": "40",
+      "page": 38,
+      "content": "=== BẮT ĐẦU DỮ LIỆU TRUY XUẤT === [MÃ ĐỊNH DANH TRANG: 38] NỘI DUNG: Chapter 3 Học không giám sát – Unsupervised Learning • Thiên văn học: Tìm kiếm cụm sao hoặc cấu trúc thiên hà từdữliệu không gian. "
+    },
+    {
+      "chunk_id": "104",
+      "page": 104,
+      "content": "=== BẮT ĐẦU DỮ LIỆU TRUY XUẤT === [MÃ ĐỊNH DANH TRANG: 104] NỘI DUNG: Chapter 7 NLP 2.2 Công thức toán học (Skip-gram) Cho chuỗi từw1, w2, . . . , wT . Mục tiêu tối đa hóa xác suất: T ∏ t=1 ∏ −c≤j≤c,j"
+    },
+    {
+      "chunk_id": "28",
+      "page": 26,
+      "content": "=== BẮT ĐẦU DỮ LIỆU TRUY XUẤT === [MÃ ĐỊNH DANH TRANG: 26] NỘI DUNG: Chapter 3 Học không giám sát – Unsupervised Learning vềcác ứng dụng thực tiễn, những thách thức, và các chiến lược đánh giá liên qu"
+    },
+    {
+      "chunk_id": "136",
+      "page": 137,
+      "content": "=== BẮT ĐẦU DỮ LIỆU TRUY XUẤT === [MÃ ĐỊNH DANH TRANG: 137] NỘI DUNG: 8.2 Pooling Techniques (Max, Average) 7. Kết luận Pooling là công cụquan trọng trong CNN giúp giảm kích thước dữliệu đầu vào và là"
+    },
+    {
+      "chunk_id": "11",
+      "page": 8,
+      "content": "=== BẮT ĐẦU DỮ LIỆU TRUY XUẤT === [MÃ ĐỊNH DANH TRANG: 8] NỘI DUNG: Contents 7.3.2 2. Phương pháp cơ bản . . . . . . . . . . . . . . . . . . 101 7.3.3 3. Code mẫu . . . . . . . . . . . . . . . . . . ."
+    },
+    {
+      "chunk_id": "21",
+      "page": 18,
+      "content": "=== BẮT ĐẦU DỮ LIỆU TRUY XUẤT === [MÃ ĐỊNH DANH TRANG: 18] NỘI DUNG: Chapter 1 Giới thiệu vềPython cho Trí tuệNhân tạo # Move model to GPU model.to(device) Bài tập thực hành: Tạo một mạng nơ-ron đơn g"
+    }
+  ]
+}
