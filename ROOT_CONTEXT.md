@@ -10,7 +10,7 @@
 - **Backend:** FastAPI, Python 3.11+, LangChain, dependency management bằng `uv`.
 - **Vector DB:** Chroma local persistent DB là provider bắt buộc cho local/dev. Dữ liệu mặc định ở `data/chroma/`, collection `ai_course_chunks`. FAISS chỉ còn là legacy reference/test path.
 - **Persistence:** Local filesystem JSON/generated files: `books/`, `slides/`, `questions/`, `videos/`, `mindmaps/`, `flashcards/`.
-- **Auth:** JWT bearer token + HttpOnly cookie; user ownership cho document/output, admin routes cho quản trị.
+- **Auth:** JWT bearer token + HttpOnly cookie (`agy_session`); user ownership cho document/output, admin routes cho quản trị.
 - **AI Models:** Google Gemini qua LangChain Google GenAI. Model routing dùng `GEMINI_*_MODEL`; embeddings dùng `GEMINI_EMBEDDING_MODEL` hoặc legacy `EMBEDDING_MODEL`.
 
 ## 3. Guiding Principles & Constraints
@@ -25,15 +25,15 @@
 ## 4. Core Pipeline
 
 ```text
-[Register/Login] -> [Upload] -> [Parse] -> [Clean/Chunk] -> [Embed] -> [Chroma] -> [Retrieve] -> [Generate/Assemble]
-        |             |          |             |             |          |             |              |
-        |             |          |             |             |          |             |              +-- Study Pack Dashboard
-        |             |          |             |             |          |             |              +-- Book
-        |             |          |             |             |          |             |              +-- Slide
-        |             |          |             |             |          |             |              +-- Quiz
-        |             |          |             |             |          |             |              +-- Vid
-        v             v          v             v             v          v             v
-      user_id     document_id  raw_text    clean chunks   vectors   local DB       top_k
+[Auth: JWT/Cookie] -> [Upload] -> [Parse] -> [Clean/Chunk] -> [Embed] -> [Chroma] -> [Retrieve] -> [Generate/Assemble]
+        |               |          |             |             |          |             |              |
+        |               |          |             |             |          |             |              +-- Study Pack Dashboard
+        |               |          |             |             |          |             |              +-- Book (Study Guide PDF)
+        |               |          |             |             |          |             |              +-- Slide (PPTX)
+        |               |          |             |             |          |             |              +-- Quiz (Answer Key PDF)
+        |               |          |             |             |          |             |              +-- Vid (MP4)
+        v               v          v             v             v          v             v
+     user_id       document_id  raw_text    clean chunks   vectors   local DB       top_k
 ```
 
 ## 5. Non-Negotiable Gates

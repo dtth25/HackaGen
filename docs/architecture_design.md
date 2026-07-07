@@ -4,21 +4,20 @@
 
 ```text
 Frontend (Next.js)
-  -> FastAPI Backend
+  -> FastAPI Backend (Auth Layer: Bearer JWT + HttpOnly Cookie)
   -> Document Processor
-  -> VectorStore Provider (Chroma Local DB by default)
+  -> VectorStore Provider (Chroma Local DB by default, FAISS legacy reference)
   -> ResourceGenerator
   -> Local Generated Artifacts
 ```
 
-Public product surface (per `CLAUDE.md`) là **Document-to-Study-Pack**, gồm 5 output chính:
+Public product surface là **Document-to-Study-Pack** với Study Pack Dashboard kết nối 4 direct generation endpoints (Book/Study Guide, Slide, Quiz, Vid) cùng các course-scoped outputs trong Study Pack:
 - Study Guide PDF (Book)
-- Mindmap (3-level interactive)
+- Mindmap (3-level interactive, course-scoped)
 - Quiz
-- Flashcards
-- High-yield summary
-
-Slide và Vid là output bổ sung (optional/sau).
+- Flashcards (course-scoped)
+- High-yield summary (course-scoped)
+- Slide & Vid (output trực tiếp bổ sung)
 
 ## 2. Upload & Indexing Flow
 
@@ -48,8 +47,9 @@ Resource generation nằm trong `ResourceGenerator`:
 - `generate_slides_v2`
 - `generate_quiz_v2`
 - `generate_vid`
+- `generate_mindmap` / `build_mindmap_from_book` (course-scoped trong Study Pack)
 
-Vector metadata vẫn được giữ nội bộ cho retrieval/debug, nhưng public response không trả `page`, `source`, `chunk_id`, `citations`.
+Vector metadata vẫn được giữ nội bộ cho retrieval/debug/ownership filtering, nhưng public generation response policy là "không trả raw metadata" (không lộ page, source, chunk_id, citations).
 
 ### 3.1 Mindmap Generation Flow
 
@@ -77,6 +77,8 @@ clean chunks (context_cleaner)
 | `backend.services.course_gen` | Course lifecycle, lazy loading, LRU cache |
 | `backend.services.doc_processor` | PDF/DOCX/TXT extraction |
 | `backend.services.resource_gen` | Book, Mindmap, Slide, Quiz, Vid generation and artifact export |
+| `backend.services.mindmap_manager` | Course-scoped 3-level mindmap generation, quality gate, fallback handling |
+| `backend.services.flashcards_manager` | Course-scoped flashcard deck assembly and regeneration |
 | `backend.vector_db.manager` | Provider selection for Chroma/FAISS |
 | `backend.vector_db.chroma_store` | Chroma create/load/list/drop and retrieval |
 | `backend.vector_db.faiss_manager` | Legacy FAISS create/load/list/drop |
@@ -98,6 +100,7 @@ clean chunks (context_cleaner)
 | `books/course_{course_id}_book.json` | Book JSON |
 | `books/course_{course_id}_book.pdf` | Book PDF |
 | `mindmaps/course_{course_id}_mindmap.json` | Mindmap JSON (root/nodes/edges/quality_report) |
+| `flashcards/course_{course_id}_flashcards.json` | Flashcards JSON deck |
 | `slides/course_{course_id}_slides.json` | Slide JSON |
 | `slides/course_{course_id}_slides.pptx` | Slide PPTX |
 | `videos/course_{course_id}/vid.json` | Vid metadata |
@@ -112,5 +115,5 @@ clean chunks (context_cleaner)
 | AI boundary | Frontend -> FastAPI -> LLM | Không expose API key ở client |
 | Retrieval | Chroma local default, FAISS legacy | Dễ chạy demo, không cần Milvus/external vector DB |
 | Artifact export | Book PDF, Slide PPTX, Quiz key PDF, Vid MP4 | File tải xuống khớp đúng 4 output public |
-| Public metadata | Không trả page/source/chunk | Product mới không hiển thị source metadata |
-| Auth | Không có trong v1 | Tập trung core generation flow |
+| Public metadata | Không trả page/source/chunk | Product mới không hiển thị raw source metadata trong generation response |
+| Auth | Auth v2 đã có (JWT Bearer + HttpOnly Cookie `agy_session`) | Bảo mật API, phân định ownership tài liệu/output giữa regular user và admin |
