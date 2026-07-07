@@ -49,6 +49,9 @@ indices/
 questions/
 slides/
 videos/
+flashcards/
+mindmaps/
+data/
 src/uploads/
 src/books/
 src/cache/
@@ -57,6 +60,9 @@ src/memory/
 src/questions/
 src/slides/
 src/videos/
+src/flashcards/
+src/mindmaps/
+src/data/
 src/backend/books/
 src/backend/cache/
 src/backend/indices/
@@ -65,6 +71,9 @@ src/backend/questions/
 src/backend/slides/
 src/backend/uploads/
 src/backend/videos/
+src/backend/flashcards/
+src/backend/mindmaps/
+src/backend/data/
 
 # Scratch & temporary
 scratch/
@@ -92,6 +101,19 @@ desktop.ini
 .idea/
 *.swp
 *.swo
+
+# Generated runtime outputs (bổ sung)
+src/data/chroma/
+data/chroma/
+
+# Claude IDE config
+.claude/
+
+# Agent workspace
+.agents/
+
+# Prompt engineering (nội bộ)
+prompts/
 
 # Docker override
 docker-compose.override.yml

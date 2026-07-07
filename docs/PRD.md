@@ -12,7 +12,7 @@ Code hiện tại là source of truth cho project. Các tài liệu phải bám 
 - **Vector DB:** Chroma local persistent DB là provider bắt buộc cho local/dev hackathon demo. FAISS chỉ còn là legacy reference/test path, không phải provider chính.
 - **Persistence:** Local filesystem JSON/generated files: `books/`, `slides/`, `questions/`, `videos/`, `mindmaps/`, `flashcards/`, cùng Chroma data trong `data/chroma/`.
 - **AI:** Gemini qua LangChain Google GenAI. Model routing dùng các biến `GEMINI_*_MODEL`; Flash preset mặc định dùng `gemini-2.5-flash`. Embeddings dùng `GEMINI_EMBEDDING_MODEL`, legacy `EMBEDDING_MODEL=models/embedding-001` vẫn được hỗ trợ.
-- **Auth:** Auth v2 đã có trong code: Bearer JWT + HttpOnly cookie, user ownership cho upload/generation/output, admin endpoints cho quản trị user.
+- **Auth:** Auth v2 đã có trong code: Bearer JWT + HttpOnly cookie (`agy_session`), user ownership cho upload/generation/output, admin endpoints cho quản trị user.
 
 ## 3. Core User Flow
 1. User đăng ký/đăng nhập, trừ các route health/demo public được đánh dấu rõ.
@@ -36,17 +36,16 @@ Code hiện tại là source of truth cho project. Các tài liệu phải bám 
 
 ## 5. Public Product Surface
 - **Study Pack Dashboard:** Tổng hợp Study Guide/Book, Mindmap, Quiz, Flashcards, Summary, readiness, quality scores và grounding từ cùng một nguồn cấu trúc.
-- **Book / Study Guide:** View theo chương/bài trên UI và file PDF tải xuống.
-- **Mindmap:** Sơ đồ 3-level interactive, có quality gate riêng và có thể regenerate theo course.
-- **Quiz:** Bộ câu hỏi MCQ tương tác; không hiện đáp án trước khi user nộp bài/review; có answer-key PDF tải xuống.
-- **Flashcards:** Deck ôn tập lấy từ book plan/saved flashcard deck hoặc regenerate theo course.
-- **Summary:** High-yield summary xuất hiện trong Study Pack, không có legacy standalone generate endpoint.
-- **Slide:** Viewer từng slide, có PPTX download.
-- **Vid:** Video học tập dạng slide + voiceover, lưu metadata JSON và file MP4; nếu render lỗi phải trả trạng thái lỗi rõ ràng.
+- **Book / Study Guide:** View theo chương/bài trên UI và file PDF tải xuống (endpoint sinh output trực tiếp `/api/generate-book`).
+- **Mindmap:** Sơ đồ 3-level interactive thuộc Study Pack (course-scoped), có quality gate riêng và có thể regenerate theo course (`GET`/`POST /api/course/{course_id}/mindmap...`, không có standalone generate endpoint riêng).
+- **Quiz:** Bộ câu hỏi MCQ tương tác (endpoint sinh output trực tiếp `/api/generate-quiz`); không hiện đáp án trước khi user nộp bài/review; có answer-key PDF tải xuống.
+- **Flashcards:** Deck ôn tập thuộc Study Pack (course-scoped), lấy từ book plan/saved flashcard deck hoặc regenerate theo course (không có standalone generate endpoint riêng).
+- **Summary:** High-yield summary thuộc Study Pack (course-scoped), không có legacy standalone generate endpoint.
+- **Slide & Vid:** Là các output bổ sung (optional/sau) nhưng đã có endpoint sinh output trực tiếp riêng (`/api/generate-slide` và `/api/generate-vid`); có tải xuống PPTX và MP4. Nếu render video lỗi phải trả trạng thái lỗi rõ ràng.
 
 ## 6. Known Implementation Notes
 - API upload ưu tiên multipart field `files` cho multi-document; legacy field `file` vẫn được hỗ trợ.
 - `course_id` hiện cũng là `document_id` cho flow local/dev.
 - Chroma metadata vẫn được giữ nội bộ để retrieval/debug/ownership filtering. Không lộ raw metadata trong generation response.
-- Các route legacy như `/api/chat`, `/api/custom-prompt`, `/api/generate-course`, `/api/generate-summary`, `/api/generate-flashcards`, `/api/generate-mindmap` phải là 404.
+- Các route legacy như `/api/chat`, `/api/custom-prompt`, `/api/generate-course`, `/api/generate-summary`, `/api/generate-flashcards`, `/api/generate-mindmap`, `/api/generate-podcast/{course_id}`, `/api/generate-study-guide/{course_id}` cùng mọi async generation route cũ phải trả về 404.
 - Demo cho người dùng nên chạy production frontend bằng `npm run build && npm run start` để tránh Next.js dev indicator.

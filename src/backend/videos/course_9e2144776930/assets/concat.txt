@@ -1,6 +1,0 @@
-file 'videos/course_9e2144776930/assets/scene_01.mp4'
-file 'videos/course_9e2144776930/assets/scene_02.mp4'
-file 'videos/course_9e2144776930/assets/scene_03.mp4'
-file 'videos/course_9e2144776930/assets/scene_04.mp4'
-file 'videos/course_9e2144776930/assets/scene_05.mp4'
-file 'videos/course_9e2144776930/assets/scene_06.mp4'

@@ -1,43 +1,34 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import { Toaster } from "@/components/ui/sonner";
-import { Navbar } from "@/components/layout/Navbar";
-import { MainContent } from "@/components/layout/MainContent";
-import { SiteFooter } from "@/components/layout/SiteFooter";
-import { DocumentTitleProvider } from "@/components/layout/DocumentTitleContext";
+import { Inter } from "next/font/google";
 import "./globals.css";
+import { Header } from "@/components/layout/Header";
+import { Footer } from "@/components/layout/Footer";
+import { Toaster } from "@/components/ui/sonner";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+const inter = Inter({
+  subsets: ["latin", "vietnamese"],
+  variable: "--font-inter",
 });
 
 export const metadata: Metadata = {
-  title: "Study Pack AI",
-  description: "Tạo Sách, Mindmap, Quiz và Flashcards từ tài liệu của bạn.",
+  title: {
+    default: "AI Course Generator",
+    template: "%s — AI Course Generator",
+  },
+  description:
+    "Biến tài liệu của bạn thành bộ học liệu hoàn chỉnh với AI — tài liệu, slide, bài kiểm tra và video.",
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="vi" className={`dark ${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col bg-background text-foreground">
-        <DocumentTitleProvider>
-          <Navbar />
-          <div className="flex flex-1">
-            <MainContent>{children}</MainContent>
-          </div>
-          <SiteFooter />
-        </DocumentTitleProvider>
-        <Toaster richColors position="bottom-right" />
+    <html lang="vi" className={inter.variable}>
+      <body className="min-h-screen flex flex-col bg-background text-foreground font-sans antialiased">
+        <Header />
+        <main className="flex-1">{children}</main>
+        <Footer />
+        <Toaster position="bottom-right" richColors closeButton />
       </body>
     </html>
   );
