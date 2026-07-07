@@ -6,7 +6,7 @@
 - **Trách nhiệm:**
   - Là người duyệt cuối cùng cho mọi PR/MR trước khi merge.
   - Quyết định khi có conflict giữa Backend, Frontend và QA.
-  - Đảm bảo ràng buộc **Connected Study Pack**, **No Additional Chats**, **No Public Source Metadata** và **Auth v2** không bị vi phạm.
+  - Đảm bảo ràng buộc **Connected Study Pack**, **No Additional Chats**, **No Raw Public Source Metadata** và **Auth & Ownership** không bị vi phạm.
   - Kiểm tra và duyệt logic "Tại sao chọn giải pháp này?" trước khi chấp nhận code.
   - Không viết code trực tiếp khi đang đóng vai review; tập trung vào Docs, Architecture Decisions và Review.
 - **Quyền hạn:** Phủ quyết (Veto) bất kỳ thay đổi nào vi phạm ràng buộc dự án.
@@ -15,8 +15,9 @@
 - **Trách nhiệm:**
   - Xử lý tài liệu: PyMuPDF parse PDF, python-docx parse DOCX, TXT extraction.
   - Thiết kế và triển khai chunking strategy bám theo cấu trúc tài liệu khi có thể.
-  - Tích hợp FAISS local: embedding -> vector store -> retrieval.
-  - Xây dựng retrieval metadata nội bộ `{page, source_file, chunk_id}` để debug và grounding, nhưng không trả metadata này ra public API.
+  - Tích hợp Chroma local: embedding -> vector store -> retrieval. FAISS chỉ còn là legacy reference/test path, không phải provider chính.
+  - Xây dựng retrieval metadata nội bộ `{page, source_file, chunk_id, source_chunk_id}` để debug, grounding và ownership filtering.
+  - Không trả raw/internal `source`, `chunk_id`, `citations` hoặc debug markers trong generation response. `source_chunk_ids` được giữ để UI truy vấn grounding; source panel có thể trả `page` + excerpt sạch theo API contract.
   - Triển khai trọn bộ cấu trúc kết nối **Study Pack** từ một nguồn gốc chuẩn hóa: Study Guide PDF, Mindmap, Quiz, Flashcards, High-yield summary (cùng tùy chọn Slide/Vid).
   - Study Guide PDF phải có JSON view và file PDF download.
   - Viết FastAPI endpoints theo API Contract thực tế (bao gồm `/api/course/{id}/study-pack`).
@@ -37,7 +38,8 @@
   - Sinh test case tự động cho từng API endpoint quan trọng.
   - Kiểm tra file upload validation cho PDF, DOCX, TXT.
   - Kiểm tra public API/UI tuân thủ kiến trúc Study Pack kết nối.
-  - Kiểm tra public API không trả `page`, `source`, `chunk_id`.
+  - Kiểm tra generation response không trả raw/internal `source`, `chunk_id`, `citations` hoặc debug markers; xác nhận `source_chunk_ids` và `/documents/{id}/sources` tuân thủ API contract.
+  - Kiểm tra Auth & Ownership: user thường chỉ truy cập document/output của mình, admin có quyền quản trị/hỗ trợ.
   - Verify response AI không quá chung chung và phải bám sát dữ liệu trong tài liệu gốc.
   - Regression test mỗi khi có PR mới.
 - **Boundary:** Chỉ test, không sửa code. Report bug để Lead assign cho đúng Dev.
@@ -68,10 +70,11 @@ Quy trình:
 - **Gate 1:** File upload validation - endpoint `/api/upload` chỉ chấp nhận `.pdf`, `.docx`, `.txt`, không file rỗng, không quá 50MB.
 - **Gate 2:** Connected Study Pack - hệ thống xuất trọn bộ học liệu kết nối (Study Guide PDF, Mindmap, Quiz, Flashcards, Summary) từ nguồn cấu trúc chuẩn hóa duy nhất.
 - **Gate 3:** No Additional Chats - không có chat tự do hoặc custom prompt độc lập ngoài hệ sinh thái Study Pack.
-- **Gate 4:** No Public Source Metadata - public response không chứa `page`, `source`, `chunk_id`.
-- **Gate 5:** Grounded generation - nội dung AI phải dựa trên retrieved chunks từ FAISS/local index.
+- **Gate 4:** No Raw Public Source Metadata - generation response không chứa raw/internal `source`, `chunk_id`, `citations` hoặc debug markers; `source_chunk_ids` và source excerpt/page display tuân thủ API contract.
+- **Gate 5:** Grounded generation - nội dung AI phải dựa trên retrieved chunks từ Chroma/local index.
 - **Gate 6:** Backend-only AI - Frontend không được gọi LLM/Gemini trực tiếp.
-- **Gate 7:** Code style - Backend PEP8/Ruff-compatible, Frontend ESLint + Prettier không warnings.
+- **Gate 7:** Auth & Ownership - protected APIs yêu cầu active user; regular user chỉ truy cập document/output của mình, admin có quyền quản trị/hỗ trợ.
+- **Gate 8:** Code style - Backend PEP8/Ruff-compatible, Frontend ESLint + Prettier không warnings.
 
 ## 4. Communication Rules
 
