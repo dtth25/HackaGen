@@ -67,7 +67,7 @@ def _friendly_gemini_error(exc: Exception) -> str:
 class LLMService:
     """Service wrapper for Google Gemini API."""
 
-    def __init__(self, model: str = "gemini-2.5-flash", api_key: Optional[str] = None):
+    def __init__(self, model: str = "gemini-3.5-flash", api_key: Optional[str] = None):
         self.model_name = model
         self.client = None
         self._init_client(api_key)

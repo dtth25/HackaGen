@@ -125,8 +125,9 @@ BRIEFING.md
 # Agent workspace
 .agents/
 
-# Prompt engineering (nội bộ)
-prompts/
+# Prompt engineering (nội bộ) — chỉ thư mục ở root, KHÔNG khớp
+# src/backend/app/prompts/ (LLM template thật, backend cần lúc runtime)
+/prompts/
 
 # Docker override
 docker-compose.override.yml
