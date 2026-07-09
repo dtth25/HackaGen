@@ -13,6 +13,7 @@ class CourseCreate(BaseModel):
 class CourseResponse(BaseModel):
     id: str
     user_id: str
+    name: Optional[str] = None
     filenames: Optional[List[str]] = None
     status: str
     stage: str
@@ -28,6 +29,7 @@ class CourseResponse(BaseModel):
 
 class CourseListItem(BaseModel):
     course_id: str
+    name: Optional[str] = None
     status: str
     filenames: List[str] = []
     file_count: int = 0
@@ -41,6 +43,7 @@ class CourseListResponse(BaseModel):
 
 class CourseStatusResponse(BaseModel):
     course_id: str
+    name: Optional[str] = None
     status: str
     stage: str = "completed"
     progress: int = 100
@@ -52,6 +55,10 @@ class CourseStatusResponse(BaseModel):
     file_count: int = 0
     error: Optional[str] = None
     document_quality_report: Optional[Dict[str, Any]] = None
+
+
+class CourseRenameRequest(BaseModel):
+    name: str
 
 
 class UploadResponse(BaseModel):

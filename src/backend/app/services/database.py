@@ -8,13 +8,23 @@ from app.core.config import logger, settings
 
 # Determine engine options based on SQLite vs PostgreSQL/MySQL
 is_sqlite = settings.DATABASE_URL.startswith("sqlite")
+is_sqlite_memory = settings.DATABASE_URL in ("sqlite://", "sqlite:///:memory:")
 
-if is_sqlite:
-    # SQLite connection pooling using StaticPool or check_same_thread=False
+if is_sqlite_memory:
+    # In-memory SQLite only exists for the lifetime of a single connection,
+    # so every session must share that one connection to see the same data.
     engine = create_engine(
         settings.DATABASE_URL,
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
+    )
+elif is_sqlite:
+    # File-based SQLite: each thread gets its own connection to the file.
+    # StaticPool would force concurrent requests onto one shared connection,
+    # causing spurious "not found" reads when transactions overlap.
+    engine = create_engine(
+        settings.DATABASE_URL,
+        connect_args={"check_same_thread": False},
     )
 else:
     # Standard connection pooling for non-SQLite databases

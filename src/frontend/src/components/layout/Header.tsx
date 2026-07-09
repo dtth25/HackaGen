@@ -5,8 +5,11 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { Menu, X, BookOpen, LogOut, Plus } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { isAuthenticated, removeToken } from "@/lib/auth";
 import { apiLogout } from "@/lib/api";
+import { CONTAINER_WIDE } from "@/lib/layout";
+import { cn } from "@/lib/utils";
 
 export function Header() {
   const pathname = usePathname();
@@ -39,17 +42,18 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
+      <div className={cn(CONTAINER_WIDE, "flex h-16 items-center justify-between")}>
         <Link
           href="/"
           className="flex items-center gap-2 font-bold text-lg text-foreground hover:opacity-80 transition-opacity"
         >
           <BookOpen className="h-6 w-6 text-primary" />
-          <span className="hidden sm:inline">AI Course Generator</span>
-          <span className="sm:hidden">ACG</span>
+          <span className="hidden sm:inline">HackaGen</span>
+          <span className="sm:hidden">HackaGen</span>
         </Link>
 
         <nav className="hidden md:flex items-center gap-2">
+          <ThemeToggle />
           {authed ? (
             <>
               <Link
@@ -101,17 +105,20 @@ export function Header() {
           )}
         </nav>
 
-        <button
-          className="md:hidden p-2 rounded-md hover:bg-accent"
-          onClick={() => setMobileOpen(!mobileOpen)}
-          aria-label="Toggle menu"
-        >
-          {mobileOpen ? (
-            <X className="h-5 w-5" />
-          ) : (
-            <Menu className="h-5 w-5" />
-          )}
-        </button>
+        <div className="flex items-center gap-1 md:hidden">
+          <ThemeToggle />
+          <button
+            className="p-2 rounded-md hover:bg-accent"
+            onClick={() => setMobileOpen(!mobileOpen)}
+            aria-label="Toggle menu"
+          >
+            {mobileOpen ? (
+              <X className="h-5 w-5" />
+            ) : (
+              <Menu className="h-5 w-5" />
+            )}
+          </button>
+        </div>
       </div>
 
       {mobileOpen && (

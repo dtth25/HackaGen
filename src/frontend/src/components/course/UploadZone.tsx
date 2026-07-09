@@ -7,6 +7,7 @@ import { Upload, X, FileText, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { apiUploadFiles } from "@/lib/api";
+import { cn } from "@/lib/utils";
 
 const ACCEPTED_TYPES: Record<string, string[]> = {
   "application/pdf": [".pdf"],
@@ -16,6 +17,7 @@ const ACCEPTED_TYPES: Record<string, string[]> = {
   "text/plain": [".txt"],
 };
 const MAX_SIZE = 50 * 1024 * 1024;
+const MAX_FILES = 5;
 
 export function UploadZone() {
   const router = useRouter();
@@ -47,7 +49,11 @@ export function UploadZone() {
       setFiles((prev) => {
         const names = new Set(prev.map((f) => f.name));
         const newFiles = accepted.filter((f) => !names.has(f.name));
-        return [...prev, ...newFiles];
+        const combined = [...prev, ...newFiles];
+        if (combined.length > MAX_FILES) {
+          setError(`Chỉ được phép tải lên tối đa ${MAX_FILES} file mỗi lần.`);
+        }
+        return combined.slice(0, MAX_FILES);
       });
     },
     []
@@ -70,8 +76,8 @@ export function UploadZone() {
     setProgress(0);
     setError(null);
     try {
-      await apiUploadFiles(files, setProgress);
-      router.push("/courses");
+      const result = await apiUploadFiles(files, setProgress);
+      router.push("/course/" + result.course_id);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Upload thất bại. Vui lòng thử lại."
@@ -91,17 +97,19 @@ export function UploadZone() {
     <div className="space-y-6">
       <div
         {...getRootProps()}
-        className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-12 text-center cursor-pointer transition-colors ${
+        className={cn(
+          "flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-12 text-center cursor-pointer transition-colors",
           isDragActive
             ? "border-primary bg-primary/5"
             : "border-border hover:border-primary/50 hover:bg-muted/50"
-        }`}
+        )}
       >
         <input {...getInputProps()} />
         <Upload
-          className={`h-12 w-12 mb-4 ${
+          className={cn(
+            "h-12 w-12 mb-4",
             isDragActive ? "text-primary" : "text-muted-foreground"
-          }`}
+          )}
         />
         <p className="text-base font-medium">
           {isDragActive
@@ -109,7 +117,7 @@ export function UploadZone() {
             : "Kéo thả file hoặc nhấn để chọn"}
         </p>
         <p className="mt-1 text-sm text-muted-foreground">
-          Hỗ trợ: PDF, DOCX, TXT — Tối đa 50MB mỗi file
+          Hỗ trợ: PDF, DOCX, TXT — Tối đa 50MB mỗi file, tối đa {MAX_FILES} file
         </p>
       </div>
 

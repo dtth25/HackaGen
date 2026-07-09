@@ -63,3 +63,4 @@ export {
   TabsContent,
 } from "@/components/ui/tabs";
 export { Skeleton } from "@/components/ui/skeleton";
+export { Markdown } from "@/components/ui/markdown";

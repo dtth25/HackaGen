@@ -1,6 +1,6 @@
-# DTTH-Hackathon-2026 AI Course Generator
+# HackaGen
 
-AI Course Generator biến một hoặc nhiều tài liệu `.pdf`, `.docx`, `.txt` thành một **Document-to-Study-Pack**: Study Guide/Book là trung tâm, kèm Mindmap, Quiz, Flashcards, High-yield Summary, Slide và Vid.
+HackaGen biến một hoặc nhiều tài liệu `.pdf`, `.docx`, `.txt` thành một **Document-to-Study-Pack** kết nối 4 học liệu cốt lõi: Book (Study Guide PDF), Slide, Quiz và Vid.
 
 Code hiện tại là source of truth. README này mô tả đúng flow đang chạy trong repo: Chroma local, Auth v2, FastAPI backend, Next.js frontend và các generated artifacts lưu trên filesystem local.
 
@@ -19,16 +19,13 @@ Code hiện tại là source of truth. README này mô tả đúng flow đang ch
 
 ## Product Surface
 
-- **Study Pack Dashboard:** View tổng hợp từ cùng một document/course: Study Guide/Book, Mindmap, Quiz, Flashcards, Summary, readiness, quality scores và grounding.
+- **Study Pack Dashboard:** View tổng hợp từ cùng một document/course: Book (Study Guide PDF), Slide, Quiz, Vid, readiness, quality scores và grounding.
 - **Book / Study Guide:** View theo chương/bài và file PDF download.
-- **Mindmap:** Sơ đồ 3-level interactive, có endpoint get/regenerate theo course.
-- **Quiz:** MCQ tương tác; đáp án/explanation chỉ hiện khi người học review hoặc submit; có answer-key PDF.
-- **Flashcards:** Deck ôn tập từ book plan/saved deck hoặc regenerate theo course.
-- **Summary:** High-yield summary trong Study Pack, không có legacy standalone generate endpoint.
 - **Slide:** Viewer từng slide và file PPTX download.
+- **Quiz:** MCQ tương tác; đáp án/explanation chỉ hiện khi người học review hoặc submit; có answer-key PDF.
 - **Vid:** Video dạng slide + voiceover, metadata JSON và MP4 download hoặc lỗi render rõ ràng.
 
-Book, Slide, Quiz và Vid là 4 endpoint generation trực tiếp. Mindmap, Flashcards và Summary là thành phần Study Pack/course-scoped, không phải chat/custom prompt tự do.
+Book, Slide, Quiz và Vid là 4 endpoint generation trực tiếp và duy nhất của Study Pack.
 
 ## Prerequisites
 
@@ -115,11 +112,10 @@ cd src/backend
 uv sync --all-extras
 ```
 
-Chạy backend từ thư mục `src` để import path `backend.main` khớp package hiện tại:
+Chạy backend từ thư mục `src/backend` (không có `[build-system]` trong `pyproject.toml` nên `uv` không cài `backend`/`app` như package — import `app.*` chỉ resolve khi cwd đúng là `src/backend`):
 
 ```bash
-cd ..
-uv run --project backend uvicorn backend.main:app --reload --port 8000
+uv run --project . uvicorn main:app --reload --port 8000
 ```
 
 Backend chạy tại `http://127.0.0.1:8000`.
@@ -230,7 +226,7 @@ Các route chính:
 - Upload/status: `POST /api/upload`, `GET /documents/{document_id}/status`, `GET /api/course/{course_id}/status`.
 - Source grounding: `GET /documents/{document_id}/sources`, alias `/api/documents/{document_id}/sources`.
 - Direct generation: `POST /api/generate-book`, `/api/generate-slide`, `/api/generate-quiz`, `/api/generate-vid`.
-- Study Pack/course outputs: `/api/course/{course_id}/study-pack`, `/mindmap`, `/mindmap/regenerate`, `/flashcards`, `/flashcards/regenerate`, `/readiness`, `/stats`.
+- Study Pack/course outputs: `/api/course/{course_id}/study-pack`, `/readiness`, `/stats`.
 - Saved artifacts: `/api/course/{course_id}/book`, `/book.pdf`, `/slide`, `/slide.pptx`, `/quiz`, `/quiz-key.pdf`, `/vid`, `/vid/file`, `/files`.
 - Delete: `DELETE /api/courses/{course_id}`, `DELETE /api/documents/{document_id}`, `DELETE /documents/{document_id}`.
 
@@ -268,7 +264,7 @@ Manual smoke trước demo:
 - Register/login thành công.
 - Upload ít nhất 2 tài liệu.
 - Poll đến khi tài liệu sẵn sàng.
-- Dashboard Study Pack hiển thị Book, Mindmap, Quiz, Flashcards, Summary/readiness/grounding.
+- Dashboard Study Pack hiển thị Book, Slide, Quiz, Vid/readiness/grounding.
 - Generate đủ Book, Slide, Quiz, Vid.
 - Generate output mới không làm mất output cũ.
 - Slide có Next/Previous và PPTX download.
@@ -279,8 +275,8 @@ Manual smoke trước demo:
 
 ## Non-Negotiable Gates
 
-1. **Connected Study Pack:** Study Guide/Book, Mindmap, Quiz, Flashcards, Summary, readiness/quality/grounding phải xuất phát từ cùng nguồn cấu trúc.
-2. **Four Direct Generation Endpoints:** Book, Slide, Quiz, Vid là các endpoint generation trực tiếp; Mindmap/Flashcards/Summary là course-scoped Study Pack components.
+1. **Connected Study Pack:** Book (Study Guide PDF), Slide, Quiz, Vid, readiness/quality/grounding phải xuất phát từ cùng nguồn cấu trúc.
+2. **Four Direct Generation Endpoints:** Book, Slide, Quiz, Vid là 4 endpoint generation trực tiếp và duy nhất của Study Pack.
 3. **No Additional Chats:** Không có chat tự do hoặc custom prompt độc lập ngoài hệ sinh thái Study Pack.
 4. **No Raw Public Source Metadata:** Generation response không lộ raw/internal `source`, `chunk_id`, `citations` hoặc debug markers; `source_chunk_ids` và source excerpt/page display theo API contract.
 5. **Grounded Generation:** Output phải dựa trên retrieved chunks từ Chroma/local index sau khi lọc noisy/TOC/debug text.

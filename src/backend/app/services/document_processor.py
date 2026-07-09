@@ -45,6 +45,7 @@ class DocumentProcessor:
         chunk_count: int = 0,
         quality_score: int = 0,
         embedding_status: str = "pending",
+        name: Optional[str] = None,
         db_session_factory=None,
     ):
         """Helper to update course status in database."""
@@ -67,10 +68,28 @@ class DocumentProcessor:
                         course.chunk_count = chunk_count
                     if quality_score > 0:
                         course.quality_score = quality_score
+                    if name:
+                        course.name = name
                     course.embedding_status = embedding_status
                     db.commit()
         except Exception as e:
             logger.error(f"Failed to update course {course_id} in DB: {e}")
+
+    def _generate_course_title(self, all_documents: List[Document]) -> Optional[str]:
+        """Best-effort AI-generated short course title from a sample of extracted text.
+        Returns None on any failure/offline mode so callers fall back to the filename."""
+        try:
+            from app.services.llm import LLMService
+
+            sample = "\n\n".join(doc.content for doc in all_documents[:5])[:4000]
+            if not sample.strip():
+                return None
+            result = LLMService().generate_course_title(sample)
+            title = (result.title or "").strip()
+            return title or None
+        except Exception as e:
+            logger.warning(f"Course title generation failed, falling back to filename: {e}")
+            return None
 
     def extract_text_from_file(self, file_path: str) -> List[dict]:
         """Extract text from PDF/DOCX/TXT file. Returns list of dicts with content and page number."""
@@ -307,6 +326,9 @@ class DocumentProcessor:
             # Calculate quality score (e.g., based on average chunk length and total chunks)
             quality_score = min(100, max(50, len(all_documents) * 5 + 60))
 
+            # Best-effort AI title (falls back to filename in the UI if this returns None)
+            course_title = self._generate_course_title(all_documents)
+
             # Completed!
             self._update_course_db(
                 course_id,
@@ -316,6 +338,7 @@ class DocumentProcessor:
                 chunk_count=len(all_documents),
                 quality_score=quality_score,
                 embedding_status="completed",
+                name=course_title,
                 db_session_factory=db_session_factory,
             )
 

@@ -124,6 +124,27 @@ class VectorStore:
                 "collection_name": self.collection_name,
             }
 
+    def get_course_chunks(self, course_id: str, chunk_ids: Optional[List[str]] = None) -> List[Document]:
+        """Get all stored chunks for a course, optionally filtered by chunk_ids."""
+        try:
+            res = self.collection.get(where={"course_id": str(course_id)})
+            documents = []
+            if res and "ids" in res and res["ids"]:
+                ids_list = res["ids"]
+                docs_list = res.get("documents", [""] * len(ids_list))
+                metas_list = res.get("metadatas", [{}] * len(ids_list))
+
+                target_ids = set(chunk_ids) if chunk_ids else None
+                for cid, content, meta in zip(ids_list, docs_list, metas_list):
+                    meta_dict = meta or {}
+                    meta_dict["chunk_id"] = cid
+                    if target_ids is None or cid in target_ids:
+                        documents.append(Document(content=content or "", metadata=meta_dict))
+            return documents
+        except Exception as e:
+            logger.warning(f"Error getting chunks for course {course_id}: {e}")
+            return []
+
 
 # Singleton instance
 _vector_store_instance: Optional[VectorStore] = None

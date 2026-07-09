@@ -12,6 +12,41 @@ class GenerateRequest(BaseModel):
     )
 
 
+class BookGenerateRequest(BaseModel):
+    """Request payload for generating Book / Study Guide."""
+
+    course_id: Optional[str] = None
+    user_prompt: Optional[str] = ""
+    detail_level: Optional[str] = "Tiêu chuẩn"
+
+
+class SlideGenerateRequest(BaseModel):
+    """Request payload for generating Presentation Slides."""
+
+    course_id: Optional[str] = None
+    topic: Optional[str] = "AI Overview"
+    num_slides: Optional[int] = 15
+
+
+class QuizGenerateRequest(BaseModel):
+    """Request payload for generating Quiz."""
+
+    course_id: Optional[str] = None
+    topic: Optional[str] = "AI Quiz"
+    quantity: Optional[int] = 5
+    difficulty: Optional[str] = "medium"
+
+
+class VidGenerateRequest(BaseModel):
+    """Request payload for generating narrated Video."""
+
+    course_id: Optional[str] = None
+    topic: Optional[str] = "AI Video"
+    format: Optional[str] = "standard"  # "standard" | "overview" | "shorts"
+    voice: Optional[str] = "female"  # "female" | "male"
+    user_prompt: Optional[str] = ""
+
+
 class GenerateResponse(BaseModel):
     """Response payload for generation request."""
 
@@ -21,48 +56,22 @@ class GenerateResponse(BaseModel):
     estimated_time: str = "2 minutes"
 
 
-class SummaryItem(BaseModel):
-    """Summary item schema."""
-
-    topic: str
-    chapter: str
-    content: str
-
-
-class MindmapData(BaseModel):
-    """Mindmap structure schema."""
-
-    nodes: List[Any] = []
-    edges: List[Any] = []
-
-
-class FlashcardItem(BaseModel):
-    """Flashcard item schema."""
-
-    id: str
-    front: str
-    back: str
-    chapter: str
-
-
 class ReadinessData(BaseModel):
     """Study pack artifact readiness flags."""
 
     study_guide_pdf: bool = False
-    mindmap: bool = False
+    slides: bool = False
     quiz: bool = False
-    flashcards: bool = False
-    summary: bool = False
+    vid: bool = False
 
 
 class QualityScoresData(BaseModel):
     """Study pack artifact quality scores."""
 
     study_guide_pdf: int = 0
-    mindmap: int = 0
+    slides: int = 0
     quiz: int = 0
-    flashcards: int = 0
-    summary: int = 0
+    vid: int = 0
 
 
 class GroundingData(BaseModel):
@@ -77,11 +86,10 @@ class StudyPackData(BaseModel):
     """Core study pack content schema."""
 
     title: str
-    summary: List[SummaryItem]
-    mindmap: MindmapData
-    flashcards: List[FlashcardItem]
     book: Optional[Any] = None
+    slides: Optional[Any] = None
     quiz: List[Any] = []
+    vid: Optional[Any] = None
     readiness: ReadinessData
     quality_scores: QualityScoresData
     grounding: GroundingData
@@ -99,8 +107,6 @@ class StudyPackStats(BaseModel):
     has_quiz: bool = False
     has_quiz_answer_key: bool = False
     has_vid: bool = False
-    has_mindmap: bool = False
-    has_flashcards: bool = False
     quality_score: int = 0
     num_chunks: int = 0
 

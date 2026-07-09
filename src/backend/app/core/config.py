@@ -2,6 +2,7 @@
 
 import logging
 import sys
+from pathlib import Path
 from typing import List, Union
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -12,12 +13,16 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 
+# Single source of truth: the .env at the project root, regardless of the process cwd.
+# (config.py -> core -> app -> backend -> src -> project root)
+_ROOT_ENV_FILE = str(Path(__file__).resolve().parents[4] / ".env")
+
 
 class Settings(BaseSettings):
     """Core application settings with strict startup validation."""
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=_ROOT_ENV_FILE,
         env_file_encoding="utf-8",
         case_sensitive=True,
         extra="ignore",
@@ -32,6 +37,14 @@ class Settings(BaseSettings):
     )
     GEMINI_API_KEY: str = Field(..., description="Google Gemini API key")
 
+    # Optional per-feature API keys — each generation feature (Book/Slide/Quiz/Vid) can use
+    # its own Gemini key (e.g. to spread usage across separate free-tier quotas). Falls back
+    # to GEMINI_API_KEY when left empty.
+    GEMINI_BOOK_API_KEY: str = Field(default="", description="Gemini API key for Book generation (falls back to GEMINI_API_KEY)")
+    GEMINI_SLIDE_API_KEY: str = Field(default="", description="Gemini API key for Slide generation (falls back to GEMINI_API_KEY)")
+    GEMINI_QUIZ_API_KEY: str = Field(default="", description="Gemini API key for Quiz generation (falls back to GEMINI_API_KEY)")
+    GEMINI_VID_API_KEY: str = Field(default="", description="Gemini API key for Video generation (falls back to GEMINI_API_KEY)")
+
     # Optional variables
     ALLOWED_ORIGINS: Union[List[str], str] = Field(
         default=["http://localhost:3000", "http://127.0.0.1:3000"],
@@ -39,6 +52,9 @@ class Settings(BaseSettings):
     )
     UPLOAD_DIR: str = Field(
         default="uploads", description="Directory for storing uploaded files"
+    )
+    OUTPUT_DIR: str = Field(
+        default="outputs", description="Directory for storing generated outputs"
     )
     JWT_EXPIRE_MINUTES: int = Field(
         default=10080,

@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 class UserCreate(BaseModel):
     email: EmailStr = Field(..., description="User email address")
     password: str = Field(
-        ..., min_length=6, description="User password (min 6 characters)"
+        ..., min_length=4, description="User password (min 4 characters)"
     )
     full_name: Optional[str] = Field(default=None, description="User full name")
 

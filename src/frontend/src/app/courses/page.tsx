@@ -9,6 +9,8 @@ import { AuthGuard } from "@/components/auth/AuthGuard";
 import { CourseCard } from "@/components/course/CourseCard";
 import { apiGetCourses } from "@/lib/api";
 import type { CourseListItem } from "@/lib/types";
+import { CONTAINER_WIDE } from "@/lib/layout";
+import { cn } from "@/lib/utils";
 
 export default function CoursesPage() {
   return (
@@ -64,8 +66,24 @@ function CoursesContent() {
     };
   }, []);
 
+  useEffect(() => {
+    const hasProcessing = courses.some(c => c.status === "processing");
+    if (!hasProcessing) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await apiGetCourses();
+        setCourses(res.courses || []);
+      } catch (err) {
+        console.error("Polling error:", err);
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [courses]);
+
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 sm:py-12">
+    <div className={cn(CONTAINER_WIDE, "py-8 sm:py-12")}>
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
@@ -139,6 +157,7 @@ function CoursesContent() {
               key={course.course_id}
               course={course}
               onDeleted={fetchCourses}
+              onRenamed={fetchCourses}
             />
           ))}
         </div>

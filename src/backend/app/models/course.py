@@ -19,6 +19,7 @@ class Course(Base):
         String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
     filenames = Column(JSON, nullable=True)  # List of uploaded filenames
+    name = Column(String, nullable=True)  # AI-generated (or user-renamed) short course title
     status = Column(String, default="processing", nullable=False)
     stage = Column(String, default="extracting", nullable=False)
     progress = Column(Integer, default=30, nullable=False)

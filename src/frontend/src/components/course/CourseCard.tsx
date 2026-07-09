@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   FileText,
   Trash2,
+  Pencil,
   ExternalLink,
   Loader2,
   AlertCircle,
@@ -19,6 +20,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -28,18 +30,22 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { apiDeleteCourse } from "@/lib/api";
+import { apiDeleteCourse, apiRenameCourse } from "@/lib/api";
 import type { CourseListItem } from "@/lib/types";
 import { normalizeCourseStatus } from "@/lib/types";
 
 interface CourseCardProps {
   course: CourseListItem;
   onDeleted?: () => void;
+  onRenamed?: () => void;
 }
 
-export function CourseCard({ course, onDeleted }: CourseCardProps) {
+export function CourseCard({ course, onDeleted, onRenamed }: CourseCardProps) {
   const [deleting, setDeleting] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [renameValue, setRenameValue] = useState("");
+  const [renaming, setRenaming] = useState(false);
   const status = normalizeCourseStatus(course.status);
 
   const statusConfig = {
@@ -79,11 +85,32 @@ export function CourseCard({ course, onDeleted }: CourseCardProps) {
   };
 
   const displayName =
-    course.filenames?.[0] || `Khóa học ${course.course_id.slice(0, 6)}`;
+    course.name || course.filenames?.[0] || `Khóa học ${course.course_id.slice(0, 6)}`;
+  const exactTime = course.created_at ? formatExactTime(course.created_at) : "";
   const timeAgo = course.created_at ? formatTimeAgo(course.created_at) : "";
 
+  const openRename = () => {
+    setRenameValue(displayName);
+    setRenameOpen(true);
+  };
+
+  const handleRename = async () => {
+    const name = renameValue.trim();
+    if (!name) return;
+    setRenaming(true);
+    try {
+      await apiRenameCourse(course.course_id, name);
+      setRenameOpen(false);
+      onRenamed?.();
+    } catch {
+      // Error handled by API layer
+    } finally {
+      setRenaming(false);
+    }
+  };
+
   return (
-    <Card className="flex flex-col transition-shadow hover:shadow-md">
+    <Card className="flex flex-col transition-shadow hover:shadow-[var(--shadow-md)]">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-2">
           <CardTitle className="text-base font-semibold leading-tight line-clamp-2">
@@ -119,7 +146,7 @@ export function CourseCard({ course, onDeleted }: CourseCardProps) {
         )}
         {timeAgo && (
           <p className="mt-2 text-xs text-muted-foreground">
-            Tạo lúc {timeAgo}
+            Tạo lúc {exactTime} · {timeAgo}
           </p>
         )}
       </CardContent>
@@ -142,6 +169,47 @@ export function CourseCard({ course, onDeleted }: CourseCardProps) {
             Mở Dashboard
           </Link>
         )}
+        <Dialog open={renameOpen} onOpenChange={setRenameOpen}>
+          <DialogTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={openRename}
+                title="Đổi tên khóa học"
+              />
+            }
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Đổi tên khóa học</DialogTitle>
+              <DialogDescription>
+                Đặt tên mới cho khóa học này.
+              </DialogDescription>
+            </DialogHeader>
+            <Input
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              placeholder="Tên khóa học"
+              maxLength={200}
+              autoFocus
+            />
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setRenameOpen(false)}>
+                Hủy
+              </Button>
+              <Button
+                onClick={handleRename}
+                disabled={renaming || !renameValue.trim()}
+              >
+                {renaming && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Lưu
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger
             render={
@@ -184,17 +252,40 @@ export function CourseCard({ course, onDeleted }: CourseCardProps) {
   );
 }
 
+// Backend sends naive UTC timestamps (no "Z"/offset suffix). Without an explicit offset,
+// `new Date(...)` parses the string as local time, which skews "time ago" by the local
+// UTC offset (e.g. shows "7 giờ trước" right after creation for UTC+7 users).
+function parseUtcDate(dateStr: string): Date {
+  const hasOffset = /Z$|[+-]\d{2}:\d{2}$/.test(dateStr);
+  return new Date(hasOffset ? dateStr : `${dateStr}Z`);
+}
+
+function formatExactTime(dateStr: string): string {
+  const date = parseUtcDate(dateStr);
+  const dd = String(date.getDate()).padStart(2, "0");
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const yyyy = date.getFullYear();
+  const hh = String(date.getHours()).padStart(2, "0");
+  const min = String(date.getMinutes()).padStart(2, "0");
+  return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
+}
+
 function formatTimeAgo(dateStr: string): string {
-  const date = new Date(dateStr);
+  const date = parseUtcDate(dateStr);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffMin = Math.floor(diffMs / 60000);
   const diffHr = Math.floor(diffMin / 60);
   const diffDay = Math.floor(diffHr / 24);
+  const diffWeek = Math.floor(diffDay / 7);
+  const diffMonth = Math.floor(diffDay / 30);
+  const diffYear = Math.floor(diffDay / 365);
 
   if (diffMin < 1) return "vừa xong";
   if (diffMin < 60) return `${diffMin} phút trước`;
   if (diffHr < 24) return `${diffHr} giờ trước`;
-  if (diffDay < 30) return `${diffDay} ngày trước`;
-  return date.toLocaleDateString("vi-VN");
+  if (diffDay < 7) return `${diffDay} ngày trước`;
+  if (diffWeek < 5) return `${diffWeek} tuần trước`;
+  if (diffMonth < 12) return `${diffMonth} tháng trước`;
+  return `${diffYear} năm trước`;
 }

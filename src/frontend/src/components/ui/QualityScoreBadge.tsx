@@ -19,12 +19,12 @@ export function QualityScoreBadge({
     return (
       <span
         className={cn(
-          "inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 shadow-sm",
+          "inline-flex items-center gap-1.5 rounded-full border border-success/20 bg-success/10 px-3 py-1 text-xs font-semibold text-success shadow-[var(--shadow-xs)]",
           className
         )}
       >
-        <Award className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-        <span>Chuẩn đại học • {score}/100</span>
+        <Award className="h-3.5 w-3.5" />
+        <span>Chất lượng cao • {score}/100</span>
       </span>
     );
   }
@@ -33,11 +33,11 @@ export function QualityScoreBadge({
     return (
       <span
         className={cn(
-          "inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-700 dark:text-amber-400 border border-amber-500/20 shadow-sm",
+          "inline-flex items-center gap-1.5 rounded-full border border-warning/20 bg-warning/10 px-3 py-1 text-xs font-semibold text-warning shadow-[var(--shadow-xs)]",
           className
         )}
       >
-        <AlertTriangle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+        <AlertTriangle className="h-3.5 w-3.5" />
         <span>Cần rà soát • {score}/100</span>
       </span>
     );
@@ -46,11 +46,11 @@ export function QualityScoreBadge({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full bg-rose-500/10 px-3 py-1 text-xs font-semibold text-rose-700 dark:text-rose-400 border border-rose-500/20 shadow-sm",
+        "inline-flex items-center gap-1.5 rounded-full border border-error/20 bg-error/10 px-3 py-1 text-xs font-semibold text-error shadow-[var(--shadow-xs)]",
         className
       )}
     >
-      <XCircle className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" />
+      <XCircle className="h-3.5 w-3.5" />
       <span>Bản nháp • {score}/100</span>
     </span>
   );

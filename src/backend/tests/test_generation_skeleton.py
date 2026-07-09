@@ -34,13 +34,10 @@ def test_get_study_pack_skeleton(client):
         # Verify study_pack structure
         sp = data["study_pack"]
         assert sp["title"] == "Course Title"
-        assert isinstance(sp["summary"], list)
-        assert sp["summary"][0]["topic"] == "Chapter 1"
-        assert sp["mindmap"] == {"nodes": [], "edges": []}
-        assert isinstance(sp["flashcards"], list)
-        assert sp["flashcards"][0]["id"] == "fc1"
         assert sp["book"] is None
+        assert sp["slides"] is None
         assert sp["quiz"] == []
+        assert sp["vid"] is None
         assert sp["readiness"]["study_guide_pdf"] is False
         assert sp["quality_scores"]["study_guide_pdf"] == 0
         assert sp["grounding"]["num_chunks"] == 0
@@ -67,7 +64,10 @@ def test_generate_endpoints_queued(client):
         assert data_q["course_id"] == course_id
         assert data_q["status"] == "queued"
         assert data_q["message"] == "Generation started..."
-        assert data_q["estimated_time"] == "2 minutes"
+        # Vid renders real TTS+ffmpeg media, so it advertises a longer estimate than the
+        # single-LLM-call Book/Slide/Quiz artifacts.
+        expected_time = "3-5 minutes" if ep == "/api/generate-vid" else "2 minutes"
+        assert data_q["estimated_time"] == expected_time
 
         # Test with JSON body
         res_body = client.post(ep, headers=headers, json={"course_id": course_id})
@@ -80,18 +80,25 @@ def test_generate_endpoints_queued(client):
 def test_artifact_retrieval_null_and_empty(client):
     headers, course_id = get_auth_headers_and_course(client, "retrieve@example.com")
 
-    # book, slide, vid -> return null
-    for artifact in ["book", "slide", "vid"]:
-        res = client.get(f"/api/course/{course_id}/{artifact}", headers=headers)
-        assert res.status_code == 200, res.text
-        assert (
-            res.json() is None
-        ), f"Expected None/null for {artifact}, got {res.json()}"
+    # book -> status envelope with empty status and null data
+    res_book = client.get(f"/api/course/{course_id}/book", headers=headers)
+    assert res_book.status_code == 200, res_book.text
+    assert res_book.json() == {"status": "empty", "error": None, "progress": None, "data": None}
 
-    # quiz -> return []
+    # slide -> status envelope with empty status and null data
+    res_slide = client.get(f"/api/course/{course_id}/slide", headers=headers)
+    assert res_slide.status_code == 200, res_slide.text
+    assert res_slide.json() == {"status": "empty", "error": None, "progress": None, "data": None}
+
+    # vid -> status envelope with empty status and null data
+    res_vid = client.get(f"/api/course/{course_id}/vid", headers=headers)
+    assert res_vid.status_code == 200, res_vid.text
+    assert res_vid.json() == {"status": "empty", "error": None, "progress": None, "data": None}
+
+    # quiz -> status envelope with empty status and null data
     res_quiz = client.get(f"/api/course/{course_id}/quiz", headers=headers)
     assert res_quiz.status_code == 200, res_quiz.text
-    assert res_quiz.json() == [], f"Expected [] for quiz, got {res_quiz.json()}"
+    assert res_quiz.json() == {"status": "empty", "error": None, "progress": None, "data": None}
 
 
 def test_download_endpoints_404_vietnamese(client):
@@ -101,7 +108,8 @@ def test_download_endpoints_404_vietnamese(client):
         ("/book.pdf", "Chưa có file PDF cho tài liệu này."),
         ("/slide.pptx", "Chưa có file bài giảng PPTX cho tài liệu này."),
         ("/quiz-key.pdf", "Chưa có file đáp án trắc nghiệm PDF cho tài liệu này."),
-        ("/vid/file", "Chưa có file video cho tài liệu này."),
+        ("/vid.mp4", "Chưa có file video cho tài liệu này."),
+        ("/vid/file", "Chưa có bản lời thoại (transcript) cho video này."),
     ]
 
     for path_suffix, expected_msg in downloads:

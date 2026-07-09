@@ -9,6 +9,10 @@ import {
   Loader2,
   CheckCircle2,
   RefreshCw,
+  BookOpen,
+  Presentation,
+  HelpCircle,
+  Video,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,9 +28,12 @@ import { BookTab } from "@/components/dashboard/BookTab";
 import { SlideTab } from "@/components/dashboard/SlideTab";
 import { QuizTab } from "@/components/dashboard/QuizTab";
 import { VidTab } from "@/components/dashboard/VidTab";
-import { apiGetCourseStatus } from "@/lib/api";
-import type { CourseStatusResponse } from "@/lib/types";
+import { QualityScoreBadge } from "@/components/ui/QualityScoreBadge";
+import { apiGetCourseStatus, apiGetStudyPack } from "@/lib/api";
+import type { CourseStatusResponse, StudyPackResponse } from "@/lib/types";
 import { normalizeCourseStatus } from "@/lib/types";
+import { CONTAINER_NARROW } from "@/lib/layout";
+import { cn } from "@/lib/utils";
 
 export default function CourseDashboardPage() {
   return (
@@ -40,6 +47,7 @@ function DashboardContent() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const [course, setCourse] = useState<CourseStatusResponse | null>(null);
+  const [studyPack, setStudyPack] = useState<StudyPackResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,8 +55,14 @@ function DashboardContent() {
     if (!params.id) return;
     setLoading(true);
     setError(null);
-    apiGetCourseStatus(params.id)
-      .then(setCourse)
+    Promise.all([
+      apiGetCourseStatus(params.id),
+      apiGetStudyPack(params.id).catch(() => null),
+    ])
+      .then(([statusData, packData]) => {
+        setCourse(statusData);
+        setStudyPack(packData);
+      })
       .catch((err) =>
         setError(
           err instanceof Error
@@ -62,10 +76,14 @@ function DashboardContent() {
   useEffect(() => {
     if (!params.id) return;
     let active = true;
-    apiGetCourseStatus(params.id)
-      .then((data) => {
+    Promise.all([
+      apiGetCourseStatus(params.id),
+      apiGetStudyPack(params.id).catch(() => null),
+    ])
+      .then(([statusData, packData]) => {
         if (active) {
-          setCourse(data);
+          setCourse(statusData);
+          setStudyPack(packData);
           setLoading(false);
         }
       })
@@ -84,9 +102,30 @@ function DashboardContent() {
     };
   }, [params.id]);
 
+  useEffect(() => {
+    if (!params.id || !course) return;
+    const isProcessing = course.status === "processing";
+    if (!isProcessing) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const [statusData, packData] = await Promise.all([
+          apiGetCourseStatus(params.id),
+          apiGetStudyPack(params.id).catch(() => null),
+        ]);
+        setCourse(statusData);
+        setStudyPack(packData);
+      } catch (err) {
+        console.error("Polling error:", err);
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [course, params.id]);
+
   if (loading) {
     return (
-      <div className="mx-auto max-w-5xl px-4 py-8 sm:py-12 space-y-6">
+      <div className={cn(CONTAINER_NARROW, "py-8 sm:py-12 space-y-6")}>
         <Skeleton className="h-8 w-64" />
         <Skeleton className="h-5 w-48" />
         <Skeleton className="h-12 w-full mt-4" />
@@ -97,7 +136,7 @@ function DashboardContent() {
 
   if (error) {
     return (
-      <div className="mx-auto max-w-5xl px-4 py-16 text-center">
+      <div className={cn(CONTAINER_NARROW, "py-16 text-center")}>
         <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
         <h2 className="text-xl font-semibold text-foreground">
           Không tìm thấy khóa học
@@ -144,12 +183,13 @@ function DashboardContent() {
   };
   const cfg = statusConfig[status];
   const displayTitle =
+    course.name ||
     course.filenames?.[0] ||
     course.filename ||
     `Khóa học ${course.course_id.slice(0, 8)}`;
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8 sm:py-12">
+    <div className={cn(CONTAINER_NARROW, "py-8 sm:py-12")}>
       {/* Course Header */}
       <div className="mb-8">
         <Button
@@ -162,7 +202,7 @@ function DashboardContent() {
           Khóa học của tôi
         </Button>
 
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
               {displayTitle}
@@ -174,12 +214,13 @@ function DashboardContent() {
                   {course.filenames.length} file
                 </span>
               )}
-              {course.quality_score !== undefined &&
-                course.quality_score > 0 && (
-                  <span>
-                    Điểm chất lượng: {course.quality_score}/100
-                  </span>
-                )}
+              {course.quality_score !== undefined && course.quality_score > 0 ? (
+                <QualityScoreBadge score={course.quality_score} />
+              ) : studyPack?.study_pack?.grounding?.quality_score ? (
+                <QualityScoreBadge
+                  score={studyPack.study_pack.grounding.quality_score}
+                />
+              ) : null}
             </div>
           </div>
           <Badge
@@ -194,33 +235,33 @@ function DashboardContent() {
 
       {/* Tabs */}
       <Tabs defaultValue="book" className="w-full">
-        <TabsList className="w-full justify-start">
+        <TabsList className="w-full justify-start flex-wrap h-auto gap-1 p-1 bg-muted/60">
           <TabsTrigger value="book" className="gap-1.5">
-            📖 Tài liệu
+            <BookOpen className="h-4 w-4" /> Study Guide
           </TabsTrigger>
           <TabsTrigger value="slide" className="gap-1.5">
-            📊 Slide
+            <Presentation className="h-4 w-4" /> Slide
           </TabsTrigger>
           <TabsTrigger value="quiz" className="gap-1.5">
-            ❓ Quiz
+            <HelpCircle className="h-4 w-4" /> Quiz
           </TabsTrigger>
           <TabsTrigger value="vid" className="gap-1.5">
-            🎬 Video
+            <Video className="h-4 w-4" /> Video
           </TabsTrigger>
         </TabsList>
 
         <div className="mt-6 rounded-xl border bg-card p-6 min-h-[400px]">
           <TabsContent value="book" className="mt-0">
-            <BookTab />
+            <BookTab courseId={course.course_id} />
           </TabsContent>
           <TabsContent value="slide" className="mt-0">
-            <SlideTab />
+            <SlideTab courseId={course.course_id} />
           </TabsContent>
           <TabsContent value="quiz" className="mt-0">
-            <QuizTab />
+            <QuizTab courseId={course.course_id} />
           </TabsContent>
           <TabsContent value="vid" className="mt-0">
-            <VidTab />
+            <VidTab courseId={course.course_id} />
           </TabsContent>
         </div>
       </Tabs>

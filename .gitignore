@@ -35,6 +35,8 @@ src/frontend/*.log
 .env
 .env.*
 !.env.example
+!.env.flash.example
+!.env.pro.example
 src/backend/.env.example
 src/frontend/.env.example
 api_key.env
@@ -84,7 +86,6 @@ skill_upload_clean/
 # Local tooling
 make_skill_zip.py
 study-pack-upgrade.zip
-CLAUDE.md
 powershell.cmd
 
 # Logs
@@ -105,6 +106,18 @@ desktop.ini
 # Generated runtime outputs (bổ sung)
 src/data/chroma/
 data/chroma/
+
+# Local databases (SQLite dev DB, Chroma store)
+*.db
+*.sqlite3
+src/backend/sql_app.db
+
+# Agent/orchestration scratch docs
+PROJECT.md
+ORIGINAL_REQUEST.md
+TEST_INFRA.md
+progress.md
+BRIEFING.md
 
 # Claude IDE config
 .claude/

@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "katex/dist/katex.min.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -36,17 +37,29 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
-  --color-success: #10b981;
-  --color-success-foreground: #ffffff;
-  --color-warning: #f59e0b;
-  --color-warning-foreground: #ffffff;
-  --color-error: #ef4444;
-  --color-error-foreground: #ffffff;
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-error: var(--error);
+  --color-error-foreground: var(--error-foreground);
+  --color-stage: var(--stage);
+  --color-stage-muted: var(--stage-muted);
+  --color-stage-border: var(--stage-border);
+  --color-stage-foreground: var(--stage-foreground);
+  --color-stage-accent: var(--stage-accent);
   --font-sans: var(--font-inter);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  --shadow-color: 220 20% 10%;
+  --shadow-xs: 0 1px 2px hsl(var(--shadow-color) / 0.04);
+  --shadow-sm: 0 1px 3px hsl(var(--shadow-color) / 0.06), 0 1px 2px hsl(var(--shadow-color) / 0.04);
+  --shadow-md: 0 4px 8px hsl(var(--shadow-color) / 0.06), 0 2px 4px hsl(var(--shadow-color) / 0.04);
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --duration-fast: 150ms;
+  --duration-base: 200ms;
 }
 
 :root {
@@ -57,7 +70,7 @@
   --card-foreground: #0f172a;
   --popover: #ffffff;
   --popover-foreground: #0f172a;
-  --primary: #4f46e5;
+  --primary: #2454c4;
   --primary-foreground: #ffffff;
   --secondary: #f1f5f9;
   --secondary-foreground: #0f172a;
@@ -69,20 +82,74 @@
   --destructive-foreground: #ffffff;
   --border: #e2e8f0;
   --input: #e2e8f0;
-  --ring: #4f46e5;
-  --chart-1: #4f46e5;
+  --ring: #2454c4;
+  --chart-1: #2454c4;
   --chart-2: #10b981;
   --chart-3: #f59e0b;
   --chart-4: #ef4444;
   --chart-5: #8b5cf6;
   --sidebar: #f8fafc;
   --sidebar-foreground: #0f172a;
-  --sidebar-primary: #4f46e5;
+  --sidebar-primary: #2454c4;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #f1f5f9;
   --sidebar-accent-foreground: #0f172a;
   --sidebar-border: #e2e8f0;
-  --sidebar-ring: #4f46e5;
+  --sidebar-ring: #2454c4;
+  --success: #10b981;
+  --success-foreground: #ffffff;
+  --warning: #f59e0b;
+  --warning-foreground: #ffffff;
+  --error: #ef4444;
+  --error-foreground: #ffffff;
+  /* Presenter/stage surfaces (slide preview, fullscreen mode) stay dark
+     regardless of app theme, like a video player letterbox. */
+  --stage: #0b0f19;
+  --stage-muted: #172033;
+  --stage-border: #1e293b;
+  --stage-foreground: #e2e8f0;
+  --stage-accent: #fbbf24;
+}
+
+.dark {
+  --background: #0b0f19;
+  --foreground: #e2e8f0;
+  --card: #111725;
+  --card-foreground: #e2e8f0;
+  --popover: #111725;
+  --popover-foreground: #e2e8f0;
+  --primary: #7aa6f0;
+  --primary-foreground: #0b0f19;
+  --secondary: #1e293b;
+  --secondary-foreground: #e2e8f0;
+  --muted: #172033;
+  --muted-foreground: #94a3b8;
+  --accent: #1e293b;
+  --accent-foreground: #e2e8f0;
+  --destructive: #f87171;
+  --destructive-foreground: #0b0f19;
+  --border: #1e293b;
+  --input: #263248;
+  --ring: #7aa6f0;
+  --chart-1: #7aa6f0;
+  --chart-2: #34d399;
+  --chart-3: #fbbf24;
+  --chart-4: #f87171;
+  --chart-5: #a78bfa;
+  --sidebar: #0d1220;
+  --sidebar-foreground: #e2e8f0;
+  --sidebar-primary: #7aa6f0;
+  --sidebar-primary-foreground: #0b0f19;
+  --sidebar-accent: #1e293b;
+  --sidebar-accent-foreground: #e2e8f0;
+  --sidebar-border: #1e293b;
+  --sidebar-ring: #7aa6f0;
+  --success: #34d399;
+  --success-foreground: #0b0f19;
+  --warning: #fbbf24;
+  --warning-foreground: #0b0f19;
+  --error: #f87171;
+  --error-foreground: #0b0f19;
 }
 
 @layer base {
@@ -111,9 +178,9 @@ html {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: color-mix(in oklch, var(--muted-foreground) 40%, transparent);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: color-mix(in oklch, var(--muted-foreground) 60%, transparent);
 }
