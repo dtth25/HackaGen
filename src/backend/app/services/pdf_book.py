@@ -8,7 +8,6 @@ caller is responsible for recording an artifact error status instead of writing 
 import hashlib
 import logging
 from datetime import datetime
-from xml.sax.saxutils import escape
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
@@ -17,14 +16,13 @@ from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer
 from reportlab.platypus.tableofcontents import TableOfContents
 
 from app.schemas.generator_output import BookOutput
-from app.services.pdf_utils import register_vietnamese_fonts
+from app.services.pdf_utils import prepare_pdf_plain_text, prepare_pdf_text, register_vietnamese_fonts
 
 logger = logging.getLogger(__name__)
 
-
-def _esc(text: str) -> str:
-    """Escape LLM-authored prose for safe embedding in a ReportLab Paragraph."""
-    return escape(text or "").replace("\n", "<br/>")
+# Local alias — pdf_book historically called this `_esc`; keep the name for a minimal diff
+# below, but it now also flattens LaTeX/Markdown to Unicode and filters unsupported glyphs.
+_esc = prepare_pdf_text
 
 
 class _BookDocTemplate(SimpleDocTemplate):
@@ -173,7 +171,8 @@ def build_book_pdf(file_path: str, book: BookOutput) -> None:
 
     def _on_page(canvas, _doc):
         canvas.saveState()
-        title_short = book.title if len(book.title) <= 60 else book.title[:57] + "..."
+        clean_title = prepare_pdf_plain_text(book.title)
+        title_short = clean_title if len(clean_title) <= 60 else clean_title[:57] + "..."
         canvas.setFont(font_name, 9)
         canvas.setFillColor(colors.HexColor("#94a3b8"))
         canvas.drawString(56, A4[1] - 40, title_short)

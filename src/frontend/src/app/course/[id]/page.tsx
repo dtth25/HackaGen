@@ -183,6 +183,7 @@ function DashboardContent() {
   };
   const cfg = statusConfig[status];
   const displayTitle =
+    course.name ||
     course.filenames?.[0] ||
     course.filename ||
     `Khóa học ${course.course_id.slice(0, 8)}`;

@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
+import { Markdown } from "@/components/ui/markdown";
 import { cn } from "@/lib/utils";
 import { apiGetQuiz, apiGenerateQuiz, getDownloadQuizKeyUrl } from "@/lib/api";
 import type { QuizQuestion } from "@/lib/types";
@@ -412,19 +413,19 @@ export function QuizTab({ courseId }: QuizTabProps) {
                   )}
                   <div className="space-y-1">
                     <p className="font-semibold text-foreground">
-                      Câu {i + 1}. {questionTextOf(q, i)}
+                      Câu {i + 1}. <Markdown inline>{questionTextOf(q, i)}</Markdown>
                     </p>
                     <p className="text-muted-foreground">
                       Đáp án đúng:{" "}
                       <span className="font-semibold text-success">
-                        {correct}. {opts.find((o) => o.key === correct)?.text}
+                        {correct}. <Markdown inline>{opts.find((o) => o.key === correct)?.text}</Markdown>
                       </span>
                     </p>
                     {!isCorrect && picked && (
                       <p className="text-muted-foreground">
                         Bạn chọn:{" "}
                         <span className="font-semibold text-error">
-                          {picked}. {opts.find((o) => o.key === picked)?.text}
+                          {picked}. <Markdown inline>{opts.find((o) => o.key === picked)?.text}</Markdown>
                         </span>
                       </p>
                     )}
@@ -537,7 +538,9 @@ export function QuizTab({ courseId }: QuizTabProps) {
             </div>
 
             <p className="mb-5 text-lg font-semibold leading-relaxed text-foreground">
-              {currentQuestion ? questionTextOf(currentQuestion, currentIndex) : ""}
+              <Markdown inline>
+                {currentQuestion ? questionTextOf(currentQuestion, currentIndex) : ""}
+              </Markdown>
             </p>
 
             <div className="space-y-2.5">
@@ -574,7 +577,9 @@ export function QuizTab({ courseId }: QuizTabProps) {
                     >
                       {opt.key}
                     </span>
-                    <span className="flex-1 text-foreground">{opt.text}</span>
+                    <span className="flex-1 text-foreground">
+                      <Markdown inline>{opt.text}</Markdown>
+                    </span>
                     {isAnswered && isCorrectOpt && (
                       <CheckCircle2 className="h-5 w-5 shrink-0 text-success" />
                     )}
@@ -593,7 +598,7 @@ export function QuizTab({ courseId }: QuizTabProps) {
                   <Lightbulb className="h-3.5 w-3.5" /> Giải thích
                 </p>
                 <p className="text-sm leading-relaxed text-foreground/90">
-                  {currentQuestion.explanation}
+                  <Markdown inline>{currentQuestion.explanation}</Markdown>
                 </p>
               </div>
             )}

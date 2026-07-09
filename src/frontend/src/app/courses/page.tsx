@@ -157,6 +157,7 @@ function CoursesContent() {
               key={course.course_id}
               course={course}
               onDeleted={fetchCourses}
+              onRenamed={fetchCourses}
             />
           ))}
         </div>

@@ -11,6 +11,7 @@ from app.schemas.generator_output import (
     BookChapterPlan,
     BookOutline,
     BookSection,
+    CourseTitleOutput,
     QuizOption,
     QuizOutput,
     QuizQuestion,
@@ -22,6 +23,7 @@ from app.schemas.generator_output import (
 
 logger = logging.getLogger(__name__)
 
+COURSE_TITLE_MAX_TOKENS = 256
 BOOK_OUTLINE_MAX_TOKENS = 8192
 BOOK_CHAPTER_MAX_TOKENS = 16384
 SLIDES_MAX_TOKENS = 8192
@@ -65,18 +67,18 @@ def _friendly_gemini_error(exc: Exception) -> str:
 class LLMService:
     """Service wrapper for Google Gemini API."""
 
-    def __init__(self, model: str = "gemini-2.5-flash"):
+    def __init__(self, model: str = "gemini-2.5-flash", api_key: Optional[str] = None):
         self.model_name = model
         self.client = None
-        self._init_client()
+        self._init_client(api_key)
         self.prompts_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "prompts")
 
-    def _init_client(self):
+    def _init_client(self, api_key: Optional[str] = None):
         """Initialize Google GenAI client if valid API key is present."""
         if "PYTEST_CURRENT_TEST" in os.environ:
             logger.info("PYTEST_CURRENT_TEST detected: using mock/fallback mode for LLMService.")
             return
-        api_key = getattr(settings, "GEMINI_API_KEY", "")
+        api_key = api_key or getattr(settings, "GEMINI_API_KEY", "")
         if api_key and api_key not in ["test_gemini_key", "mock_key", ""] and not api_key.startswith("test_"):
             try:
                 from google import genai
@@ -142,17 +144,26 @@ class LLMService:
 
         raise LLMGenerationError(_friendly_gemini_error(last_error) if last_error else "Gemini generation failed.")
 
+    def generate_course_title(self, context: str) -> CourseTitleOutput:
+        """Generate a short, human-friendly course title from a sample of extracted document text."""
+        prompt = self._load_prompt("course_title.txt", context=context)
+
+        def _fallback():
+            return CourseTitleOutput(title="")
+
+        return self._call_gemini_strict(prompt, CourseTitleOutput, _fallback, COURSE_TITLE_MAX_TOKENS, attempts=1)
+
     def generate_book_outline(
         self,
         context: str,
-        target_audience: str = "General Students",
+        detail_level: str = "Tiêu chuẩn",
         user_prompt: str = "",
         doc_names: str = "",
     ) -> BookOutline:
         """Generate the whole-book outline (title, preface, chapter plans) from RAG context."""
         prompt = self._load_prompt(
             "book_outline.txt",
-            target_audience=target_audience,
+            detail_level=detail_level,
             user_prompt=user_prompt or "(không có)",
             doc_names=doc_names or "(không rõ)",
             context=context,
@@ -198,7 +209,7 @@ class LLMService:
         chapter_plan: BookChapterPlan,
         total_chapters: int,
         context: str,
-        target_audience: str = "General Students",
+        detail_level: str = "Tiêu chuẩn",
         valid_chunk_ids: List[str] = None,
     ) -> BookChapterContent:
         """Generate the full content for a single chapter from chapter-specific RAG context."""
@@ -210,7 +221,7 @@ class LLMService:
             chapter_title=chapter_plan.chapter_title,
             chapter_description=chapter_plan.description,
             planned_sections=", ".join(chapter_plan.planned_sections) or "(do bạn tự đề xuất)",
-            target_audience=target_audience,
+            detail_level=detail_level,
             context=context,
         )
         cids = valid_chunk_ids or ["chunk_1", "chunk_2"]

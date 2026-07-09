@@ -19,6 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { cn } from "@/lib/utils";
+import { Markdown } from "@/components/ui/markdown";
 import { apiGetBook, apiGenerateBook, getDownloadBookUrl } from "@/lib/api";
 import type { BookOutput } from "@/lib/types";
 
@@ -26,14 +27,7 @@ interface BookTabProps {
   courseId: string;
 }
 
-const AUDIENCE_OPTIONS = ["Sinh viên đại học", "Học sinh phổ thông", "Người đi làm"];
-
-function paragraphsOf(text?: string): string[] {
-  return (text || "")
-    .split(/\n\n+/)
-    .map((p) => p.trim())
-    .filter(Boolean);
-}
+const DETAIL_OPTIONS = ["Tóm tắt", "Tiêu chuẩn", "Chuyên sâu"];
 
 export function BookTab({ courseId }: BookTabProps) {
   const [book, setBook] = useState<BookOutput | null>(null);
@@ -46,7 +40,7 @@ export function BookTab({ courseId }: BookTabProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   // Generation config
-  const [audience, setAudience] = useState(AUDIENCE_OPTIONS[0]);
+  const [detailLevel, setDetailLevel] = useState(DETAIL_OPTIONS[1]);
   const [userPrompt, setUserPrompt] = useState("");
 
   const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -137,7 +131,7 @@ export function BookTab({ courseId }: BookTabProps) {
     setError(null);
     setProgress(5);
     try {
-      await apiGenerateBook(courseId, { target_audience: audience, user_prompt: userPrompt });
+      await apiGenerateBook(courseId, { detail_level: detailLevel, user_prompt: userPrompt });
       startPolling(Date.now());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Bắt đầu tạo sách ôn tập thất bại.");
@@ -189,17 +183,17 @@ export function BookTab({ courseId }: BookTabProps) {
         <div className="w-full max-w-md space-y-5 rounded-2xl border bg-card/40 p-5 text-left shadow-[var(--shadow-xs)]">
           <div className="space-y-2">
             <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Đối tượng học viên
+              Mức độ chi tiết
             </span>
             <div className="grid grid-cols-1 gap-2">
-              {AUDIENCE_OPTIONS.map((opt) => (
+              {DETAIL_OPTIONS.map((opt) => (
                 <button
                   key={opt}
-                  onClick={() => setAudience(opt)}
+                  onClick={() => setDetailLevel(opt)}
                   disabled={generating}
                   className={cn(
                     "rounded-lg border py-2 text-sm font-semibold transition-colors",
-                    audience === opt
+                    detailLevel === opt
                       ? "border-primary bg-primary/10 text-primary shadow-[var(--shadow-xs)]"
                       : "border-border/60 text-muted-foreground hover:border-primary/40 hover:text-foreground"
                   )}
@@ -261,7 +255,7 @@ export function BookTab({ courseId }: BookTabProps) {
           </div>
           <div className="min-w-0">
             <h2 className="text-xl font-semibold tracking-tight text-foreground truncate">
-              {book.title}
+              <Markdown inline>{book.title}</Markdown>
             </h2>
             <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
               <Badge variant="secondary" className="font-medium">
@@ -318,7 +312,7 @@ export function BookTab({ courseId }: BookTabProps) {
                   )}
                 >
                   <span className="mr-1.5 text-xs text-muted-foreground">{i + 1}.</span>
-                  {ch.chapter_title}
+                  <Markdown inline>{ch.chapter_title}</Markdown>
                 </button>
               ))}
             </div>
@@ -331,12 +325,10 @@ export function BookTab({ courseId }: BookTabProps) {
             {activeChapter ? (
               <>
                 <h3 className="text-2xl font-bold tracking-tight text-foreground">
-                  Chương {activeIdx + 1}: {activeChapter.chapter_title}
+                  Chương {activeIdx + 1}: <Markdown inline>{activeChapter.chapter_title}</Markdown>
                 </h3>
                 {activeChapter.introduction && (
-                  <p className="mt-4 text-[15px] leading-7 text-foreground/90">
-                    {activeChapter.introduction}
-                  </p>
+                  <Markdown className="mt-4">{activeChapter.introduction}</Markdown>
                 )}
                 {activeChapter.objectives && activeChapter.objectives.length > 0 && (
                   <div className="mt-5 rounded-xl border border-primary/20 bg-primary/5 p-4">
@@ -345,7 +337,9 @@ export function BookTab({ courseId }: BookTabProps) {
                     </p>
                     <ul className="space-y-1 text-sm text-foreground/90">
                       {activeChapter.objectives.map((obj, i) => (
-                        <li key={i}>✔ {obj}</li>
+                        <li key={i}>
+                          ✔ <Markdown inline>{obj}</Markdown>
+                        </li>
                       ))}
                     </ul>
                   </div>
@@ -353,12 +347,10 @@ export function BookTab({ courseId }: BookTabProps) {
 
                 {activeChapter.sections.map((sec, i) => (
                   <div key={i} className="mt-6">
-                    <h4 className="text-lg font-semibold text-foreground">{sec.title}</h4>
-                    {paragraphsOf(sec.content).map((p, j) => (
-                      <p key={j} className="mt-3 text-[15px] leading-7 text-foreground/90">
-                        {p}
-                      </p>
-                    ))}
+                    <h4 className="text-lg font-semibold text-foreground">
+                      <Markdown inline>{sec.title}</Markdown>
+                    </h4>
+                    <Markdown className="mt-3">{sec.content}</Markdown>
                   </div>
                 ))}
 
@@ -369,7 +361,9 @@ export function BookTab({ courseId }: BookTabProps) {
                     </p>
                     <ul className="space-y-1 text-sm text-foreground/90">
                       {activeChapter.key_points.map((pt, i) => (
-                        <li key={i}>★ {pt}</li>
+                        <li key={i}>
+                          ★ <Markdown inline>{pt}</Markdown>
+                        </li>
                       ))}
                     </ul>
                   </div>
@@ -382,7 +376,9 @@ export function BookTab({ courseId }: BookTabProps) {
                     </p>
                     <ol className="list-decimal space-y-1.5 pl-4 text-sm text-foreground/90">
                       {activeChapter.review_questions.map((q, i) => (
-                        <li key={i}>{q}</li>
+                        <li key={i}>
+                          <Markdown inline>{q}</Markdown>
+                        </li>
                       ))}
                     </ol>
                   </div>
@@ -390,18 +386,17 @@ export function BookTab({ courseId }: BookTabProps) {
               </>
             ) : (
               <>
-                <h3 className="text-2xl font-bold tracking-tight text-foreground">{book.title}</h3>
-                {book.preface &&
-                  paragraphsOf(book.preface).map((p, i) => (
-                    <p key={i} className="mt-4 text-[15px] leading-7 text-foreground/90">
-                      {p}
-                    </p>
-                  ))}
+                <h3 className="text-2xl font-bold tracking-tight text-foreground">
+                  <Markdown inline>{book.title}</Markdown>
+                </h3>
+                {book.preface && <Markdown className="mt-4">{book.preface}</Markdown>}
                 <div className="mt-6 rounded-xl border bg-muted/40 p-4">
                   <p className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
                     Tóm tắt nội dung
                   </p>
-                  <p className="text-sm leading-relaxed text-foreground/90">{book.summary}</p>
+                  <p className="text-sm leading-relaxed text-foreground/90">
+                    <Markdown inline>{book.summary}</Markdown>
+                  </p>
                 </div>
               </>
             )}

@@ -17,7 +17,7 @@ class BookGenerateRequest(BaseModel):
 
     course_id: Optional[str] = None
     user_prompt: Optional[str] = ""
-    target_audience: Optional[str] = "General Students"
+    detail_level: Optional[str] = "Tiêu chuẩn"
 
 
 class SlideGenerateRequest(BaseModel):

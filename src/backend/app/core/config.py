@@ -37,6 +37,14 @@ class Settings(BaseSettings):
     )
     GEMINI_API_KEY: str = Field(..., description="Google Gemini API key")
 
+    # Optional per-feature API keys — each generation feature (Book/Slide/Quiz/Vid) can use
+    # its own Gemini key (e.g. to spread usage across separate free-tier quotas). Falls back
+    # to GEMINI_API_KEY when left empty.
+    GEMINI_BOOK_API_KEY: str = Field(default="", description="Gemini API key for Book generation (falls back to GEMINI_API_KEY)")
+    GEMINI_SLIDE_API_KEY: str = Field(default="", description="Gemini API key for Slide generation (falls back to GEMINI_API_KEY)")
+    GEMINI_QUIZ_API_KEY: str = Field(default="", description="Gemini API key for Quiz generation (falls back to GEMINI_API_KEY)")
+    GEMINI_VID_API_KEY: str = Field(default="", description="Gemini API key for Video generation (falls back to GEMINI_API_KEY)")
+
     # Optional variables
     ALLOWED_ORIGINS: Union[List[str], str] = Field(
         default=["http://localhost:3000", "http://127.0.0.1:3000"],

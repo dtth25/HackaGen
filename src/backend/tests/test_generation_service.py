@@ -22,7 +22,7 @@ def test_llm_service_and_prompts():
     context = "[Chunk ID: chunk_1] (Tài liệu: doc.pdf, Trang: 1): Trí tuệ nhân tạo là lĩnh vực khoa học máy tính."
     valid_cids = ["chunk_1", "chunk_2"]
 
-    outline = llm.generate_book_outline(context=context, target_audience="Students", user_prompt="", doc_names="doc.pdf")
+    outline = llm.generate_book_outline(context=context, detail_level="Tiêu chuẩn", user_prompt="", doc_names="doc.pdf")
     assert outline.title != ""
     assert outline.preface != ""
     assert len(outline.chapters) >= 4
@@ -33,7 +33,7 @@ def test_llm_service_and_prompts():
         chapter_plan=outline.chapters[0],
         total_chapters=len(outline.chapters),
         context=context,
-        target_audience="Students",
+        detail_level="Tiêu chuẩn",
         valid_chunk_ids=valid_cids,
     )
     assert chapter.chapter_title != ""
@@ -93,7 +93,7 @@ def test_generator_all_artifacts_and_validation(client):
     gen = Generator(vs, llm)
 
     # Generate all 4 core artifacts (Book, Slide, Quiz, Vid)
-    book_out = gen.generate_book(course_id=course_id, target_audience="Students")
+    book_out = gen.generate_book(course_id=course_id, detail_level="Tiêu chuẩn")
     slides_out = gen.generate_slides(course_id=course_id, topic="AI", num_slides=3)
     quiz_out = gen.generate_quiz(course_id=course_id, topic="AI", quantity=3)
     vid_out = gen.generate_vid(course_id=course_id, topic="AI", duration=180)
@@ -269,7 +269,7 @@ def test_book_generator_error_propagation():
     original_outline = llm.generate_book_outline
     llm.generate_book_outline = _raise
     try:
-        result = gen.generate_book(course_id=course_id, target_audience="Students")
+        result = gen.generate_book(course_id=course_id, detail_level="Tiêu chuẩn")
     finally:
         llm.generate_book_outline = original_outline
 
@@ -284,7 +284,7 @@ def test_book_generator_error_propagation():
     original_chapter = llm.generate_book_chapter
     llm.generate_book_chapter = _raise
     try:
-        result2 = gen.generate_book(course_id=course_id, target_audience="Students")
+        result2 = gen.generate_book(course_id=course_id, detail_level="Tiêu chuẩn")
     finally:
         llm.generate_book_chapter = original_chapter
 

@@ -134,6 +134,16 @@ export async function apiDeleteCourse(courseId: string): Promise<void> {
   });
 }
 
+export async function apiRenameCourse(
+  courseId: string,
+  name: string
+): Promise<void> {
+  await apiFetch<{ id: string }>(`/api/courses/${courseId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ name }),
+  });
+}
+
 // ============================================================
 // Upload API
 // ============================================================

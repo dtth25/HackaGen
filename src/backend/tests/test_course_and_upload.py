@@ -66,10 +66,12 @@ def test_upload_too_many_files(client):
         ("files", ("2.txt", b"b", "text/plain")),
         ("files", ("3.txt", b"c", "text/plain")),
         ("files", ("4.txt", b"d", "text/plain")),
+        ("files", ("5.txt", b"e", "text/plain")),
+        ("files", ("6.txt", b"f", "text/plain")),
     ]
     response = client.post("/api/upload", headers=headers, files=files)
     assert response.status_code == 400
-    assert "tối đa 3 file" in response.json()["detail"]
+    assert "tối đa 5 file" in response.json()["detail"]
 
 
 def test_upload_invalid_extension_exe(client):

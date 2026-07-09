@@ -31,42 +31,17 @@ from app.services.vector_store import VectorStore
 logger = logging.getLogger(__name__)
 
 
-def _clean_book_output(book: BookOutput) -> BookOutput:
-    """Normalize LLM-authored prose (strip LaTeX/Markdown) in-place across every text field
-    of a Book, so both the React reader and the PDF render clean text. See text_format.py."""
-    book.title = clean_text(book.title)
-    book.summary = clean_text(book.summary)
-    book.preface = clean_text(book.preface)
-    for ch in book.chapters:
-        ch.chapter_title = clean_text(ch.chapter_title)
-        ch.introduction = clean_text(ch.introduction)
-        ch.objectives = [clean_text(o) for o in ch.objectives]
-        for sec in ch.sections:
-            sec.title = clean_text(sec.title)
-            sec.content = clean_text(sec.content)
-        ch.key_points = [clean_text(k) for k in ch.key_points]
-        ch.review_questions = [clean_text(q) for q in ch.review_questions]
-    return book
-
-
 def _clean_slides_output(deck: SlidesOutput) -> SlidesOutput:
-    """Normalize LLM-authored prose (strip LaTeX/Markdown) in-place across a slide deck."""
+    """Normalize LLM-authored prose (strip LaTeX/Markdown) in-place across a slide deck.
+    Slides are always rasterized to images for the reader (no live-text consumer), so this
+    stays the only artifact type cleaned before persistence; Book/Quiz keep their raw
+    LLM Markdown/LaTeX in storage and clean it only at PDF-build time (see pdf_utils.prepare_pdf_text)
+    so the frontend's real Markdown+KaTeX renderer gets full fidelity."""
     deck.title = clean_text(deck.title)
     for sl in deck.slides:
         sl.title = clean_text(sl.title)
         sl.bullet_points = [clean_text(b) for b in sl.bullet_points]
     return deck
-
-
-def _clean_quiz_output(quiz: QuizOutput) -> QuizOutput:
-    """Normalize LLM-authored prose (strip LaTeX/Markdown) in-place across a quiz."""
-    quiz.title = clean_text(quiz.title)
-    for q in quiz.questions:
-        q.question_text = clean_text(q.question_text)
-        for opt in q.options:
-            opt.text = clean_text(opt.text)
-        q.explanation = clean_text(q.explanation)
-    return quiz
 
 
 def _clean_vid_output(vid: VidOutput) -> VidOutput:
@@ -82,9 +57,15 @@ def _clean_vid_output(vid: VidOutput) -> VidOutput:
 class Generator:
     """Orchestrates RAG retrieval, AI generation, validation, and file storage."""
 
-    def __init__(self, vector_store: VectorStore, llm: LLMService):
+    def __init__(self, vector_store: VectorStore, llm: LLMService, feature_llms: Optional[Dict[str, LLMService]] = None):
         self.vector_store = vector_store
         self.llm = llm
+        # Per-feature LLM instances (book/slides/quiz/vid), each optionally configured with
+        # its own Gemini API key. Falls back to `self.llm` for any feature not provided.
+        self.feature_llms = feature_llms or {}
+
+    def _llm_for(self, feature: str) -> LLMService:
+        return self.feature_llms.get(feature, self.llm)
 
     def _get_db(self, db_session_factory=None):
         if db_session_factory is None:
@@ -167,7 +148,7 @@ class Generator:
             from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
             from reportlab.lib import colors
             from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, PageBreak, Table, TableStyle
-            from app.services.pdf_utils import register_vietnamese_fonts
+            from app.services.pdf_utils import prepare_pdf_text, register_vietnamese_fonts
 
             font_name, font_bold = register_vietnamese_fonts()
 
@@ -229,10 +210,6 @@ class Generator:
                 
                 canvas.setFillColor(colors.HexColor("#06b6d4"))
                 canvas.rect(50, 150, 8, 260, fill=True, stroke=False)
-
-                canvas.setFillColor(colors.HexColor("#64748b"))
-                canvas.setFont(font_name, 11)
-                canvas.drawString(50, 30, "Trình bày bởi AI Course Generator - NotebookLM Style")
                 canvas.restoreState()
 
             def draw_content_slide_bg(canvas, doc):
@@ -249,31 +226,27 @@ class Generator:
 
                 canvas.setFillColor(colors.HexColor("#64748b"))
                 canvas.setFont(font_name, 10)
-                canvas.drawString(50, 20, "AI Course Generator | Study Presentation")
                 canvas.drawRightString(910, 20, f"Slide {canvas._pageNumber}")
                 canvas.restoreState()
 
             # Slide 1: Cover Page
             story.append(Spacer(1, 100))
-            title_p = Paragraph(f"<font color='#06b6d4'>{slides_data.title}</font>", ParagraphStyle("CoverTitle", parent=slide_title_style, fontSize=36, leading=44, leftIndent=30))
+            title_p = Paragraph(f"<font color='#06b6d4'>{prepare_pdf_text(slides_data.title)}</font>", ParagraphStyle("CoverTitle", parent=slide_title_style, fontSize=36, leading=44, leftIndent=30))
             story.append(title_p)
-            story.append(Spacer(1, 15))
-            sub_p = Paragraph("TÀI LIỆU TRÌNH CHIẾU CHUYÊN ĐỀ", ParagraphStyle("CoverSub", parent=slide_body_style, fontSize=18, textColor=colors.HexColor("#94a3b8"), leftIndent=30))
-            story.append(sub_p)
             story.append(PageBreak())
 
             # Slide content pages
             for idx, item in enumerate(slides_data.slides):
                 story.append(Spacer(1, 10))
-                story.append(Paragraph(item.title, slide_title_style))
+                story.append(Paragraph(prepare_pdf_text(item.title), slide_title_style))
                 story.append(Spacer(1, 10))
 
                 layout_type = getattr(item, "layout_type", "default") or "default"
                 if layout_type == "two_column":
                     mid = (len(item.bullet_points) + 1) // 2
-                    left_bps = [f"• {bp}" for bp in item.bullet_points[:mid]]
-                    right_bps = [f"• {bp}" for bp in item.bullet_points[mid:]]
-                    
+                    left_bps = [f"• {prepare_pdf_text(bp)}" for bp in item.bullet_points[:mid]]
+                    right_bps = [f"• {prepare_pdf_text(bp)}" for bp in item.bullet_points[mid:]]
+
                     left_text = "<br/><br/>".join(left_bps)
                     right_text = "<br/><br/>".join(right_bps)
 
@@ -288,13 +261,13 @@ class Generator:
                     ]))
                     story.append(t)
                 elif layout_type == "quote":
-                    quote_text = "<br/><br/>".join(item.bullet_points)
+                    quote_text = "<br/><br/>".join(prepare_pdf_text(bp) for bp in item.bullet_points)
                     story.append(Spacer(1, 40))
                     story.append(Paragraph(f"<i>“{quote_text}”</i>", slide_quote_style))
                 else:
                     bullets_html = []
                     for bp in item.bullet_points:
-                        bullets_html.append(f"• {bp}")
+                        bullets_html.append(f"• {prepare_pdf_text(bp)}")
                     content_text = "<br/><br/>".join(bullets_html)
                     story.append(Paragraph(content_text, slide_body_style))
 
@@ -370,7 +343,7 @@ class Generator:
             from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
             from reportlab.lib import colors
             from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, PageBreak
-            from app.services.pdf_utils import register_vietnamese_fonts
+            from app.services.pdf_utils import prepare_pdf_text, register_vietnamese_fonts
 
             font_name, font_bold = register_vietnamese_fonts()
 
@@ -381,14 +354,14 @@ class Generator:
             q_style = ParagraphStyle("QQ", parent=styles["Heading2"], fontName=font_bold, fontSize=12, leading=16, textColor=colors.HexColor("#1e293b"), spaceBefore=10, spaceAfter=6)
             body_style = ParagraphStyle("QBody", parent=styles["BodyText"], fontName=font_name, fontSize=11, leading=15, textColor=colors.HexColor("#0f172a"), spaceAfter=5)
 
-            story = [Paragraph(f"BỘ ĐỀ KIỂM TRA & ĐÁNH GIÁ: {quiz_data.title}", title_style), Spacer(1, 10)]
+            story = [Paragraph(f"BỘ ĐỀ KIỂM TRA & ĐÁNH GIÁ: {prepare_pdf_text(quiz_data.title)}", title_style), Spacer(1, 10)]
 
             # --- Part 1: Student Quiz Sheet ---
             story.append(Paragraph("PHẦN 1: ĐỀ THI TRẮC NGHIỆM (STUDENT QUIZ SHEET)", part_style))
             for q in quiz_data.questions:
-                story.append(Paragraph(f"<b>Câu {q.question_number}:</b> {q.question_text}", q_style))
+                story.append(Paragraph(f"<b>Câu {q.question_number}:</b> {prepare_pdf_text(q.question_text)}", q_style))
                 for opt in q.options:
-                    story.append(Paragraph(f"<b>{opt.key}.</b> {opt.text}", body_style))
+                    story.append(Paragraph(f"<b>{opt.key}.</b> {prepare_pdf_text(opt.text)}", body_style))
                 story.append(Spacer(1, 10))
             story.append(PageBreak())
 
@@ -396,10 +369,10 @@ class Generator:
             story.append(Paragraph("PHẦN 2: ĐÁP ÁN & GIẢI THÍCH CHI TIẾT (ANSWER KEY & EXPLANATIONS)", part_style))
             for q in quiz_data.questions:
                 diff_str = getattr(q, "difficulty", "Medium") or "Medium"
-                story.append(Paragraph(f"<b>Câu {q.question_number} [Mức độ Bloom: {diff_str}]:</b> {q.question_text}", q_style))
+                story.append(Paragraph(f"<b>Câu {q.question_number} [Mức độ Bloom: {diff_str}]:</b> {prepare_pdf_text(q.question_text)}", q_style))
                 story.append(Paragraph(f"<b>Đáp án đúng:</b> <font color='#16a34a'><b>{q.correct_answer}</b></font>", body_style))
                 if q.explanation:
-                    story.append(Paragraph(f"<b>Giải thích chi tiết:</b> {q.explanation}", body_style))
+                    story.append(Paragraph(f"<b>Giải thích chi tiết:</b> {prepare_pdf_text(q.explanation)}", body_style))
                 story.append(Spacer(1, 10))
 
             doc.build(story)
@@ -558,6 +531,8 @@ class Generator:
         db = self._get_db(db_session_factory)
         try:
             course = db.query(Course).filter(Course.id == course_id).first()
+            if course and course.name and course.name.strip():
+                return course.name.strip()
             if course and course.filenames and len(course.filenames) > 0:
                 fn = str(course.filenames[0])
                 for ext in [".pdf", ".docx", ".txt", ".PPTX", ".PDF", ".DOCX", ".TXT"]:
@@ -590,7 +565,7 @@ class Generator:
     def generate_book(
         self,
         course_id: str,
-        target_audience: str = "General Students",
+        detail_level: str = "Tiêu chuẩn",
         user_prompt: str = "",
         db_session_factory=None,
         **kwargs,
@@ -605,9 +580,10 @@ class Generator:
         try:
             self._set_artifact_status(course_id, "book", "processing", progress=5, db_session_factory=db_session_factory)
 
+            book_llm = self._llm_for("book")
             context, base_ids = self._retrieve_context(course_id, k=20)
             doc_names = self._get_doc_names(course_id, db_session_factory)
-            outline = self.llm.generate_book_outline(context, target_audience, user_prompt, doc_names)
+            outline = book_llm.generate_book_outline(context, detail_level, user_prompt, doc_names)
             plans = outline.chapters[:8]
             if len(plans) < 4:
                 raise ValueError(f"Dàn ý chỉ có {len(plans)} chương, cần tối thiểu 4 chương.")
@@ -624,13 +600,13 @@ class Generator:
                 all_ids.update(ch_ids)
 
                 try:
-                    content = self.llm.generate_book_chapter(
-                        outline.title, plan, total, ch_context, target_audience, ch_ids
+                    content = book_llm.generate_book_chapter(
+                        outline.title, plan, total, ch_context, detail_level, ch_ids
                     )
                 except LLMGenerationError as e:
                     logger.warning(f"Chapter '{plan.chapter_title}' failed once, retrying: {e}")
-                    content = self.llm.generate_book_chapter(
-                        outline.title, plan, total, ch_context, target_audience, ch_ids
+                    content = book_llm.generate_book_chapter(
+                        outline.title, plan, total, ch_context, detail_level, ch_ids
                     )
 
                 chapters.append(
@@ -651,7 +627,6 @@ class Generator:
             validated_output, score, warnings = validate_and_score_output(book, "book", list(all_ids))
             if warnings:
                 logger.warning(f"Book generation warnings for {course_id}: {warnings}")
-            validated_output = _clean_book_output(validated_output)
 
             self._save_artifact_json(course_id, "book.json", validated_output)
             self._generate_pdf_book(course_id, validated_output)
@@ -676,7 +651,7 @@ class Generator:
             self._set_artifact_status(course_id, "slides", "processing", progress=10, db_session_factory=db_session_factory)
             resolved_topic = self._resolve_topic(course_id, topic, db_session_factory=db_session_factory)
             context, valid_chunk_ids = self._retrieve_context(course_id, query=resolved_topic)
-            raw_output = self.llm.generate_slides(context, resolved_topic, num_slides, valid_chunk_ids)
+            raw_output = self._llm_for("slides").generate_slides(context, resolved_topic, num_slides, valid_chunk_ids)
             validated_output, score, warnings = validate_and_score_output(raw_output, "slides", valid_chunk_ids)
             if warnings:
                 logger.warning(f"Slides generation warnings for {course_id}: {warnings}")
@@ -706,11 +681,10 @@ class Generator:
             self._set_artifact_status(course_id, "quiz", "processing", progress=10, db_session_factory=db_session_factory)
             resolved_topic = self._resolve_topic(course_id, topic, db_session_factory=db_session_factory)
             context, valid_chunk_ids = self._retrieve_context(course_id, query=resolved_topic)
-            raw_output = self.llm.generate_quiz(context, resolved_topic, quantity, valid_chunk_ids, difficulty=difficulty)
+            raw_output = self._llm_for("quiz").generate_quiz(context, resolved_topic, quantity, valid_chunk_ids, difficulty=difficulty)
             validated_output, score, warnings = validate_and_score_output(raw_output, "quiz", valid_chunk_ids)
             if warnings:
                 logger.warning(f"Quiz generation warnings for {course_id}: {warnings}")
-            validated_output = _clean_quiz_output(validated_output)
 
             self._set_artifact_status(course_id, "quiz", "processing", progress=70, db_session_factory=db_session_factory)
             self._save_artifact_json(course_id, "quiz.json", validated_output)
@@ -736,7 +710,7 @@ class Generator:
             self._set_artifact_status(course_id, "vid", "processing", progress=10, db_session_factory=db_session_factory)
             resolved_topic = self._resolve_topic(course_id, topic, db_session_factory=db_session_factory)
             context, valid_chunk_ids = self._retrieve_context(course_id, query=resolved_topic)
-            raw_output = self.llm.generate_vid(context, resolved_topic, duration, valid_chunk_ids)
+            raw_output = self._llm_for("vid").generate_vid(context, resolved_topic, duration, valid_chunk_ids)
             validated_output, score, warnings = validate_and_score_output(raw_output, "vid", valid_chunk_ids)
             if warnings:
                 logger.warning(f"Vid generation warnings for {course_id}: {warnings}")

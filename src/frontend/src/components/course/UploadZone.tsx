@@ -17,6 +17,7 @@ const ACCEPTED_TYPES: Record<string, string[]> = {
   "text/plain": [".txt"],
 };
 const MAX_SIZE = 50 * 1024 * 1024;
+const MAX_FILES = 5;
 
 export function UploadZone() {
   const router = useRouter();
@@ -48,7 +49,11 @@ export function UploadZone() {
       setFiles((prev) => {
         const names = new Set(prev.map((f) => f.name));
         const newFiles = accepted.filter((f) => !names.has(f.name));
-        return [...prev, ...newFiles];
+        const combined = [...prev, ...newFiles];
+        if (combined.length > MAX_FILES) {
+          setError(`Chỉ được phép tải lên tối đa ${MAX_FILES} file mỗi lần.`);
+        }
+        return combined.slice(0, MAX_FILES);
       });
     },
     []
@@ -112,7 +117,7 @@ export function UploadZone() {
             : "Kéo thả file hoặc nhấn để chọn"}
         </p>
         <p className="mt-1 text-sm text-muted-foreground">
-          Hỗ trợ: PDF, DOCX, TXT — Tối đa 50MB mỗi file
+          Hỗ trợ: PDF, DOCX, TXT — Tối đa 50MB mỗi file, tối đa {MAX_FILES} file
         </p>
       </div>
 

@@ -14,6 +14,7 @@ from app.schemas.course import (
     CourseCreate,
     CourseListItem,
     CourseListResponse,
+    CourseRenameRequest,
     CourseResponse,
     CourseStatusResponse,
 )
@@ -21,6 +22,21 @@ from app.schemas.course import (
 router = APIRouter(prefix="/api/courses", tags=["courses"])
 # Map /api/course per frontend expectations
 router_single = APIRouter(prefix="/api/course", tags=["courses"])
+
+MAX_COURSES_PER_USER = 10
+
+
+def _enforce_course_limit(db: Session, user_id: str) -> None:
+    count = (
+        db.query(Course)
+        .filter(Course.user_id == user_id, Course.is_deleted == False)  # noqa: E712
+        .count()
+    )
+    if count >= MAX_COURSES_PER_USER:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Bạn đã đạt giới hạn tối đa {MAX_COURSES_PER_USER} khóa học. Vui lòng xóa bớt khóa học cũ để tạo mới.",
+        )
 
 
 @router.get("/all", response_model=CourseListResponse)
@@ -40,6 +56,7 @@ def get_user_courses(
         items.append(
             CourseListItem(
                 course_id=c.id,
+                name=c.name,
                 status=c.status,
                 filenames=filenames,
                 file_count=len(filenames),
@@ -56,6 +73,7 @@ def create_course(
     db: Session = Depends(get_db),
 ):
     """Create a new course entry manually without files."""
+    _enforce_course_limit(db, current_user.id)
     db_course = Course(
         user_id=current_user.id,
         filenames=course_in.filenames if course_in.filenames else [],
@@ -68,6 +86,35 @@ def create_course(
     db.commit()
     db.refresh(db_course)
     return db_course
+
+
+@router.patch("/{course_id}", response_model=CourseResponse)
+def rename_course(
+    course_id: str,
+    body: CourseRenameRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Rename a course."""
+    course = (
+        db.query(Course)
+        .filter(Course.id == course_id, Course.is_deleted == False)  # noqa: E712
+        .first()
+    )
+    if not course:
+        raise HTTPException(status_code=404, detail="Khóa học không tồn tại.")
+
+    if course.user_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(status_code=404, detail="Khóa học không tồn tại.")
+
+    name = body.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Tên khóa học không được để trống.")
+
+    course.name = name[:200]
+    db.commit()
+    db.refresh(course)
+    return course
 
 
 @router.delete("/{course_id}")
@@ -143,6 +190,7 @@ def get_course_status(
 
     return {
         "course_id": course.id,
+        "name": course.name,
         "status": course.status,
         "stage": course.stage,
         "progress": course.progress,

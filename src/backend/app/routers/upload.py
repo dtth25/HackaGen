@@ -16,6 +16,9 @@ from app.services.document_processor import get_document_processor
 
 router = APIRouter(prefix="/api", tags=["upload"])
 
+MAX_COURSES_PER_USER = 10
+MAX_FILES_PER_UPLOAD = 5
+
 
 @router.post("/upload", response_model=UploadResponse, status_code=status.HTTP_201_CREATED)
 async def upload_files(
@@ -33,10 +36,21 @@ async def upload_files(
             detail="Vui lòng chọn ít nhất 1 file để tải lên.",
         )
 
-    if len(upload_files_list) > 3:
+    if len(upload_files_list) > MAX_FILES_PER_UPLOAD:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Chỉ được phép tải lên tối đa 3 file mỗi lần.",
+            detail=f"Chỉ được phép tải lên tối đa {MAX_FILES_PER_UPLOAD} file mỗi lần.",
+        )
+
+    existing_course_count = (
+        db.query(Course)
+        .filter(Course.user_id == current_user.id, Course.is_deleted == False)  # noqa: E712
+        .count()
+    )
+    if existing_course_count >= MAX_COURSES_PER_USER:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Bạn đã đạt giới hạn tối đa {MAX_COURSES_PER_USER} khóa học. Vui lòng xóa bớt khóa học cũ để tạo mới.",
         )
 
     allowed_exts = {".pdf", ".docx", ".txt"}

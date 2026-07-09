@@ -35,6 +35,7 @@ export interface RegisterRequest {
 
 export interface CourseListItem {
   course_id: string;
+  name?: string;
   status: string;
   created_at?: string;
   filenames?: string[];
@@ -49,6 +50,7 @@ export interface CoursesResponse {
 
 export interface CourseStatusResponse {
   course_id: string;
+  name?: string;
   status: string;
   progress?: number;
   filename?: string;

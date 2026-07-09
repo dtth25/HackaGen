@@ -32,12 +32,30 @@ _generator_instance = None
 
 
 def get_generator() -> Generator:
-    """Singleton helper to get Generator instance."""
+    """Singleton helper to get Generator instance.
+
+    Each of the 4 generation features (Book/Slide/Quiz/Vid) can be configured with its own
+    Gemini API key (GEMINI_{BOOK,SLIDE,QUIZ,VID}_API_KEY), falling back to the shared
+    GEMINI_API_KEY when a feature-specific key isn't set.
+    """
     global _generator_instance
     if _generator_instance is None:
         vs = get_vector_store()
         llm = LLMService()
-        _generator_instance = Generator(vs, llm)
+        # Only spin up a separate client for a feature that actually has its own key
+        # configured — otherwise reuse the shared `llm` instance instead of creating
+        # redundant genai.Client objects that all fall back to the same GEMINI_API_KEY.
+        feature_keys = {
+            "book": settings.GEMINI_BOOK_API_KEY,
+            "slides": settings.GEMINI_SLIDE_API_KEY,
+            "quiz": settings.GEMINI_QUIZ_API_KEY,
+            "vid": settings.GEMINI_VID_API_KEY,
+        }
+        feature_llms = {
+            feature: LLMService(api_key=key) if key else llm
+            for feature, key in feature_keys.items()
+        }
+        _generator_instance = Generator(vs, llm, feature_llms)
     return _generator_instance
 
 
@@ -106,16 +124,16 @@ def generate_book(
     req: Optional[BookGenerateRequest] = None,
     course_id: Optional[str] = Query(None),
     user_prompt: Optional[str] = Query(None),
-    target_audience: Optional[str] = Query(None),
+    detail_level: Optional[str] = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Any:
     """Trigger background generation for Book artifact."""
     course = resolve_and_validate_course(req, course_id, current_user, db)
     prompt = (req and req.user_prompt) or user_prompt or ""
-    audience = (req and req.target_audience) or target_audience or "General Students"
+    detail = (req and req.detail_level) or detail_level or "Tiêu chuẩn"
     generator = get_generator()
-    background_tasks.add_task(generator.generate_book, course.id, target_audience=audience, user_prompt=prompt)
+    background_tasks.add_task(generator.generate_book, course.id, detail_level=detail, user_prompt=prompt)
     return GenerateResponse(course_id=course.id)
 
 

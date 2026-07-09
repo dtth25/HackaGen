@@ -5,6 +5,17 @@ from pydantic import BaseModel, Field
 
 
 # =====================================================================
+# 0. Course Title Schema
+# =====================================================================
+
+
+class CourseTitleOutput(BaseModel):
+    """A short, human-friendly title generated for a newly uploaded course."""
+
+    title: str = Field(..., description="Concise course title (max ~8 words), no file extension")
+
+
+# =====================================================================
 # 1. Book (Study Guide) Schemas
 # =====================================================================
 
