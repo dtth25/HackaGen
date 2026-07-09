@@ -83,7 +83,7 @@ export function CourseCard({ course, onDeleted }: CourseCardProps) {
   const timeAgo = course.created_at ? formatTimeAgo(course.created_at) : "";
 
   return (
-    <Card className="flex flex-col transition-shadow hover:shadow-md">
+    <Card className="flex flex-col transition-shadow hover:shadow-[var(--shadow-md)]">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-2">
           <CardTitle className="text-base font-semibold leading-tight line-clamp-2">

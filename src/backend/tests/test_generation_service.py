@@ -12,7 +12,8 @@ def test_llm_service_and_prompts():
     """Test LLMService initialization, prompt loading, and structured output generation."""
     llm = LLMService(model="gemini-2.5-flash")
     assert llm.prompts_dir is not None
-    assert os.path.exists(os.path.join(llm.prompts_dir, "book.txt"))
+    assert os.path.exists(os.path.join(llm.prompts_dir, "book_outline.txt"))
+    assert os.path.exists(os.path.join(llm.prompts_dir, "book_chapter.txt"))
     assert os.path.exists(os.path.join(llm.prompts_dir, "slides.txt"))
     assert os.path.exists(os.path.join(llm.prompts_dir, "quiz.txt"))
     assert os.path.exists(os.path.join(llm.prompts_dir, "vid.txt"))
@@ -21,10 +22,23 @@ def test_llm_service_and_prompts():
     context = "[Chunk ID: chunk_1] (Tài liệu: doc.pdf, Trang: 1): Trí tuệ nhân tạo là lĩnh vực khoa học máy tính."
     valid_cids = ["chunk_1", "chunk_2"]
 
-    book = llm.generate_book(context=context, target_audience="Students", valid_chunk_ids=valid_cids)
-    assert book.title != ""
-    assert len(book.chapters) > 0
-    assert len(book.chapters[0].source_chunk_ids) > 0
+    outline = llm.generate_book_outline(context=context, target_audience="Students", user_prompt="", doc_names="doc.pdf")
+    assert outline.title != ""
+    assert outline.preface != ""
+    assert len(outline.chapters) >= 4
+    assert outline.chapters[0].retrieval_query != ""
+
+    chapter = llm.generate_book_chapter(
+        book_title=outline.title,
+        chapter_plan=outline.chapters[0],
+        total_chapters=len(outline.chapters),
+        context=context,
+        target_audience="Students",
+        valid_chunk_ids=valid_cids,
+    )
+    assert chapter.chapter_title != ""
+    assert len(chapter.sections) > 0
+    assert len(chapter.source_chunk_ids) > 0
 
     slides = llm.generate_slides(context=context, topic="AI", num_slides=3, valid_chunk_ids=valid_cids)
     assert slides.title != ""
@@ -78,13 +92,15 @@ def test_generator_all_artifacts_and_validation(client):
     llm = LLMService()
     gen = Generator(vs, llm)
 
-    # Generate all 4 artifacts
+    # Generate all 4 core artifacts (Book, Slide, Quiz, Vid)
     book_out = gen.generate_book(course_id=course_id, target_audience="Students")
     slides_out = gen.generate_slides(course_id=course_id, topic="AI", num_slides=3)
     quiz_out = gen.generate_quiz(course_id=course_id, topic="AI", quantity=3)
     vid_out = gen.generate_vid(course_id=course_id, topic="AI", duration=180)
-
+    assert book_out is not None
     assert book_out.title != ""
+    assert book_out.preface != ""
+    assert len(book_out.chapters) >= 4
     assert slides_out.title != ""
     assert quiz_out.title != ""
     assert vid_out.title != ""
@@ -96,6 +112,18 @@ def test_generator_all_artifacts_and_validation(client):
         assert os.path.exists(fpath), f"Expected file {fname} to exist at {fpath}"
         assert os.path.getsize(fpath) > 0, f"File {fname} is empty"
 
+    # Book PDF smoke test: real cover + preface + TOC + >=4 chapters -> multiple pages
+    book_pdf_path = os.path.join(art_dir, "book.pdf")
+    with open(book_pdf_path, "rb") as f:
+        assert f.read(4) == b"%PDF", "book.pdf is not a valid PDF file"
+    import fitz
+    pdf_doc = fitz.open(book_pdf_path)
+    assert pdf_doc.page_count >= 8, f"Expected book.pdf to have >= 8 pages, got {pdf_doc.page_count}"
+    pdf_doc.close()
+
+    # Book artifact status must reach "ready"
+    assert gen.get_artifact_status(course_id, "book").get("status") == "ready"
+
     # Verify quality score > 70 and readiness flags in DB
     db = SessionLocal()
     try:
@@ -105,10 +133,9 @@ def test_generator_all_artifacts_and_validation(client):
         meta_dict = json.loads(course_upd.metadata_json) if isinstance(course_upd.metadata_json, str) else course_upd.metadata_json
         sp_meta = meta_dict["study_pack"]
         assert sp_meta["readiness"]["study_guide_pdf"] is True
-        assert sp_meta["readiness"]["mindmap"] is True
+        assert sp_meta["readiness"]["slides"] is True
         assert sp_meta["readiness"]["quiz"] is True
-        assert sp_meta["readiness"]["summary"] is True
-        assert sp_meta["readiness"]["flashcards"] is True
+        assert sp_meta["readiness"]["vid"] is True
     finally:
         db.close()
 
@@ -154,16 +181,26 @@ def test_generation_api_endpoints_complete(client):
     # Verify retrieval endpoints return generated JSON
     res_book = client.get(f"/api/course/{course_id}/book", headers=headers)
     assert res_book.status_code == 200
-    assert res_book.json()["title"] != ""
-    assert len(res_book.json()["chapters"]) > 0
+    book_body = res_book.json()
+    assert book_body["status"] == "ready"
+    assert book_body["error"] is None
+    assert book_body["data"]["title"] != ""
+    assert len(book_body["data"]["chapters"]) > 0
+    assert "source_chunk_ids" not in book_body["data"]["chapters"][0]
 
     res_slide = client.get(f"/api/course/{course_id}/slide", headers=headers)
     assert res_slide.status_code == 200
-    assert len(res_slide.json()["slides"]) > 0
+    slide_body = res_slide.json()
+    assert slide_body["status"] == "ready"
+    assert len(slide_body["data"]["slides"]) > 0
+    assert "source_chunk_ids" not in slide_body["data"]["slides"][0]
 
     res_quiz = client.get(f"/api/course/{course_id}/quiz", headers=headers)
     assert res_quiz.status_code == 200
-    assert len(res_quiz.json()) > 0  # quiz endpoint returns list of questions
+    quiz_body = res_quiz.json()
+    assert quiz_body["status"] == "ready"
+    assert len(quiz_body["data"]) > 0  # quiz envelope data is the list of questions
+    assert "source_chunk_ids" not in quiz_body["data"][0]
 
     res_vid = client.get(f"/api/course/{course_id}/vid", headers=headers)
     assert res_vid.status_code == 200
@@ -180,3 +217,119 @@ def test_generation_api_endpoints_complete(client):
         assert res_dl.status_code == 200, f"Failed on {file_ep}: {res_dl.text}"
         assert len(res_dl.content) > 0
         assert content_type in res_dl.headers.get("content-type", "")
+
+    # Test health endpoints
+    res_h = client.get("/health")
+    assert res_h.status_code == 200
+    assert "ready" in res_h.json()
+    res_ah = client.get("/api/health")
+    assert res_ah.status_code == 200
+    assert "course_ids" in res_ah.json()
+
+
+
+    res_src = client.get(f"/documents/{course_id}/sources", headers=headers)
+    assert res_src.status_code == 200
+    assert "sources" in res_src.json()
+
+
+def test_book_generator_error_propagation():
+    """LLM failures during the multi-pass Book pipeline must record a real error status and
+    must NOT write a partial/placeholder book.json or book.pdf."""
+    from app.services.llm import LLMGenerationError
+
+    db = SessionLocal()
+    try:
+        course_id = "test_book_err"
+        course = Course(
+            id=course_id,
+            user_id="user_book_err",
+            filenames=["doc.pdf"],
+            status="ready",
+            stage="completed",
+            progress=100,
+            chunk_count=0,
+            embedding_status="completed",
+            quality_score=0,
+        )
+        db.add(course)
+        db.commit()
+    finally:
+        db.close()
+
+    vs = get_vector_store()
+    llm = LLMService()
+    gen = Generator(vs, llm)
+    art_dir = gen._get_artifact_dir(course_id)
+
+    def _raise(*args, **kwargs):
+        raise LLMGenerationError("boom")
+
+    # Case 1: outline call itself fails -> whole book aborts before any chapter work.
+    original_outline = llm.generate_book_outline
+    llm.generate_book_outline = _raise
+    try:
+        result = gen.generate_book(course_id=course_id, target_audience="Students")
+    finally:
+        llm.generate_book_outline = original_outline
+
+    assert result is None
+    assert not os.path.exists(os.path.join(art_dir, "book.json"))
+    assert not os.path.exists(os.path.join(art_dir, "book.pdf"))
+    status_info = gen.get_artifact_status(course_id, "book")
+    assert status_info["status"] == "error"
+    assert "boom" in status_info["error"]
+
+    # Case 2: outline succeeds (fallback), but every chapter call fails -> still a hard error.
+    original_chapter = llm.generate_book_chapter
+    llm.generate_book_chapter = _raise
+    try:
+        result2 = gen.generate_book(course_id=course_id, target_audience="Students")
+    finally:
+        llm.generate_book_chapter = original_chapter
+
+    assert result2 is None
+    assert not os.path.exists(os.path.join(art_dir, "book.json"))
+    assert not os.path.exists(os.path.join(art_dir, "book.pdf"))
+    status_info2 = gen.get_artifact_status(course_id, "book")
+    assert status_info2["status"] == "error"
+    assert "boom" in status_info2["error"]
+
+    vs.delete_course(course_id)
+
+
+def test_book_api_error_status_envelope(client, monkeypatch):
+    """GET /api/course/{id}/book must surface a real error via the status envelope when the
+    background generation job fails, instead of silently reporting readiness."""
+    from app.routers.generation import get_generator
+    from app.services.llm import LLMGenerationError
+
+    reg_data = {"email": "book_err_api@example.com", "password": "password123", "full_name": "Book Err User"}
+    res = client.post("/api/auth/register", json=reg_data)
+    if res.status_code != 201:
+        res = client.post("/api/auth/login", json={"email": "book_err_api@example.com", "password": "password123"})
+    token = res.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    files = [("files", ("book_err.pdf", b"Dummy doc content", "application/pdf"))]
+    res_upload = client.post("/api/upload", headers=headers, files=files)
+    assert res_upload.status_code == 201
+    course_id = res_upload.json()["course_id"]
+
+    generator = get_generator()
+
+    def _raise(*args, **kwargs):
+        raise LLMGenerationError("api-boom")
+
+    monkeypatch.setattr(generator.llm, "generate_book_outline", _raise)
+
+    res_gen = client.post(f"/api/generate-book?course_id={course_id}", headers=headers)
+    assert res_gen.status_code == 200, res_gen.text
+
+    res_book = client.get(f"/api/course/{course_id}/book", headers=headers)
+    assert res_book.status_code == 200
+    body = res_book.json()
+    assert body["status"] == "error"
+    assert "api-boom" in body["error"]
+    assert body["data"] is None
+

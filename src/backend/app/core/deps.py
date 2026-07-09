@@ -20,11 +20,11 @@ async def get_current_user(
     db: Session = Depends(get_db),
 ) -> User:
     """Dependency to authenticate and return the current active user."""
-    # Check Authorization header first, then HttpOnly cookie
+    # Check Authorization header first, then HttpOnly cookie, then query param token
     token = (
         credentials.credentials
         if credentials and credentials.credentials
-        else request.cookies.get(settings.AUTH_COOKIE_NAME)
+        else request.cookies.get(settings.AUTH_COOKIE_NAME) or request.query_params.get("token")
     )
 
     if not token:

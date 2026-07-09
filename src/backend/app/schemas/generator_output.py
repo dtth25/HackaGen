@@ -1,6 +1,6 @@
 """Pydantic schemas and quality scoring for AI Course Generator outputs."""
 
-from typing import Any, List, Tuple
+from typing import Any, List, Optional, Tuple
 from pydantic import BaseModel, Field
 
 
@@ -20,9 +20,11 @@ class BookChapter(BaseModel):
     """Chapter of the study guide."""
 
     chapter_title: str = Field(..., description="Title of the chapter")
+    introduction: str = Field("", description="Opening paragraph introducing the chapter")
     objectives: List[str] = Field(default_factory=list, description="Learning objectives")
     sections: List[BookSection] = Field(default_factory=list, description="Sections in this chapter")
     key_points: List[str] = Field(default_factory=list, description="Key takeaways")
+    review_questions: List[str] = Field(default_factory=list, description="Review/self-check questions")
     source_chunk_ids: List[str] = Field(
         default_factory=list, description="List of chunk IDs used for grounding this chapter"
     )
@@ -33,7 +35,46 @@ class BookOutput(BaseModel):
 
     title: str = Field(..., description="Overall title of the study guide")
     summary: str = Field(..., description="Executive summary of the course content")
+    preface: str = Field("", description="Foreword/preface introducing the book to the reader")
     chapters: List[BookChapter] = Field(default_factory=list, description="Chapters of the book")
+
+
+# =====================================================================
+# 1b. Book multi-pass pipeline (internal, never persisted as book.json)
+# =====================================================================
+
+
+class BookChapterPlan(BaseModel):
+    """Outline entry for a single planned chapter."""
+
+    chapter_number: int = Field(..., description="1-based chapter order")
+    chapter_title: str = Field(..., description="Chapter title, without a 'Chương N' prefix")
+    description: str = Field(..., description="2-3 sentence summary of what this chapter teaches")
+    retrieval_query: str = Field(..., description="Vietnamese search query used to retrieve context for this chapter")
+    planned_sections: List[str] = Field(default_factory=list, description="3-5 planned section headings")
+
+
+class BookOutline(BaseModel):
+    """High-level plan for the whole book, produced by the first LLM pass."""
+
+    title: str = Field(..., description="Overall title of the study guide")
+    summary: str = Field(..., description="Executive summary of the course content")
+    preface: str = Field(..., description="Foreword/preface, 200-350 words")
+    chapters: List[BookChapterPlan] = Field(default_factory=list, description="Planned chapters, 5-8 entries")
+
+
+class BookChapterContent(BaseModel):
+    """Full content for a single chapter, produced by a per-chapter LLM pass."""
+
+    chapter_title: str = Field(..., description="Title of the chapter")
+    introduction: str = Field("", description="Opening paragraph introducing the chapter")
+    objectives: List[str] = Field(default_factory=list, description="Learning objectives")
+    sections: List[BookSection] = Field(default_factory=list, description="Sections in this chapter")
+    key_points: List[str] = Field(default_factory=list, description="Key takeaways")
+    review_questions: List[str] = Field(default_factory=list, description="Review/self-check questions")
+    source_chunk_ids: List[str] = Field(
+        default_factory=list, description="List of chunk IDs used for grounding this chapter"
+    )
 
 
 # =====================================================================
@@ -46,8 +87,8 @@ class SlideItem(BaseModel):
 
     slide_number: int = Field(..., description="Sequential slide number")
     title: str = Field(..., description="Slide title")
+    layout_type: Optional[str] = Field("default", description="Slide layout: default, two_column, quote")
     bullet_points: List[str] = Field(default_factory=list, description="Concise bullet points on the slide")
-    speaker_notes: str = Field("", description="Detailed script/notes for the speaker")
     source_chunk_ids: List[str] = Field(
         default_factory=list, description="List of chunk IDs used for grounding this slide"
     )
@@ -77,6 +118,7 @@ class QuizQuestion(BaseModel):
 
     question_number: int = Field(..., description="Sequential question number")
     question_text: str = Field(..., description="The question text")
+    difficulty: Optional[str] = Field("Medium", description="Bloom taxonomy difficulty: Easy, Medium, Hard")
     options: List[QuizOption] = Field(default_factory=list, description="List of 4 choices (A, B, C, D)")
     correct_answer: str = Field(..., description="The correct option letter (A, B, C, or D)")
     explanation: str = Field("", description="Detailed explanation of why the answer is correct")
@@ -103,6 +145,9 @@ class VidScene(BaseModel):
     scene_number: int = Field(..., description="Sequential scene number")
     title: str = Field(..., description="Scene title or topic")
     duration_seconds: int = Field(..., description="Estimated duration in seconds")
+    camera_angle: Optional[str] = Field("Medium shot", description="Camera angle for the scene")
+    bgm_mood: Optional[str] = Field("Upbeat tech", description="Background music mood")
+    voice_style: Optional[str] = Field("Professional & clear", description="Voice-over style")
     narration: str = Field(..., description="Voice-over script / narration text")
     visual_cues: str = Field(..., description="Description of on-screen visuals, animations, or graphics")
     source_chunk_ids: List[str] = Field(
@@ -118,8 +163,10 @@ class VidOutput(BaseModel):
     scenes: List[VidScene] = Field(default_factory=list, description="List of video scenes")
 
 
+
+
 # =====================================================================
-# 5. Quality Scoring and Validation
+# 8. Quality Scoring and Validation
 # =====================================================================
 
 
@@ -144,10 +191,17 @@ def validate_and_score_output(
             warnings.append("Sách không có chương nào.")
             base_score -= 20
         else:
+            if not (4 <= len(data.chapters) <= 10):
+                warnings.append(f"Số chương ({len(data.chapters)}) nằm ngoài khoảng khuyến nghị 4-10.")
+                base_score -= 10
             grounded_items = 0
             for ch in data.chapters:
                 if not ch.chapter_title or not ch.sections:
                     warnings.append(f"Chương '{ch.chapter_title}' thiếu nội dung chi tiết.")
+                    base_score -= 5
+                word_count = len(ch.introduction.split()) + sum(len(s.content.split()) for s in ch.sections)
+                if word_count < 400:
+                    warnings.append(f"Chương '{ch.chapter_title}' quá ngắn ({word_count} từ).")
                     base_score -= 5
                 # Check grounding
                 if ch.source_chunk_ids:
@@ -212,6 +266,8 @@ def validate_and_score_output(
                     grounded_items += 1
             if len(data.scenes) > 0 and (grounded_items / len(data.scenes)) >= 0.8:
                 base_score += 10
+
+
 
     # Clamp score between 0 and 100
     quality_score = max(0, min(100, base_score))

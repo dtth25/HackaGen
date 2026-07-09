@@ -7,7 +7,7 @@ NotebookLM-clone, **chỉ** nhận Docs (`.pdf/.docx/.txt`) → xuất **Study P
 
 ## Stack (cách run đầy đủ: README.md)
 - **FE**: Next.js App Router (⚠️ bản mới nhiều breaking change — đọc `node_modules/next/dist/docs/` trước khi code Next), React 19, Tailwind v4 (CSS-first, token trong `globals.css` qua `@theme inline`), shadcn/base-ui, lucide. Dev: `npm run dev` trong `src/frontend`.
-- **BE**: FastAPI, Python 3.11+, LangChain, deps bằng `uv`. Chạy từ `src/`: `uv run --project backend uvicorn backend.main:app --reload --port 8000`.
+- **BE**: FastAPI, Python 3.11+, LangChain, deps bằng `uv`. Chạy từ `src/backend/`: `uv run --project . uvicorn main:app --reload --port 8000` (không cd lên `src` — `pyproject.toml` không có `[build-system]` nên `app.*` chỉ resolve đúng cwd).
 - **Vector DB**: Chroma local (`data/chroma/`, collection `ai_course_chunks`). FAISS chỉ là legacy.
 - **AI**: Gemini qua LangChain. **Flash mode** (`.env.flash.example`) = verify rẻ, tiết kiệm quota.
 - **Auth**: JWT bearer + HttpOnly cookie `agy_session`; user ownership + admin routes.
@@ -37,7 +37,7 @@ NotebookLM-clone, **chỉ** nhận Docs (`.pdf/.docx/.txt`) → xuất **Study P
 - **States dùng chung**: `EmptyState` / `ErrorState` (`components/ui/`). `EmptyState` có prop `expandable` (bật cho coming-soon, tắt cho CTA thật).
 
 ## Reality (2026-07) — đừng nhầm
-- **Book/Quiz/Vid = stub tĩnh**, CHƯA wire API dù `api.ts` đã có `apiGenerate/Get{Book,Quiz,Vid}`. Chỉ **SlideTab** có pipeline thật (generate/poll).
+- **Slide + Quiz = pipeline thật**. SlideTab: generate/poll → image viewer. QuizTab: picker (số câu + độ khó) → generate/poll → luyện tập tương tác (phản hồi ngay từng câu, chấm điểm client-side, tải answer-key PDF). **Book/Vid vẫn stub tĩnh**, CHƯA wire API dù `api.ts` đã có `apiGenerate/Get{Book,Vid}`.
 - FE đang **mixed** `@radix-ui/*` (accordion/progress/radio-group/separator) + `@base-ui/react` (còn lại) — chưa hợp nhất (deferred).
 
 ## How we work — Lead + Claude, không team giả

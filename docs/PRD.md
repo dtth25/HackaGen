@@ -1,8 +1,8 @@
 # Product Requirements Document: AI Course Generator
 
 ## 1. Product Soul
-- **Mục tiêu:** Biến một hoặc nhiều tài liệu PDF, DOCX, TXT thành một **Document-to-Study-Pack** có Study Guide/Book làm trung tâm, kèm Mindmap, Quiz, Flashcards, High-yield summary và các output trình bày như Slide/Vid.
-- **Giá trị cốt lõi:** Giảm thời gian đọc hiểu và tự động hệ thống hóa kiến thức thành artifact học tập có thể đọc, trình chiếu, luyện tập, ôn tập nhanh và xem dạng video.
+- **Mục tiêu:** Biến một hoặc nhiều tài liệu PDF, DOCX, TXT thành một **Document-to-Study-Pack** kết nối 4 học liệu cốt lõi: Book (Study Guide PDF), Slide, Quiz và Vid.
+- **Giá trị cốt lõi:** Giảm thời gian đọc hiểu và tự động hệ thống hóa kiến thức thành artifact học tập có thể đọc, trình chiếu, luyện tập và xem dạng video.
 - **Đối tượng:** Học sinh, giáo viên, người tự học và nhóm làm nội dung đào tạo.
 
 ## 2. Current Source of Truth
@@ -10,7 +10,7 @@ Code hiện tại là source of truth cho project. Các tài liệu phải bám 
 - **Frontend:** Next.js App Router, React 19, Tailwind CSS v4, shadcn/base-ui, lucide-react.
 - **Backend:** FastAPI, Python 3.11+, LangChain, dependency management bằng `uv`.
 - **Vector DB:** Chroma local persistent DB là provider bắt buộc cho local/dev hackathon demo. FAISS chỉ còn là legacy reference/test path, không phải provider chính.
-- **Persistence:** Local filesystem JSON/generated files: `books/`, `slides/`, `questions/`, `videos/`, `mindmaps/`, `flashcards/`, cùng Chroma data trong `data/chroma/`.
+- **Persistence:** Local filesystem JSON/generated files: `books/`, `slides/`, `questions/`, `videos/`, cùng Chroma data trong `data/chroma/`.
 - **AI:** Gemini qua LangChain Google GenAI. Model routing dùng các biến `GEMINI_*_MODEL`; Flash preset mặc định dùng `gemini-2.5-flash`. Embeddings dùng `GEMINI_EMBEDDING_MODEL`, legacy `EMBEDDING_MODEL=models/embedding-001` vẫn được hỗ trợ.
 - **Auth:** Auth v2 đã có trong code: Bearer JWT + HttpOnly cookie (`agy_session`), user ownership cho upload/generation/output, admin endpoints cho quản trị user.
 
@@ -25,8 +25,8 @@ Code hiện tại là source of truth cho project. Các tài liệu phải bám 
 8. User có thể tải Book PDF, Slide PPTX, Quiz answer-key PDF và Vid MP4 khi artifact đã tạo xong.
 
 ## 4. Non-Negotiable Constraints
-- **Connected Study Pack:** Public product là dashboard học tập kết nối gồm Study Guide/Book, Mindmap, Quiz, Flashcards, Summary, grounding/readiness và quality scores.
-- **Four Direct Generation Endpoints:** Các endpoint sinh output trực tiếp là Book, Slide, Quiz, Vid. Mindmap/Flashcards/Summary thuộc Study Pack/course-scoped endpoints, không phải chat/custom prompt tự do.
+- **Connected Study Pack:** Public product là dashboard học tập kết nối gồm Book (Study Guide PDF), Slide, Quiz, Vid, grounding/readiness và quality scores.
+- **Four Direct Generation Endpoints:** Các endpoint sinh output trực tiếp và duy nhất là Book, Slide, Quiz, Vid.
 - **No Additional Chats:** Không có chat tự do, custom prompt độc lập hoặc legacy output rời rạc ngoài hệ sinh thái Study Pack.
 - **No Raw Public Source Metadata:** Public generation responses không trả raw/internal `page`, `source`, `chunk_id`, `citations` hoặc debug markers. `source_chunk_ids` được giữ cho grounding, và source panel có thể hiển thị `page` + excerpt sạch theo API contract.
 - **Grounded Generation:** Output AI phải dựa trên chunks truy xuất từ Chroma/local vector index, sau bước lọc noisy/TOC/debug text.
@@ -35,13 +35,11 @@ Code hiện tại là source of truth cho project. Các tài liệu phải bám 
 - **File validation:** `/api/upload` chỉ nhận `.pdf`, `.docx`, `.txt`, không nhận file rỗng hoặc file quá 50MB mỗi file.
 
 ## 5. Public Product Surface
-- **Study Pack Dashboard:** Tổng hợp Study Guide/Book, Mindmap, Quiz, Flashcards, Summary, readiness, quality scores và grounding từ cùng một nguồn cấu trúc.
+- **Study Pack Dashboard:** Tổng hợp Book (Study Guide PDF), Slide, Quiz, Vid, readiness, quality scores và grounding từ cùng một nguồn cấu trúc.
 - **Book / Study Guide:** View theo chương/bài trên UI và file PDF tải xuống (endpoint sinh output trực tiếp `/api/generate-book`).
-- **Mindmap:** Sơ đồ 3-level interactive thuộc Study Pack (course-scoped), có quality gate riêng và có thể regenerate theo course (`GET`/`POST /api/course/{course_id}/mindmap...`, không có standalone generate endpoint riêng).
+- **Slide:** Viewer từng slide và file PPTX tải xuống (endpoint sinh output trực tiếp `/api/generate-slide`).
 - **Quiz:** Bộ câu hỏi MCQ tương tác (endpoint sinh output trực tiếp `/api/generate-quiz`); không hiện đáp án trước khi user nộp bài/review; có answer-key PDF tải xuống.
-- **Flashcards:** Deck ôn tập thuộc Study Pack (course-scoped), lấy từ book plan/saved flashcard deck hoặc regenerate theo course (không có standalone generate endpoint riêng).
-- **Summary:** High-yield summary thuộc Study Pack (course-scoped), không có legacy standalone generate endpoint.
-- **Slide & Vid:** Là các output bổ sung (optional/sau) nhưng đã có endpoint sinh output trực tiếp riêng (`/api/generate-slide` và `/api/generate-vid`); có tải xuống PPTX và MP4. Nếu render video lỗi phải trả trạng thái lỗi rõ ràng.
+- **Vid:** Video dạng slide + voiceover, metadata JSON và MP4 tải xuống (endpoint sinh output trực tiếp `/api/generate-vid`); nếu render video lỗi phải trả trạng thái lỗi rõ ràng.
 
 ## 6. Known Implementation Notes
 - API upload ưu tiên multipart field `files` cho multi-document; legacy field `file` vẫn được hỗ trợ.

@@ -60,8 +60,6 @@ export interface CourseStatusResponse {
   has_slide?: boolean;
   has_quiz?: boolean;
   has_vid?: boolean;
-  has_mindmap?: boolean;
-  has_flashcards?: boolean;
   error?: string;
 }
 
@@ -80,6 +78,138 @@ export interface UploadResponse {
 }
 
 // ============================================================
+// Generation & Artifact Types
+// ============================================================
+
+export interface GenerateRequest {
+  course_id?: string;
+  [key: string]: unknown;
+}
+
+export interface GenerateResponse {
+  course_id: string;
+  status?: string;
+  message?: string;
+  estimated_time?: string;
+}
+
+export interface BookSection {
+  title: string;
+  content: string;
+}
+
+export interface BookChapter {
+  chapter_title: string;
+  introduction?: string;
+  objectives?: string[];
+  sections: BookSection[];
+  key_points?: string[];
+  review_questions?: string[];
+  source_chunk_ids?: string[];
+}
+
+export interface BookOutput {
+  title: string;
+  summary: string;
+  preface?: string;
+  chapters: BookChapter[];
+  description?: string;
+  estimated_duration?: string;
+}
+
+export interface BookArtifactStatus {
+  status: "empty" | "processing" | "ready" | "error";
+  error?: string | null;
+  progress?: number | null;
+  data: BookOutput | null;
+}
+
+export interface SlideItem {
+  slide_number?: number;
+  title: string;
+  key_idea?: string;
+  content?: string | string[];
+  bullet_points?: string[];
+  example?: string;
+  layout_hint?: string;
+  layout_type?: string;
+  source_chunk_ids?: string[];
+}
+
+export interface SlidesOutput {
+  title: string;
+  slides: SlideItem[];
+  total_slides?: number;
+}
+
+export interface SlideArtifactStatus {
+  status: "empty" | "processing" | "ready" | "error";
+  error?: string | null;
+  progress?: number | null;
+  data: SlidesOutput | null;
+}
+
+export interface QuizOption {
+  key?: string;
+  text?: string;
+}
+
+export interface QuizQuestion {
+  question_number?: number;
+  question_text?: string;
+  question?: string;
+  options: (string | QuizOption)[];
+  correct_answer?: string;
+  correct?: number | string;
+  explanation?: string;
+  difficulty?: string;
+  question_type?: string;
+  source_chunk_ids?: string[];
+}
+
+export interface QuizOutput {
+  title: string;
+  questions: QuizQuestion[];
+  total_questions?: number;
+}
+
+export interface QuizArtifactStatus {
+  status: "empty" | "processing" | "ready" | "error";
+  error?: string | null;
+  progress?: number | null;
+  data: QuizQuestion[] | null;
+}
+
+export interface VidScene {
+  scene_number?: number;
+  scene_index?: number;
+  scene_type?: string;
+  title: string;
+  duration_seconds: number;
+  narration?: string;
+  voiceover?: string;
+  visual_cues?: string;
+  screen_text?: string;
+  key_message?: string;
+  visual_template?: string;
+  visual_data?: Record<string, unknown> | null;
+  animation_notes?: string;
+  camera_angle?: string;
+  bgm_mood?: string;
+  voice_style?: string;
+  source_chunk_ids?: string[];
+}
+
+export interface VidOutput {
+  title: string;
+  total_duration_seconds?: number;
+  scenes: VidScene[];
+  status?: string;
+  url?: string;
+  error?: string;
+}
+
+// ============================================================
 // Study Pack Types (for future use)
 // ============================================================
 
@@ -93,8 +223,6 @@ export interface StudyPackStats {
   has_quiz: boolean;
   has_quiz_answer_key: boolean;
   has_vid: boolean;
-  has_mindmap: boolean;
-  has_flashcards: boolean;
   quality_score?: number;
   num_chunks?: number;
 }
@@ -104,7 +232,8 @@ export interface StudyPackResponse {
   stats: StudyPackStats;
   study_pack: {
     title: string;
-    summary?: Array<{ topic: string; chapter: string; content: string }>;
+    book?: BookOutput;
+    quiz?: QuizQuestion[];
     readiness?: Record<string, boolean>;
     quality_scores?: Record<string, number>;
     grounding?: {

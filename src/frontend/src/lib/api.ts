@@ -1,4 +1,4 @@
-import { getAuthHeaders, removeToken } from "@/lib/auth";
+import { getAuthHeaders, removeToken, getToken } from "@/lib/auth";
 import type {
   AuthResponse,
   LoginRequest,
@@ -8,9 +8,19 @@ import type {
   UploadResponse,
   StudyPackResponse,
   User,
+  GenerateResponse,
+  BookArtifactStatus,
+  SlideArtifactStatus,
+  QuizArtifactStatus,
+  VidOutput,
 } from "@/lib/types";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+// Base URL for the FastAPI backend. Prefer the documented public env vars;
+// fall back to the conventional local/dev backend port.
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL ||
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  "http://localhost:8000";
 
 // ============================================================
 // Core Fetch Wrapper
@@ -191,4 +201,109 @@ export async function apiGetStudyPack(
   courseId: string
 ): Promise<StudyPackResponse> {
   return apiFetch<StudyPackResponse>(`/api/course/${courseId}/study-pack`);
+}
+
+// ============================================================
+// Generation & Artifact API
+// ============================================================
+
+export async function apiGenerateBook(
+  courseId: string,
+  params?: Record<string, unknown>
+): Promise<GenerateResponse> {
+  return apiFetch<GenerateResponse>("/api/generate-book", {
+    method: "POST",
+    body: JSON.stringify({ course_id: courseId, ...(params || {}) }),
+  });
+}
+
+export async function apiGenerateSlide(
+  courseId: string,
+  params?: Record<string, unknown>
+): Promise<GenerateResponse> {
+  return apiFetch<GenerateResponse>("/api/generate-slide", {
+    method: "POST",
+    body: JSON.stringify({ course_id: courseId, ...(params || {}) }),
+  });
+}
+
+export async function apiGenerateQuiz(
+  courseId: string,
+  params?: Record<string, unknown>
+): Promise<GenerateResponse> {
+  return apiFetch<GenerateResponse>("/api/generate-quiz", {
+    method: "POST",
+    body: JSON.stringify({ course_id: courseId, ...(params || {}) }),
+  });
+}
+
+export async function apiGenerateVid(
+  courseId: string,
+  params?: Record<string, unknown>
+): Promise<GenerateResponse> {
+  return apiFetch<GenerateResponse>("/api/generate-vid", {
+    method: "POST",
+    body: JSON.stringify({ course_id: courseId, ...(params || {}) }),
+  });
+}
+
+export async function apiGetBook(courseId: string): Promise<BookArtifactStatus> {
+  return apiFetch<BookArtifactStatus>(`/api/course/${courseId}/book`);
+}
+
+export async function apiGetSlide(courseId: string): Promise<SlideArtifactStatus> {
+  return apiFetch<SlideArtifactStatus>(`/api/course/${courseId}/slide`);
+}
+
+export async function apiGetQuiz(courseId: string): Promise<QuizArtifactStatus> {
+  return apiFetch<QuizArtifactStatus>(`/api/course/${courseId}/quiz`);
+}
+
+export async function apiGetVid(courseId: string): Promise<VidOutput | null> {
+  return apiFetch<VidOutput | null>(`/api/course/${courseId}/vid`);
+}
+
+// ============================================================
+// Download Helpers
+// ============================================================
+
+export function getDownloadBookUrl(courseId: string): string {
+  const token = getToken();
+  const suffix = token ? `?token=${encodeURIComponent(token)}` : "";
+  return `${API_BASE}/api/course/${courseId}/book.pdf${suffix}`;
+}
+
+export function getDownloadSlideUrl(courseId: string): string {
+  const token = getToken();
+  const suffix = token ? `?token=${encodeURIComponent(token)}` : "";
+  return `${API_BASE}/api/course/${courseId}/slide.pptx${suffix}`;
+}
+
+export function getDownloadSlidePdfUrl(courseId: string): string {
+  const token = getToken();
+  const suffix = token ? `?token=${encodeURIComponent(token)}` : "";
+  return `${API_BASE}/api/course/${courseId}/slide.pdf${suffix}`;
+}
+
+export function getDownloadQuizKeyUrl(courseId: string): string {
+  const token = getToken();
+  const suffix = token ? `?token=${encodeURIComponent(token)}` : "";
+  return `${API_BASE}/api/course/${courseId}/quiz-key.pdf${suffix}`;
+}
+
+export function getDownloadVidUrl(courseId: string): string {
+  const token = getToken();
+  const suffix = token ? `?token=${encodeURIComponent(token)}` : "";
+  return `${API_BASE}/api/course/${courseId}/vid/file${suffix}`;
+}
+
+export const getBookPdfUrl = getDownloadBookUrl;
+export const getSlidePptxUrl = getDownloadSlideUrl;
+export const getQuizKeyPdfUrl = getDownloadQuizKeyUrl;
+export const getVidFileUrl = getDownloadVidUrl;
+
+export function getSlideImageUrl(courseId: string, slideNum: number): string {
+  const token = getToken();
+  const suffix = token ? `?token=${encodeURIComponent(token)}` : "";
+  return `${API_BASE}/api/course/${courseId}/slide-images/${slideNum}${suffix}`;
 }

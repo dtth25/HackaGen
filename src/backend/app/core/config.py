@@ -2,6 +2,7 @@
 
 import logging
 import sys
+from pathlib import Path
 from typing import List, Union
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -12,12 +13,16 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 
+# Single source of truth: the .env at the project root, regardless of the process cwd.
+# (config.py -> core -> app -> backend -> src -> project root)
+_ROOT_ENV_FILE = str(Path(__file__).resolve().parents[4] / ".env")
+
 
 class Settings(BaseSettings):
     """Core application settings with strict startup validation."""
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=_ROOT_ENV_FILE,
         env_file_encoding="utf-8",
         case_sensitive=True,
         extra="ignore",
@@ -39,6 +44,9 @@ class Settings(BaseSettings):
     )
     UPLOAD_DIR: str = Field(
         default="uploads", description="Directory for storing uploaded files"
+    )
+    OUTPUT_DIR: str = Field(
+        default="outputs", description="Directory for storing generated outputs"
     )
     JWT_EXPIRE_MINUTES: int = Field(
         default=10080,

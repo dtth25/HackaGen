@@ -2,7 +2,7 @@
 
 Contract này bám theo routes hiện tại trong `src/backend/main.py`.
 
-Product surface hiện tại là **Document-to-Study-Pack**: user upload tài liệu và xem một dashboard học tập gồm Study Guide PDF, mindmap, quiz, flashcards, high-yield summary và grounding. Để giữ tương thích demo, public generation endpoints là **Book/Study Guide, Slide, Quiz, Vid**; flashcards/summary không có endpoint generate riêng mà được assemble từ cùng Study Guide/book plan, quiz và stats trong endpoint Study Pack. Mindmap có endpoint generate/regenerate riêng (`GET`/`POST /api/course/{course_id}/mindmap...`, xem mục 3.1) vì nó cần một pipeline chuyên biệt (clean chunks -> book plan -> mindmap JSON) và một quality gate riêng.
+Product surface hiện tại là **Document-to-Study-Pack**: user upload tài liệu và xem một dashboard học tập kết nối 4 học liệu cốt lõi: Book (Study Guide PDF), Slide, Quiz, Vid và grounding. Public generation endpoints là **Book/Study Guide, Slide, Quiz, Vid**.
 
 ## 1. Health & Management
 
@@ -212,40 +212,6 @@ Response:
 }
 ```
 
-### 3.1 `GET /api/course/{course_id}/mindmap` / `POST /api/course/{course_id}/mindmap/regenerate`
-
-Returns the 3-level interactive mindmap. `GET` reads the saved mindmap JSON if present, otherwise assembles it from the saved book plan (`ResourceGenerator.build_mindmap_from_book`, no LLM call). `POST .../regenerate` always rebuilds: it prefers a fresh LLM pass over clean retrieved chunks (`MINDMAP_GENERATION_PROMPT`), falling back to the book plan and then to a shallow 1-2 level fallback mindmap if context is insufficient. Both persist to `paths["mindmap"]` on disk. Neither takes a request body.
-
-Response:
-
-```json
-{
-  "document_id": "abc123def456",
-  "title": "string",
-  "description": "short overview",
-  "root": {
-    "id": "root", "title": "string", "summary": "string",
-    "type": "root", "importance": "high",
-    "source_chunk_ids": [], "children": ["ch_0", "ch_1"]
-  },
-  "nodes": [
-    {
-      "id": "ch_0", "parent_id": "root", "title": "string", "summary": "string",
-      "type": "chapter", "importance": "high", "keywords": [],
-      "source_chunk_ids": [], "children": ["les_0_0"]
-    }
-  ],
-  "edges": [{ "from": "root", "to": "ch_0", "relation": "contains" }],
-  "quality_report": { "score": 92, "is_usable": true, "warnings": [] }
-}
-```
-
-Notes:
-- `node.children` is an array of **ID strings** referencing entries in the flat `nodes` array (not embedded objects) — the frontend resolves them via a `nodeById` map.
-- `type` is one of `chapter | lesson | concept | method | formula | example | warning | exercise` (plus `root` for the root node); `relation` is one of `contains | explains | depends_on | example_of | contrasts_with | leads_to`.
-- `quality_report` uses `is_usable` (not `is_university_ready` like Book/Slide/Quiz) — the frontend handles this naming difference explicitly.
-- Also reachable via `POST /api/course/{course_id}/generate-fallback` with `fallback_type` in `shallow_mindmap`/`mindmap`/`shallow_concept_map` for a low-context, grounded-but-limited mindmap.
-
 ### `POST /api/generate-slide`
 
 Request:
@@ -261,14 +227,13 @@ Request:
 Response fields: `course_id`, `topic`, `total_slides`, `slides`, `pptx_url`.
 
 `slides[]` public fields:
+- `slide_number`: sequential slide number.
 - `title`: slide title.
-- `key_idea` (optional): one short sentence for the slide's main idea.
-- `content`: 2-4 short bullets or compact text.
-- `example` (optional): short example/data point.
-- `note` (optional): short teaching note.
-- `layout_hint` (optional): renderer hint.
-- `visual_type` (optional): `tree_mex`, `knapsack`, `grid`, `counting_modulo`, `summary`, `lesson_map`, `code`, `graph`, `dp`, `process`, `timeline`, `comparison`, `table`, or `concept`.
-- `image_suggestion` (optional): human-readable visual direction.
+- `layout_type` (optional): `default`, `two_column`, or `quote`.
+- `bullet_points`: concise bullet points on the slide.
+- `source_chunk_ids`: internal grounding chunk ids (not shown raw to end users).
+
+Note: teaching/speaker notes and graphic-design hints are intentionally NOT part of the slide output — slides are rendered as clean 16:9 artifacts with no meta-instruction text.
 
 ### `POST /api/generate-quiz`
 
@@ -325,6 +290,7 @@ Metadata video có thể gồm: `quality_report`, `transcript`, `subtitles_srt`,
 - `GET /api/course/{course_id}/book.pdf`
 - `GET /api/course/{course_id}/slide`
 - `GET /api/course/{course_id}/slide.pptx`
+- `GET /api/course/{course_id}/slide.pdf`
 - `GET /api/course/{course_id}/quiz`
 - `GET /api/course/{course_id}/quiz-key.pdf`
 - `GET /api/course/{course_id}/vid`
@@ -335,9 +301,7 @@ Metadata video có thể gồm: `quality_report`, `transcript`, `subtitles_srt`,
 
 ### `GET /api/course/{course_id}/study-pack`
 
-Returns the connected document dashboard. This endpoint does not create a separate AI output; it reads saved Study Guide/book, quiz and course stats, then derives dashboard-ready mindmap, flashcards, summary, readiness and quality scores from the same structured source.
-
-`study_pack.mindmap` is the same full 3-level schema described in [3.1](#get-apicoursecourse_idmindmap--post-apicoursecourse_idmindmapregenerate) (`root`/`nodes`/`edges`/`quality_report`), not a stub — shown abbreviated below.
+Returns the connected document dashboard. This endpoint does not create a separate AI output; it reads saved Study Guide/book, slide, quiz, vid and course stats, then derives dashboard-ready readiness and quality scores from the same structured source.
 
 ```json
 {
@@ -345,24 +309,21 @@ Returns the connected document dashboard. This endpoint does not create a separa
   "stats": {},
   "study_pack": {
     "title": "string",
-    "summary": [],
-    "mindmap": { "document_id": "string", "title": "string", "root": {}, "nodes": [], "edges": [], "quality_report": {} },
-    "flashcards": [],
     "book": {},
+    "slides": [],
     "quiz": [],
+    "vid": {},
     "readiness": {
       "study_guide_pdf": true,
-      "mindmap": true,
+      "slides": true,
       "quiz": true,
-      "flashcards": true,
-      "summary": true
+      "vid": true
     },
     "quality_scores": {
       "study_guide_pdf": 90,
-      "mindmap": 88,
+      "slides": 88,
       "quiz": 92,
-      "flashcards": 89,
-      "summary": 88
+      "vid": 89
     },
     "grounding": {
       "num_chunks": 120,
@@ -381,7 +342,7 @@ Các route output cũ không còn là public API và phải trả 404 nếu gọ
 - `/api/generate-course`
 - `/api/generate-summary`
 - `/api/generate-flashcards`
-- `/api/generate-mindmap` (this legacy flat-generate route form never existed for mindmap; the real, current mindmap endpoints are `GET`/`POST /api/course/{course_id}/mindmap...`, see 3.1)
+- `/api/generate-mindmap`
 - `/api/generate-podcast/{course_id}`
 - `/api/generate-study-guide/{course_id}`
 - mọi async generation route cũ

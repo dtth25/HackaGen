@@ -1,17 +1,443 @@
-import { BookOpen } from "lucide-react";
+"use client";
 
-export function BookTab() {
-  return (
-    <div className="flex flex-col items-center justify-center py-24 text-center">
-      <div className="rounded-2xl bg-primary/5 p-5 mb-5">
-        <BookOpen className="h-12 w-12 text-primary" />
+import { useEffect, useRef, useState } from "react";
+import {
+  BookOpen,
+  Sparkles,
+  RefreshCw,
+  Download,
+  ChevronLeft,
+  ChevronRight,
+  ListChecks,
+  Target,
+  Star,
+  HelpCircle,
+} from "lucide-react";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ErrorState } from "@/components/ui/error-state";
+import { cn } from "@/lib/utils";
+import { apiGetBook, apiGenerateBook, getDownloadBookUrl } from "@/lib/api";
+import type { BookOutput } from "@/lib/types";
+
+interface BookTabProps {
+  courseId: string;
+}
+
+const AUDIENCE_OPTIONS = ["Sinh viên đại học", "Học sinh phổ thông", "Người đi làm"];
+
+function paragraphsOf(text?: string): string[] {
+  return (text || "")
+    .split(/\n\n+/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+}
+
+export function BookTab({ courseId }: BookTabProps) {
+  const [book, setBook] = useState<BookOutput | null>(null);
+  const [hasFetched, setHasFetched] = useState(false);
+  const [isFetching, setIsFetching] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [activeIdx, setActiveIdx] = useState(-1); // -1 = "Giới thiệu" pane
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  // Generation config
+  const [audience, setAudience] = useState(AUDIENCE_OPTIONS[0]);
+  const [userPrompt, setUserPrompt] = useState("");
+
+  const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const loading = isFetching || (!hasFetched && !error);
+
+  const startPolling = (startedAt: number) => {
+    const TIMEOUT_MS = 6 * 60 * 1000;
+    const POLL_MS = 3000;
+
+    const poll = async () => {
+      try {
+        const res = await apiGetBook(courseId);
+        if (res.status === "ready" && res.data && res.data.chapters?.length > 0) {
+          setBook(res.data);
+          setActiveIdx(-1);
+          setHasFetched(true);
+          setGenerating(false);
+          setProgress(100);
+          return;
+        }
+        if (res.status === "error") {
+          setError(res.error || "Tạo sách ôn tập thất bại.");
+          setGenerating(false);
+          return;
+        }
+        if (typeof res.progress === "number") setProgress(res.progress);
+      } catch {
+        // Ignore transient errors while the background job is still running.
+      }
+      if (Date.now() - startedAt > TIMEOUT_MS) {
+        setError("Quá trình tạo sách ôn tập mất nhiều thời gian hơn dự kiến. Vui lòng thử làm mới lại sau.");
+        setGenerating(false);
+        return;
+      }
+      pollTimer.current = setTimeout(poll, POLL_MS);
+    };
+
+    pollTimer.current = setTimeout(poll, POLL_MS);
+  };
+
+  useEffect(() => {
+    if (hasFetched) return;
+    apiGetBook(courseId)
+      .then((res) => {
+        if (res.status === "ready" && res.data) {
+          setBook(res.data);
+          setActiveIdx(-1);
+        } else if (res.status === "processing") {
+          setGenerating(true);
+          setProgress(res.progress ?? 5);
+          startPolling(Date.now());
+        } else if (res.status === "error") {
+          setError(res.error || "Tạo sách ôn tập thất bại.");
+        }
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : "Không thể tải sách ôn tập."))
+      .finally(() => setHasFetched(true));
+
+    return () => {
+      if (pollTimer.current) clearTimeout(pollTimer.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [courseId, hasFetched]);
+
+  const handleRefresh = async () => {
+    setIsFetching(true);
+    setError(null);
+    try {
+      const res = await apiGetBook(courseId);
+      if (res.status === "ready" && res.data) {
+        setBook(res.data);
+        setActiveIdx(-1);
+      } else if (res.status === "error") {
+        setError(res.error || "Tạo sách ôn tập thất bại.");
+      } else {
+        setBook(null);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không thể tải sách ôn tập.");
+    } finally {
+      setIsFetching(false);
+    }
+  };
+
+  const handleGenerate = async () => {
+    setGenerating(true);
+    setError(null);
+    setProgress(5);
+    try {
+      await apiGenerateBook(courseId, { target_audience: audience, user_prompt: userPrompt });
+      startPolling(Date.now());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Bắt đầu tạo sách ôn tập thất bại.");
+      setGenerating(false);
+    }
+  };
+
+  // The backend persists a hard "error" status from the last generation attempt, so a plain
+  // refetch would just surface the same error forever — retrying must kick off a new job.
+  const handleRetryAfterError = () => {
+    setError(null);
+    handleGenerate();
+  };
+
+  // ---------- Loading ----------
+  if (loading) {
+    return (
+      <div className="space-y-6 py-6 animate-pulse">
+        <Skeleton className="h-8 w-64 rounded-xl" />
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          <div className="lg:col-span-1 space-y-3">
+            {[1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} className="h-10 w-full rounded-xl" />
+            ))}
+          </div>
+          <div className="lg:col-span-3 space-y-4">
+            <Skeleton className="h-40 w-full rounded-2xl" />
+            <Skeleton className="h-64 w-full rounded-2xl" />
+          </div>
+        </div>
       </div>
-      <h3 className="text-xl font-semibold text-foreground">
-        Tài liệu học tập
-      </h3>
-      <p className="mt-2 text-muted-foreground max-w-md">
-        Tạo tài liệu học tập chi tiết từ nội dung khóa học — Sắp ra mắt
-      </p>
+    );
+  }
+
+  // ---------- Error ----------
+  if (error) {
+    return <ErrorState title="Lỗi tạo sách ôn tập" description={error} onRetry={handleRetryAfterError} retryLabel="Thử tạo lại" />;
+  }
+
+  // ---------- Empty: config + generate ----------
+  if (!book || !book.chapters || book.chapters.length === 0) {
+    return (
+      <EmptyState
+        icon={BookOpen}
+        title="Chưa có sách ôn tập"
+        description="Hệ thống sẽ tổng hợp tài liệu của bạn thành một cuốn sách ôn tập ngắn gọn, có mục lục và các chương rõ ràng để tự học hoặc giảng dạy."
+        badge=""
+      >
+        <div className="w-full max-w-md space-y-5 rounded-2xl border bg-card/40 p-5 text-left shadow-[var(--shadow-xs)]">
+          <div className="space-y-2">
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Đối tượng học viên
+            </span>
+            <div className="grid grid-cols-1 gap-2">
+              {AUDIENCE_OPTIONS.map((opt) => (
+                <button
+                  key={opt}
+                  onClick={() => setAudience(opt)}
+                  disabled={generating}
+                  className={cn(
+                    "rounded-lg border py-2 text-sm font-semibold transition-colors",
+                    audience === opt
+                      ? "border-primary bg-primary/10 text-primary shadow-[var(--shadow-xs)]"
+                      : "border-border/60 text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                  )}
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Yêu cầu bổ sung (tuỳ chọn)
+            </span>
+            <textarea
+              value={userPrompt}
+              onChange={(e) => setUserPrompt(e.target.value)}
+              disabled={generating}
+              placeholder="Ví dụ: tập trung vào chương 2-4, thêm nhiều ví dụ thực tế…"
+              rows={3}
+              className="w-full resize-none rounded-lg border border-border/60 bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none"
+            />
+          </div>
+
+          {generating ? (
+            <div className="space-y-2">
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full bg-primary transition-all"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+              <Button disabled size="lg" className="w-full gap-2 font-semibold">
+                <RefreshCw className="h-5 w-5 animate-spin" /> Đang biên soạn sách ({progress}%)…
+              </Button>
+            </div>
+          ) : (
+            <Button onClick={handleGenerate} size="lg" className="w-full gap-2 font-semibold">
+              <Sparkles className="h-5 w-5" /> Tạo sách ôn tập
+            </Button>
+          )}
+        </div>
+      </EmptyState>
+    );
+  }
+
+  // ---------- Reader ----------
+  const chapters = book.chapters;
+  const total = chapters.length;
+  const activeChapter = activeIdx >= 0 ? chapters[activeIdx] : null;
+
+  return (
+    <div className="space-y-6 animate-in fade-in-50">
+      {/* Header bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border bg-card/40 p-5 shadow-[var(--shadow-xs)]">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="rounded-xl bg-primary/10 p-2 text-primary shrink-0">
+            <BookOpen className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-xl font-semibold tracking-tight text-foreground truncate">
+              {book.title}
+            </h2>
+            <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
+              <Badge variant="secondary" className="font-medium">
+                {total} chương
+              </Badge>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <a
+            href={getDownloadBookUrl(courseId)}
+            target="_blank"
+            rel="noopener noreferrer"
+            download
+            className={buttonVariants({ variant: "outline", className: "gap-1.5" })}
+          >
+            <Download className="h-4 w-4" /> Tải PDF
+          </a>
+          <Button variant="outline" size="icon" onClick={handleRefresh} title="Tải lại sách">
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Chapter rail */}
+        {!isExpanded && (
+          <div className="lg:col-span-1 space-y-3">
+            <span className="flex items-center gap-1.5 px-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              <ListChecks className="h-3.5 w-3.5" /> Mục lục
+            </span>
+            <div className="space-y-1.5">
+              <button
+                onClick={() => setActiveIdx(-1)}
+                className={cn(
+                  "block w-full rounded-lg border px-3 py-2 text-left text-sm font-medium transition-all",
+                  activeIdx === -1
+                    ? "border-primary bg-primary/10 text-primary ring-2 ring-primary/40"
+                    : "border-border/60 bg-card text-muted-foreground hover:border-primary/40"
+                )}
+              >
+                Giới thiệu
+              </button>
+              {chapters.map((ch, i) => (
+                <button
+                  key={i}
+                  onClick={() => setActiveIdx(i)}
+                  className={cn(
+                    "block w-full rounded-lg border px-3 py-2 text-left text-sm font-medium transition-all",
+                    activeIdx === i
+                      ? "border-primary bg-primary/10 text-primary ring-2 ring-primary/40"
+                      : "border-border/60 bg-card text-muted-foreground hover:border-primary/40"
+                  )}
+                >
+                  <span className="mr-1.5 text-xs text-muted-foreground">{i + 1}.</span>
+                  {ch.chapter_title}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Reading pane */}
+        <div className={cn(isExpanded ? "lg:col-span-4" : "lg:col-span-3", "space-y-4")}>
+          <div className="rounded-2xl border bg-card p-6 lg:p-8 shadow-[var(--shadow-sm)]">
+            {activeChapter ? (
+              <>
+                <h3 className="text-2xl font-bold tracking-tight text-foreground">
+                  Chương {activeIdx + 1}: {activeChapter.chapter_title}
+                </h3>
+                {activeChapter.introduction && (
+                  <p className="mt-4 text-[15px] leading-7 text-foreground/90">
+                    {activeChapter.introduction}
+                  </p>
+                )}
+                {activeChapter.objectives && activeChapter.objectives.length > 0 && (
+                  <div className="mt-5 rounded-xl border border-primary/20 bg-primary/5 p-4">
+                    <p className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-primary">
+                      <Target className="h-3.5 w-3.5" /> Mục tiêu học tập
+                    </p>
+                    <ul className="space-y-1 text-sm text-foreground/90">
+                      {activeChapter.objectives.map((obj, i) => (
+                        <li key={i}>✔ {obj}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {activeChapter.sections.map((sec, i) => (
+                  <div key={i} className="mt-6">
+                    <h4 className="text-lg font-semibold text-foreground">{sec.title}</h4>
+                    {paragraphsOf(sec.content).map((p, j) => (
+                      <p key={j} className="mt-3 text-[15px] leading-7 text-foreground/90">
+                        {p}
+                      </p>
+                    ))}
+                  </div>
+                ))}
+
+                {activeChapter.key_points && activeChapter.key_points.length > 0 && (
+                  <div className="mt-6 rounded-xl border border-warning/30 bg-warning/5 p-4">
+                    <p className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-warning">
+                      <Star className="h-3.5 w-3.5" /> Điểm cốt lõi
+                    </p>
+                    <ul className="space-y-1 text-sm text-foreground/90">
+                      {activeChapter.key_points.map((pt, i) => (
+                        <li key={i}>★ {pt}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {activeChapter.review_questions && activeChapter.review_questions.length > 0 && (
+                  <div className="mt-6 rounded-xl border bg-muted/40 p-4">
+                    <p className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      <HelpCircle className="h-3.5 w-3.5" /> Câu hỏi ôn tập
+                    </p>
+                    <ol className="list-decimal space-y-1.5 pl-4 text-sm text-foreground/90">
+                      {activeChapter.review_questions.map((q, i) => (
+                        <li key={i}>{q}</li>
+                      ))}
+                    </ol>
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <h3 className="text-2xl font-bold tracking-tight text-foreground">{book.title}</h3>
+                {book.preface &&
+                  paragraphsOf(book.preface).map((p, i) => (
+                    <p key={i} className="mt-4 text-[15px] leading-7 text-foreground/90">
+                      {p}
+                    </p>
+                  ))}
+                <div className="mt-6 rounded-xl border bg-muted/40 p-4">
+                  <p className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    Tóm tắt nội dung
+                  </p>
+                  <p className="text-sm leading-relaxed text-foreground/90">{book.summary}</p>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Nav bar */}
+          <div className="flex items-center justify-between rounded-xl border bg-card/60 p-4 shadow-[var(--shadow-xs)]">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsExpanded((v) => !v)}
+                className="gap-1.5 text-xs font-semibold"
+              >
+                {isExpanded ? "Hiện mục lục" : "Mở rộng"}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setActiveIdx((prev) => Math.max(-1, prev - 1))}
+                disabled={activeIdx <= -1}
+                className="gap-1 text-xs font-medium"
+              >
+                <ChevronLeft className="h-4 w-4" /> Trước
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setActiveIdx((prev) => Math.min(total - 1, prev + 1))}
+                disabled={activeIdx >= total - 1}
+                className="gap-1 text-xs font-medium"
+              >
+                Sau <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
