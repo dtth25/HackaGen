@@ -24,7 +24,7 @@ export function QualityScoreBadge({
         )}
       >
         <Award className="h-3.5 w-3.5" />
-        <span>Chuẩn đại học • {score}/100</span>
+        <span>Chất lượng cao • {score}/100</span>
       </span>
     );
   }

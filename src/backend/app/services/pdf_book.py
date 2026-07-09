@@ -119,7 +119,7 @@ def build_book_pdf(file_path: str, book: BookOutput) -> None:
     story.append(Paragraph(_esc(book.title), cover_title_style))
     story.append(Paragraph("SÁCH ÔN TẬP — TÀI LIỆU HỌC TẬP RÚT GỌN", cover_sub_style))
     story.append(Spacer(1, 140))
-    story.append(Paragraph("Biên soạn bởi AI Course Generator", cover_meta_style))
+    story.append(Paragraph("Biên soạn bởi HackaGen", cover_meta_style))
     story.append(Paragraph(f"Ngày xuất bản: {datetime.now().strftime('%d/%m/%Y')}", cover_meta_style))
     story.append(PageBreak())
 

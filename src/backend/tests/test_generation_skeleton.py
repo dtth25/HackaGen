@@ -64,7 +64,10 @@ def test_generate_endpoints_queued(client):
         assert data_q["course_id"] == course_id
         assert data_q["status"] == "queued"
         assert data_q["message"] == "Generation started..."
-        assert data_q["estimated_time"] == "2 minutes"
+        # Vid renders real TTS+ffmpeg media, so it advertises a longer estimate than the
+        # single-LLM-call Book/Slide/Quiz artifacts.
+        expected_time = "3-5 minutes" if ep == "/api/generate-vid" else "2 minutes"
+        assert data_q["estimated_time"] == expected_time
 
         # Test with JSON body
         res_body = client.post(ep, headers=headers, json={"course_id": course_id})
@@ -87,10 +90,10 @@ def test_artifact_retrieval_null_and_empty(client):
     assert res_slide.status_code == 200, res_slide.text
     assert res_slide.json() == {"status": "empty", "error": None, "progress": None, "data": None}
 
-    # vid -> return null (envelope not yet applied to vid endpoint)
+    # vid -> status envelope with empty status and null data
     res_vid = client.get(f"/api/course/{course_id}/vid", headers=headers)
     assert res_vid.status_code == 200, res_vid.text
-    assert res_vid.json() is None, f"Expected None/null for vid, got {res_vid.json()}"
+    assert res_vid.json() == {"status": "empty", "error": None, "progress": None, "data": None}
 
     # quiz -> status envelope with empty status and null data
     res_quiz = client.get(f"/api/course/{course_id}/quiz", headers=headers)
@@ -105,7 +108,8 @@ def test_download_endpoints_404_vietnamese(client):
         ("/book.pdf", "Chưa có file PDF cho tài liệu này."),
         ("/slide.pptx", "Chưa có file bài giảng PPTX cho tài liệu này."),
         ("/quiz-key.pdf", "Chưa có file đáp án trắc nghiệm PDF cho tài liệu này."),
-        ("/vid/file", "Chưa có file video cho tài liệu này."),
+        ("/vid.mp4", "Chưa có file video cho tài liệu này."),
+        ("/vid/file", "Chưa có bản lời thoại (transcript) cho video này."),
     ]
 
     for path_suffix, expected_msg in downloads:

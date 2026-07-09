@@ -13,8 +13,8 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "AI Course Generator",
-    template: "%s — AI Course Generator",
+    default: "HackaGen",
+    template: "%s — HackaGen",
   },
   description:
     "Biến tài liệu của bạn thành bộ học liệu hoàn chỉnh với AI — tài liệu, slide, bài kiểm tra và video.",

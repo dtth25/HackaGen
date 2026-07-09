@@ -348,48 +348,52 @@ class LLMService:
         return self._call_gemini_strict(prompt, QuizOutput, _fallback, _quiz_max_tokens(quantity))
 
     def generate_vid(
-        self, context: str, topic: str = "AI Video", duration: int = 300, valid_chunk_ids: List[str] = None
+        self,
+        context: str,
+        topic: str = "AI Video",
+        fmt: str = "standard",
+        user_prompt: str = "",
+        valid_chunk_ids: List[str] = None,
     ) -> VidOutput:
-        """Generate Video Script from RAG context."""
-        prompt = self._load_prompt("vid.txt", topic=topic, duration=duration, context=context)
+        """Generate a narrated Video script (minimal on-frame text, voice-led) from RAG context."""
+        from app.services.video_render import scene_count_hint
+
+        prompt = self._load_prompt(
+            "vid.txt",
+            topic=topic,
+            user_prompt=user_prompt or "(không có)",
+            scene_hint=scene_count_hint(fmt),
+            context=context,
+        )
         cids = valid_chunk_ids or ["chunk_1"]
 
         def _fallback():
             return VidOutput(
-                title=f"Kịch Bản Video: {topic}",
-                total_duration_seconds=duration,
+                title=f"Video: {topic}",
+                total_duration_seconds=0,
                 scenes=[
                     VidScene(
                         scene_number=1,
-                        title="Giới thiệu mở đầu",
-                        duration_seconds=60,
-                        camera_angle="Wide shot",
-                        bgm_mood="Upbeat tech",
-                        voice_style="Energetic & engaging",
-                        narration=f"Chào mừng các bạn đến với bài học video ngắn về {topic}. Hôm nay chúng ta sẽ khám phá các khái niệm nền tảng.",
-                        visual_cues="Màn hình hiển thị tiêu đề khóa học với animation đồ họa hiện đại, hình nền chủ đề công nghệ AI.",
+                        title="Giới thiệu",
+                        on_screen_text=topic,
+                        duration_seconds=0,
+                        narration=f"Chào mừng các bạn đến với video ngắn về {topic}. Hôm nay chúng ta sẽ cùng khám phá những khái niệm nền tảng nhất trong tài liệu này.",
                         source_chunk_ids=cids,
                     ),
                     VidScene(
                         scene_number=2,
                         title="Nội dung cốt lõi",
-                        duration_seconds=180,
-                        camera_angle="Screen capture",
-                        bgm_mood="Dramatic focus",
-                        voice_style="Professional & clear",
-                        narration="Như trong tài liệu đã chỉ ra, cấu trúc của hệ thống dựa trên việc thu thập dữ liệu và huấn luyện mô hình toán học.",
-                        visual_cues="Hiển thị sơ đồ kiến trúc mạng thần kinh, các mũi tên chuyển động thể hiện luồng dữ liệu truyền qua các layer.",
+                        on_screen_text="",
+                        duration_seconds=0,
+                        narration="Như tài liệu đã chỉ ra, cấu trúc của hệ thống dựa trên việc thu thập dữ liệu và huấn luyện mô hình theo từng bước rõ ràng.",
                         source_chunk_ids=cids,
                     ),
                     VidScene(
                         scene_number=3,
-                        title="Tổng kết và ôn tập",
-                        duration_seconds=60,
-                        camera_angle="Medium shot",
-                        bgm_mood="Calm & inspiring",
-                        voice_style="Warm & conversational",
-                        narration="Tóm lại, chúng ta vừa tìm hiểu nguyên lý cơ bản và ứng dụng. Hãy làm bài tập trắc nghiệm tiếp theo để củng cố kiến thức.",
-                        visual_cues="Màn hình tóm tắt 3 ý chính dạng bullet points, biểu tượng checklist tích xanh.",
+                        title="Tổng kết",
+                        on_screen_text="",
+                        duration_seconds=0,
+                        narration="Tóm lại, chúng ta vừa tìm hiểu nguyên lý cơ bản và ứng dụng thực tế. Hãy ôn lại phần Quiz để củng cố kiến thức nhé.",
                         source_chunk_ids=cids,
                     ),
                 ],

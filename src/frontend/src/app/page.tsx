@@ -11,7 +11,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { RedirectIfAuthed } from "@/components/auth/RedirectIfAuthed";
 
 export const metadata: Metadata = {
-  title: "AI Course Generator — Biến tài liệu thành bộ học liệu AI",
+  title: "HackaGen — Biến tài liệu thành bộ học liệu AI",
   description:
     "Tự động biến tài liệu PDF, DOCX, TXT thành tài liệu học tập, slide, bài kiểm tra và video với AI.",
 };

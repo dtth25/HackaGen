@@ -1,4 +1,4 @@
-"""Generation Service router for AI Course Generator."""
+"""Generation Service router for HackaGen."""
 
 import os
 from typing import Any, Optional
@@ -183,18 +183,21 @@ def generate_vid(
     req: Optional[VidGenerateRequest] = None,
     course_id: Optional[str] = Query(None),
     topic: Optional[str] = Query(None),
-    duration_minutes: Optional[int] = Query(None),
+    format: Optional[str] = Query(None),
+    voice: Optional[str] = Query(None),
+    user_prompt: Optional[str] = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Any:
-    """Trigger background generation for Video artifact."""
+    """Trigger background generation for the narrated Video artifact."""
     course = resolve_and_validate_course(req, course_id, current_user, db)
     t = (req and req.topic) or topic
-    dm = (req and req.duration_minutes) or duration_minutes or 5
-    duration_sec = dm * 60
+    fmt = (req and req.format) or format or "standard"
+    v = (req and req.voice) or voice or "female"
+    up = (req and req.user_prompt) or user_prompt or ""
     generator = get_generator()
-    background_tasks.add_task(generator.generate_vid, course.id, topic=t, duration=duration_sec)
-    return GenerateResponse(course_id=course.id)
+    background_tasks.add_task(generator.generate_vid, course.id, topic=t, fmt=fmt, voice=v, user_prompt=up)
+    return GenerateResponse(course_id=course.id, estimated_time="3-5 minutes")
 
 
 # =====================================================================
@@ -300,10 +303,27 @@ def get_vid(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Any:
-    """Retrieve Video artifact JSON (returns null if not generated yet)."""
+    """Retrieve Video artifact status envelope: {status, error, progress, data}.
+
+    status is one of "empty" | "processing" | "ready" | "error". `data` never leaks
+    raw source_chunk_ids (grounding metadata), matching the no-raw-metadata invariant.
+    """
     get_valid_course(course_id, current_user, db)
     generator = get_generator()
-    return generator._load_artifact_json(course_id, "vid.json")
+    data = generator._load_artifact_json(course_id, "vid.json")
+    info = generator.get_artifact_status(course_id, "vid")
+    status_val = info.get("status") or ("ready" if data else "empty")
+    if status_val == "ready" and data is None:
+        status_val = "empty"
+    if data:
+        for sc in data.get("scenes", []):
+            sc.pop("source_chunk_ids", None)
+    return {
+        "status": status_val,
+        "error": info.get("error"),
+        "progress": info.get("progress"),
+        "data": data,
+    }
 
 
 # =====================================================================
@@ -418,25 +438,69 @@ def download_quiz_key_pdf(
     )
 
 
-@router_single.get("/{course_id}/vid/file")
-@router.get("/{course_id}/vid/file")
-def download_vid_file(
+@router_single.get("/{course_id}/vid.mp4")
+@router.get("/{course_id}/vid.mp4")
+def download_vid_mp4(
     course_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Any:
-    """Download Video Script file."""
+    """Download/stream the narrated Video MP4 (FileResponse supports Range for <video> seeking)."""
     get_valid_course(course_id, current_user, db)
-    file_path = os.path.join(settings.UPLOAD_DIR, course_id, "artifacts", "vid_script.txt")
+    file_path = os.path.join(settings.UPLOAD_DIR, course_id, "artifacts", "vid.mp4")
     if os.path.exists(file_path):
         return FileResponse(
             file_path,
-            media_type="text/plain",
-            filename=f"vid_script_{course_id}.txt",
+            media_type="video/mp4",
+            filename=f"video_{course_id}.mp4",
         )
     raise HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,
         detail="Chưa có file video cho tài liệu này.",
+    )
+
+
+@router_single.get("/{course_id}/vid/file")
+@router.get("/{course_id}/vid/file")
+def download_vid_transcript(
+    course_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Any:
+    """Download the Video narration transcript (.txt)."""
+    get_valid_course(course_id, current_user, db)
+    file_path = os.path.join(settings.UPLOAD_DIR, course_id, "artifacts", "transcript.txt")
+    if os.path.exists(file_path):
+        return FileResponse(
+            file_path,
+            media_type="text/plain",
+            filename=f"transcript_{course_id}.txt",
+        )
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="Chưa có bản lời thoại (transcript) cho video này.",
+    )
+
+
+@router_single.get("/{course_id}/vid.srt")
+@router.get("/{course_id}/vid.srt")
+def download_vid_srt(
+    course_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Any:
+    """Download the Video subtitle file (.srt)."""
+    get_valid_course(course_id, current_user, db)
+    file_path = os.path.join(settings.UPLOAD_DIR, course_id, "artifacts", "vid.srt")
+    if os.path.exists(file_path):
+        return FileResponse(
+            file_path,
+            media_type="application/x-subrip",
+            filename=f"video_{course_id}.srt",
+        )
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="Chưa có file phụ đề cho video này.",
     )
 
 

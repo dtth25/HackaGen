@@ -1,4 +1,4 @@
-"""Pydantic schemas and quality scoring for AI Course Generator outputs."""
+"""Pydantic schemas and quality scoring for HackaGen outputs."""
 
 from typing import Any, List, Optional, Tuple
 from pydantic import BaseModel, Field
@@ -151,16 +151,17 @@ class QuizOutput(BaseModel):
 
 
 class VidScene(BaseModel):
-    """Single video scene."""
+    """Single video scene. Frames stay text-minimal (heading + optional short keyword line) —
+    the narration (spoken by TTS) carries the actual content, matching the NotebookLM-style
+    "voice-led, uncluttered frame" aesthetic rather than dense on-screen bullet text."""
 
     scene_number: int = Field(..., description="Sequential scene number")
-    title: str = Field(..., description="Scene title or topic")
-    duration_seconds: int = Field(..., description="Estimated duration in seconds")
-    camera_angle: Optional[str] = Field("Medium shot", description="Camera angle for the scene")
-    bgm_mood: Optional[str] = Field("Upbeat tech", description="Background music mood")
-    voice_style: Optional[str] = Field("Professional & clear", description="Voice-over style")
-    narration: str = Field(..., description="Voice-over script / narration text")
-    visual_cues: str = Field(..., description="Description of on-screen visuals, animations, or graphics")
+    title: str = Field(..., description="Short on-screen heading for the scene (<=6 words)")
+    on_screen_text: Optional[str] = Field(
+        "", description="Optional short keyword/phrase shown on screen (<=8 words), may be empty"
+    )
+    narration: str = Field(..., description="Voice-over script / narration text, spoken naturally")
+    duration_seconds: int = Field(0, description="Actual scene duration in seconds, filled in from TTS audio length")
     source_chunk_ids: List[str] = Field(
         default_factory=list, description="List of chunk IDs used for grounding this scene"
     )
@@ -270,8 +271,8 @@ def validate_and_score_output(
         else:
             grounded_items = 0
             for sc in data.scenes:
-                if not sc.narration or not sc.visual_cues:
-                    warnings.append(f"Phân cảnh {sc.scene_number} thiếu lời đọc hoặc mô tả hình ảnh.")
+                if not sc.narration or len(sc.narration.split()) < 5:
+                    warnings.append(f"Phân cảnh {sc.scene_number} thiếu lời đọc hoặc quá ngắn.")
                     base_score -= 5
                 if sc.source_chunk_ids:
                     grounded_items += 1

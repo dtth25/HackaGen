@@ -105,3 +105,12 @@ def prepare_pdf_plain_text(text: Optional[str]) -> str:
     via ReportLab canvas methods (e.g. `canvas.drawString`) rather than through a `Paragraph`,
     which don't parse markup and would render escaped entities like `&amp;` literally."""
     return _clean_and_filter(text)
+
+
+def get_vietnamese_ttf_path() -> Optional[str]:
+    """Return the filesystem path of the registered Vietnamese-capable TTF (if any) — the same
+    font file register_vietnamese_fonts() wired into ReportLab. Lets other renderers (e.g.
+    Pillow, which needs a raw font path rather than a registered ReportLab font name) draw the
+    same glyph set instead of re-implementing the candidate search."""
+    register_vietnamese_fonts()
+    return _registered_ttf_path

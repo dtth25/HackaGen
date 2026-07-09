@@ -1,7 +1,7 @@
 [project]
-name = "rag-learning-assistant"
+name = "hackagen-backend"
 version = "3.0.0"
-description = "RAG Learning Assistant API - AI Course Generator"
+description = "HackaGen API - Document-to-Study-Pack backend"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.109.0,<1.0.0",
@@ -23,6 +23,8 @@ dependencies = [
     "reportlab>=4.0.0",
     "python-pptx>=0.6.21",
     "fonttools>=4.0.0",
+    "edge-tts>=7.2.1",
+    "imageio-ffmpeg>=0.5.0",
 ]
 
 [project.optional-dependencies]

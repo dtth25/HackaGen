@@ -262,12 +262,12 @@ function parseUtcDate(dateStr: string): Date {
 
 function formatExactTime(dateStr: string): string {
   const date = parseUtcDate(dateStr);
-  const mm = String(date.getMonth() + 1).padStart(2, "0");
   const dd = String(date.getDate()).padStart(2, "0");
-  const yy = String(date.getFullYear()).slice(-2);
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const yyyy = date.getFullYear();
   const hh = String(date.getHours()).padStart(2, "0");
   const min = String(date.getMinutes()).padStart(2, "0");
-  return `${mm}${dd}${yy} ${hh}${min}`;
+  return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
 }
 
 function formatTimeAgo(dateStr: string): string {

@@ -10,7 +10,7 @@ export default function AuthLayout({
       <div className="hidden md:flex md:w-[35%] lg:w-[30%] flex-col items-center justify-center bg-primary p-8 text-primary-foreground">
         <Link href="/" className="flex items-center gap-3 mb-6">
           <BookOpen className="h-10 w-10" />
-          <span className="text-2xl font-bold">ACG</span>
+          <span className="text-2xl font-bold">HackaGen</span>
         </Link>
         <p className="text-center text-lg font-medium leading-relaxed opacity-90">
           Biến tài liệu thành
@@ -29,7 +29,7 @@ export default function AuthLayout({
               className="flex items-center gap-2 text-foreground"
             >
               <BookOpen className="h-8 w-8 text-primary" />
-              <span className="text-xl font-bold">AI Course Generator</span>
+              <span className="text-xl font-bold">HackaGen</span>
             </Link>
           </div>
           {children}

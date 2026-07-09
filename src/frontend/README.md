@@ -1,4 +1,4 @@
-# AI Course Generator Frontend
+# HackaGen Frontend
 
 Frontend này là Next.js App Router app cho Document-to-Study-Pack flow. README root ở `../../README.md` là runbook chính để setup cả backend và frontend từ máy sạch; file này chỉ ghi các lệnh frontend cần nhớ.
 

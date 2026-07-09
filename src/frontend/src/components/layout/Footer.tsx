@@ -5,7 +5,7 @@ export function Footer() {
   return (
     <footer className="border-t bg-background">
       <div className={cn(CONTAINER_WIDE, "py-6 text-center text-sm text-muted-foreground")}>
-        © {new Date().getFullYear()} AI Course Generator
+        © {new Date().getFullYear()} HackaGen
       </div>
     </footer>
   );

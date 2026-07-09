@@ -38,14 +38,13 @@ class QuizGenerateRequest(BaseModel):
 
 
 class VidGenerateRequest(BaseModel):
-    """Request payload for generating Video Script."""
+    """Request payload for generating narrated Video."""
 
     course_id: Optional[str] = None
     topic: Optional[str] = "AI Video"
-    duration_minutes: Optional[int] = 5
-    learning_mode: Optional[str] = "normal"
-    video_renderer: Optional[str] = "simple_templates"
-    allow_renderer_fallback: Optional[bool] = True
+    format: Optional[str] = "standard"  # "standard" | "overview" | "shorts"
+    voice: Optional[str] = "female"  # "female" | "male"
+    user_prompt: Optional[str] = ""
 
 
 class GenerateResponse(BaseModel):

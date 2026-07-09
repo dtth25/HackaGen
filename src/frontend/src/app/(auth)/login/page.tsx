@@ -30,8 +30,8 @@ export default function LoginPage() {
     }
     if (!password) {
       newErrors.password = "Vui lòng nhập mật khẩu.";
-    } else if (password.length < 8) {
-      newErrors.password = "Mật khẩu phải có ít nhất 8 ký tự.";
+    } else if (password.length < 4) {
+      newErrors.password = "Mật khẩu phải có ít nhất 4 ký tự.";
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -98,7 +98,7 @@ export default function LoginPage() {
           <Input
             id="password"
             type="password"
-            placeholder="Ít nhất 8 ký tự"
+            placeholder="Ít nhất 4 ký tự"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             aria-invalid={!!errors.password}

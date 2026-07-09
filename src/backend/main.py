@@ -15,9 +15,9 @@ from app.services.vector_store import get_vector_store
 START_TIME = time.time()
 
 app = FastAPI(
-    title="AI Course Generator API",
+    title="HackaGen API",
     version="3.0.0",
-    description="RAG Learning Assistant API - Core Infrastructure & Auth",
+    description="HackaGen API - Core Infrastructure & Auth",
 )
 
 # Configure CORS (CRITICAL)
@@ -82,7 +82,7 @@ async def general_exception_handler(
 @app.get("/", tags=["root"])
 def root():
     """Health check endpoint."""
-    return {"status": "ok", "service": "AI Course Generator API v3.0.0"}
+    return {"status": "ok", "service": "HackaGen API v3.0.0"}
 
 
 @app.get("/health", tags=["health"])
@@ -135,7 +135,7 @@ def api_health_check():
 
     return {
         "status": "ok",
-        "service": "AI Course Generator API v3.0.0",
+        "service": "HackaGen API v3.0.0",
         "courses": course_ids,
         "course_ids": course_ids,
     }

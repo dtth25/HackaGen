@@ -1,4 +1,4 @@
-# CLAUDE.md — AI Course Generator
+# CLAUDE.md — HackaGen
 
 > Auto-load mỗi session. Giữ NGẮN — đây là nguồn context duy nhất. Runbook chi tiết ở [`README.md`](./README.md).
 

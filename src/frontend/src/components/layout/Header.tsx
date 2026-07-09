@@ -48,8 +48,8 @@ export function Header() {
           className="flex items-center gap-2 font-bold text-lg text-foreground hover:opacity-80 transition-opacity"
         >
           <BookOpen className="h-6 w-6 text-primary" />
-          <span className="hidden sm:inline">AI Course Generator</span>
-          <span className="sm:hidden">ACG</span>
+          <span className="hidden sm:inline">HackaGen</span>
+          <span className="sm:hidden">HackaGen</span>
         </Link>
 
         <nav className="hidden md:flex items-center gap-2">

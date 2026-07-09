@@ -183,32 +183,24 @@ export interface QuizArtifactStatus {
 }
 
 export interface VidScene {
-  scene_number?: number;
-  scene_index?: number;
-  scene_type?: string;
+  scene_number: number;
   title: string;
+  on_screen_text?: string;
+  narration: string;
   duration_seconds: number;
-  narration?: string;
-  voiceover?: string;
-  visual_cues?: string;
-  screen_text?: string;
-  key_message?: string;
-  visual_template?: string;
-  visual_data?: Record<string, unknown> | null;
-  animation_notes?: string;
-  camera_angle?: string;
-  bgm_mood?: string;
-  voice_style?: string;
-  source_chunk_ids?: string[];
 }
 
 export interface VidOutput {
   title: string;
   total_duration_seconds?: number;
   scenes: VidScene[];
-  status?: string;
-  url?: string;
-  error?: string;
+}
+
+export interface VidArtifactStatus {
+  status: "empty" | "processing" | "ready" | "error";
+  error?: string | null;
+  progress?: number | null;
+  data: VidOutput | null;
 }
 
 // ============================================================

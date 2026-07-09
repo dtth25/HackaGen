@@ -52,7 +52,7 @@ def test_llm_service_and_prompts():
     assert quiz.questions[0].correct_answer in ["A", "B", "C", "D"]
     assert len(quiz.questions[0].source_chunk_ids) > 0
 
-    vid = llm.generate_vid(context=context, topic="AI", duration=180, valid_chunk_ids=valid_cids)
+    vid = llm.generate_vid(context=context, topic="AI", fmt="overview", user_prompt="", valid_chunk_ids=valid_cids)
     assert vid.title != ""
     assert len(vid.scenes) > 0
     assert len(vid.scenes[0].source_chunk_ids) > 0
@@ -96,7 +96,7 @@ def test_generator_all_artifacts_and_validation(client):
     book_out = gen.generate_book(course_id=course_id, detail_level="Tiêu chuẩn")
     slides_out = gen.generate_slides(course_id=course_id, topic="AI", num_slides=3)
     quiz_out = gen.generate_quiz(course_id=course_id, topic="AI", quantity=3)
-    vid_out = gen.generate_vid(course_id=course_id, topic="AI", duration=180)
+    vid_out = gen.generate_vid(course_id=course_id, topic="AI", fmt="overview")
     assert book_out is not None
     assert book_out.title != ""
     assert book_out.preface != ""
@@ -107,7 +107,10 @@ def test_generator_all_artifacts_and_validation(client):
 
     # Verify filesystem storage
     art_dir = gen._get_artifact_dir(course_id)
-    for fname in ["book.json", "book.pdf", "slides.json", "slide.pptx", "quiz.json", "quiz-key.pdf", "vid.json", "vid_script.txt"]:
+    for fname in [
+        "book.json", "book.pdf", "slides.json", "slide.pptx", "quiz.json", "quiz-key.pdf",
+        "vid.json", "vid.mp4", "transcript.txt", "vid.srt",
+    ]:
         fpath = os.path.join(art_dir, fname)
         assert os.path.exists(fpath), f"Expected file {fname} to exist at {fpath}"
         assert os.path.getsize(fpath) > 0, f"File {fname} is empty"
@@ -204,13 +207,17 @@ def test_generation_api_endpoints_complete(client):
 
     res_vid = client.get(f"/api/course/{course_id}/vid", headers=headers)
     assert res_vid.status_code == 200
-    assert len(res_vid.json()["scenes"]) > 0
+    vid_body = res_vid.json()
+    assert vid_body["status"] == "ready"
+    assert len(vid_body["data"]["scenes"]) > 0
+    assert "source_chunk_ids" not in vid_body["data"]["scenes"][0]
 
     # Verify download endpoints return 200 OK with file content
     for file_ep, content_type in [
         ("/book.pdf", "application/pdf"),
         ("/slide.pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation"),
         ("/quiz-key.pdf", "application/pdf"),
+        ("/vid.mp4", "video/mp4"),
         ("/vid/file", "text/plain"),
     ]:
         res_dl = client.get(f"/api/course/{course_id}{file_ep}", headers=headers)

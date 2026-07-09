@@ -1,4 +1,4 @@
-# Product Requirements Document: AI Course Generator
+# Product Requirements Document: HackaGen
 
 ## 1. Product Soul
 - **Mục tiêu:** Biến một hoặc nhiều tài liệu PDF, DOCX, TXT thành một **Document-to-Study-Pack** kết nối 4 học liệu cốt lõi: Book (Study Guide PDF), Slide, Quiz và Vid.

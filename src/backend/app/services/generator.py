@@ -45,12 +45,13 @@ def _clean_slides_output(deck: SlidesOutput) -> SlidesOutput:
 
 
 def _clean_vid_output(vid: VidOutput) -> VidOutput:
-    """Normalize LLM-authored prose (strip LaTeX/Markdown) in-place across a video script."""
+    """Normalize LLM-authored prose (strip LaTeX/Markdown) in-place across a video script.
+    Frames are rasterized (like Slides), so this stays the only cleanup pass before render."""
     vid.title = clean_text(vid.title)
     for sc in vid.scenes:
         sc.title = clean_text(sc.title)
+        sc.on_screen_text = clean_text(sc.on_screen_text or "")
         sc.narration = clean_text(sc.narration)
-        sc.visual_cues = clean_text(sc.visual_cues)
     return vid
 
 
@@ -384,26 +385,16 @@ class Generator:
                 f.write(f"Quiz Key Placeholder for {quiz_data.title}")
             return file_path
 
-    def _generate_vid_file(self, course_id: str, vid_data: VidOutput) -> str:
-        """Generate Video Script file with camera angle, bgm mood, and voice style."""
-        file_path = os.path.join(self._get_artifact_dir(course_id), "vid_script.txt")
-        try:
-            lines = [f"VIDEO SCRIPT: {vid_data.title}", f"Total Duration: {vid_data.total_duration_seconds}s\n"]
-            for sc in vid_data.scenes:
-                lines.append(f"--- Scene {sc.scene_number}: {sc.title} ({sc.duration_seconds}s) ---")
-                camera = getattr(sc, "camera_angle", "Medium shot") or "Medium shot"
-                bgm = getattr(sc, "bgm_mood", "Upbeat tech") or "Upbeat tech"
-                voice = getattr(sc, "voice_style", "Professional & clear") or "Professional & clear"
-                lines.append(f"[Camera Angle: {camera} | BGM Mood: {bgm} | Voice Style: {voice}]")
-                lines.append(f"Narration: {sc.narration}")
-                lines.append(f"Visuals: {sc.visual_cues}\n")
-            with open(file_path, "w", encoding="utf-8") as f:
-                f.write("\n".join(lines))
-            logger.info(f"Generated Video Script file at {file_path}")
-            return file_path
-        except Exception as e:
-            logger.error(f"Error generating Video Script file: {e}")
-            return file_path
+    def _generate_video_mp4(
+        self, course_id: str, vid_data: VidOutput, fmt: str, voice: str, progress_cb=None
+    ) -> str:
+        """Render the narrated MP4 (TTS + still frames + ffmpeg concat) plus transcript.txt /
+        vid.srt. Raises on failure — callers must treat that as a hard generation error, not
+        write a placeholder file in its place (matches the strict invariant used by Book's PDF)."""
+        from app.services.video_render import assemble_video
+
+        artifact_dir = self._get_artifact_dir(course_id)
+        return assemble_video(vid_data, fmt, voice, artifact_dir, progress_cb=progress_cb)
 
     def _update_course_metadata(self, course_id: str, artifact_type: str, score: int, db_session_factory=None):
         """Update course metadata_json and readiness flags in database."""
@@ -699,26 +690,47 @@ class Generator:
             )
             return None
 
-    def generate_vid(self, course_id: str, topic: str = "AI Video", duration: int = 300, db_session_factory=None, **kwargs) -> Optional[VidOutput]:
-        """Execute full generation pipeline for Video Script.
+    def generate_vid(
+        self,
+        course_id: str,
+        topic: str = "AI Video",
+        fmt: str = "standard",
+        voice: str = "female",
+        user_prompt: str = "",
+        db_session_factory=None,
+        **kwargs,
+    ) -> Optional[VidOutput]:
+        """Execute full generation pipeline for the narrated Video: LLM script (1 call) ->
+        per-scene TTS narration + still frame -> ffmpeg mux/concat into vid.mp4.
 
         On any failure, records an "error" artifact status and returns None instead of
         letting a background-task exception vanish silently.
         """
-        logger.info(f"Starting Video Script generation for course {course_id}")
+        logger.info(f"Starting Video generation for course {course_id} (format={fmt}, voice={voice})")
         try:
             self._set_artifact_status(course_id, "vid", "processing", progress=10, db_session_factory=db_session_factory)
             resolved_topic = self._resolve_topic(course_id, topic, db_session_factory=db_session_factory)
             context, valid_chunk_ids = self._retrieve_context(course_id, query=resolved_topic)
-            raw_output = self._llm_for("vid").generate_vid(context, resolved_topic, duration, valid_chunk_ids)
+            raw_output = self._llm_for("vid").generate_vid(
+                context, resolved_topic, fmt, user_prompt, valid_chunk_ids
+            )
             validated_output, score, warnings = validate_and_score_output(raw_output, "vid", valid_chunk_ids)
             if warnings:
                 logger.warning(f"Vid generation warnings for {course_id}: {warnings}")
             validated_output = _clean_vid_output(validated_output)
 
-            self._set_artifact_status(course_id, "vid", "processing", progress=70, db_session_factory=db_session_factory)
+            self._set_artifact_status(course_id, "vid", "processing", progress=25, db_session_factory=db_session_factory)
+
+            def _progress_cb(fraction: float) -> None:
+                self._set_artifact_status(
+                    course_id, "vid", "processing", progress=25 + int(60 * fraction),
+                    db_session_factory=db_session_factory,
+                )
+
+            self._generate_video_mp4(course_id, validated_output, fmt, voice, progress_cb=_progress_cb)
+
+            self._set_artifact_status(course_id, "vid", "processing", progress=90, db_session_factory=db_session_factory)
             self._save_artifact_json(course_id, "vid.json", validated_output)
-            self._generate_vid_file(course_id, validated_output)
             self._update_course_metadata(course_id, "vid", score, db_session_factory)
             self._set_artifact_status(course_id, "vid", "ready", progress=100, db_session_factory=db_session_factory)
             return validated_output

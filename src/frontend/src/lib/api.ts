@@ -12,7 +12,7 @@ import type {
   BookArtifactStatus,
   SlideArtifactStatus,
   QuizArtifactStatus,
-  VidOutput,
+  VidArtifactStatus,
 } from "@/lib/types";
 
 // Base URL for the FastAPI backend. Prefer the documented public env vars;
@@ -45,7 +45,10 @@ async function apiFetch<T>(
     credentials: "include",
   });
 
-  if (response.status === 401) {
+  const isAuthEndpoint =
+    path === "/api/auth/login" || path === "/api/auth/register";
+
+  if (response.status === 401 && !isAuthEndpoint) {
     removeToken();
     if (typeof window !== "undefined") {
       window.location.href = "/login";
@@ -269,8 +272,8 @@ export async function apiGetQuiz(courseId: string): Promise<QuizArtifactStatus> 
   return apiFetch<QuizArtifactStatus>(`/api/course/${courseId}/quiz`);
 }
 
-export async function apiGetVid(courseId: string): Promise<VidOutput | null> {
-  return apiFetch<VidOutput | null>(`/api/course/${courseId}/vid`);
+export async function apiGetVid(courseId: string): Promise<VidArtifactStatus> {
+  return apiFetch<VidArtifactStatus>(`/api/course/${courseId}/vid`);
 }
 
 // ============================================================
@@ -301,10 +304,22 @@ export function getDownloadQuizKeyUrl(courseId: string): string {
   return `${API_BASE}/api/course/${courseId}/quiz-key.pdf${suffix}`;
 }
 
+export function getDownloadVidMp4Url(courseId: string): string {
+  const token = getToken();
+  const suffix = token ? `?token=${encodeURIComponent(token)}` : "";
+  return `${API_BASE}/api/course/${courseId}/vid.mp4${suffix}`;
+}
+
 export function getDownloadVidUrl(courseId: string): string {
   const token = getToken();
   const suffix = token ? `?token=${encodeURIComponent(token)}` : "";
   return `${API_BASE}/api/course/${courseId}/vid/file${suffix}`;
+}
+
+export function getDownloadVidSrtUrl(courseId: string): string {
+  const token = getToken();
+  const suffix = token ? `?token=${encodeURIComponent(token)}` : "";
+  return `${API_BASE}/api/course/${courseId}/vid.srt${suffix}`;
 }
 
 export const getBookPdfUrl = getDownloadBookUrl;
