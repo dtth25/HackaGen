@@ -67,7 +67,7 @@ def _friendly_gemini_error(exc: Exception) -> str:
 class LLMService:
     """Service wrapper for Google Gemini API."""
 
-    def __init__(self, model: str = "gemini-2.5-flash", api_key: Optional[str] = None):
+    def __init__(self, model: str = "gemini-3.5-flash", api_key: Optional[str] = None):
         self.model_name = model
         self.client = None
         self._init_client(api_key)
@@ -107,10 +107,15 @@ class LLMService:
         fallback_fn: Callable[[], Any],
         max_output_tokens: int,
         attempts: int = 2,
+        thinking_budget: int = 0,
     ) -> Any:
         """Call Gemini with structured output; raise LLMGenerationError instead of silently
         falling back once a real client is configured. Still uses the fallback in offline/mock
-        mode (self.client is None) so tests stay green."""
+        mode (self.client is None) so tests stay green.
+
+        thinking_budget=0 disables reasoning (fast, default for most calls); -1 enables
+        dynamic thinking (Gemini decides how much to reason) for higher-stakes, longer-form
+        calls like Book outline/chapter generation, at the cost of extra output tokens/latency."""
         if not self.client:
             return fallback_fn()
 
@@ -127,7 +132,7 @@ class LLMService:
                         response_schema=schema_model,
                         temperature=0.2,
                         max_output_tokens=max_output_tokens,
-                        thinking_config=types.ThinkingConfig(thinking_budget=0),
+                        thinking_config=types.ThinkingConfig(thinking_budget=thinking_budget),
                     ),
                 )
                 if not response or not response.text:
@@ -143,6 +148,33 @@ class LLMService:
                 time.sleep(2)
 
         raise LLMGenerationError(_friendly_gemini_error(last_error) if last_error else "Gemini generation failed.")
+
+    def ocr_page_image(self, image_bytes: bytes) -> str:
+        """Best-effort OCR: send a rendered PDF page image to Gemini vision and return the
+        transcribed plain text. Returns '' in offline/mock mode or on any failure — callers
+        fall back to whatever text extraction already produced."""
+        if not self.client:
+            return ""
+        try:
+            from google.genai import types
+
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=[
+                    types.Part.from_bytes(data=image_bytes, mime_type="image/png"),
+                    "Trích xuất toàn bộ văn bản có thể đọc được trong ảnh này, giữ nguyên thứ tự đọc tự nhiên. "
+                    "Chỉ trả về văn bản thuần, không thêm giải thích hay định dạng markdown.",
+                ],
+                config=types.GenerateContentConfig(
+                    temperature=0.0,
+                    max_output_tokens=4096,
+                    thinking_config=types.ThinkingConfig(thinking_budget=0),
+                ),
+            )
+            return (response.text or "").strip() if response else ""
+        except Exception as e:
+            logger.warning(f"OCR page image call failed: {e}")
+            return ""
 
     def generate_course_title(self, context: str) -> CourseTitleOutput:
         """Generate a short, human-friendly course title from a sample of extracted document text."""
@@ -201,7 +233,7 @@ class LLMService:
                 chapters=chapters,
             )
 
-        return self._call_gemini_strict(prompt, BookOutline, _fallback, BOOK_OUTLINE_MAX_TOKENS)
+        return self._call_gemini_strict(prompt, BookOutline, _fallback, BOOK_OUTLINE_MAX_TOKENS, thinking_budget=-1)
 
     def generate_book_chapter(
         self,
@@ -264,7 +296,7 @@ class LLMService:
                 source_chunk_ids=cids[:2],
             )
 
-        return self._call_gemini_strict(prompt, BookChapterContent, _fallback, BOOK_CHAPTER_MAX_TOKENS)
+        return self._call_gemini_strict(prompt, BookChapterContent, _fallback, BOOK_CHAPTER_MAX_TOKENS, thinking_budget=-1)
 
     def generate_slides(
         self, context: str, topic: str = "AI Overview", num_slides: int = 15, valid_chunk_ids: List[str] = None

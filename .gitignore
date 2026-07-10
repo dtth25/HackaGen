@@ -106,6 +106,7 @@ desktop.ini
 # Generated runtime outputs (bổ sung)
 src/data/chroma/
 data/chroma/
+src/backend/test_chroma_tmp/
 
 # Local databases (SQLite dev DB, Chroma store)
 *.db
@@ -125,8 +126,9 @@ BRIEFING.md
 # Agent workspace
 .agents/
 
-# Prompt engineering (nội bộ)
-prompts/
+# Prompt engineering (nội bộ) — chỉ thư mục ở root, KHÔNG khớp
+# src/backend/app/prompts/ (LLM template thật, backend cần lúc runtime)
+/prompts/
 
 # Docker override
 docker-compose.override.yml

@@ -1,5 +1,7 @@
 """Automated tests for Generation Service Skeleton (Checkpoint 6)."""
 
+from app.services.generator import MAX_REGENERATIONS
+
 
 def get_auth_headers_and_course(client, email: str = "gen_user@example.com"):
     """Register/login user and create an uploaded course."""
@@ -80,25 +82,30 @@ def test_generate_endpoints_queued(client):
 def test_artifact_retrieval_null_and_empty(client):
     headers, course_id = get_auth_headers_and_course(client, "retrieve@example.com")
 
+    empty_envelope = {
+        "status": "empty", "error": None, "progress": None, "data": None,
+        "regen_used": 0, "regen_max": MAX_REGENERATIONS,
+    }
+
     # book -> status envelope with empty status and null data
     res_book = client.get(f"/api/course/{course_id}/book", headers=headers)
     assert res_book.status_code == 200, res_book.text
-    assert res_book.json() == {"status": "empty", "error": None, "progress": None, "data": None}
+    assert res_book.json() == empty_envelope
 
     # slide -> status envelope with empty status and null data
     res_slide = client.get(f"/api/course/{course_id}/slide", headers=headers)
     assert res_slide.status_code == 200, res_slide.text
-    assert res_slide.json() == {"status": "empty", "error": None, "progress": None, "data": None}
+    assert res_slide.json() == empty_envelope
 
     # vid -> status envelope with empty status and null data
     res_vid = client.get(f"/api/course/{course_id}/vid", headers=headers)
     assert res_vid.status_code == 200, res_vid.text
-    assert res_vid.json() == {"status": "empty", "error": None, "progress": None, "data": None}
+    assert res_vid.json() == empty_envelope
 
     # quiz -> status envelope with empty status and null data
     res_quiz = client.get(f"/api/course/{course_id}/quiz", headers=headers)
     assert res_quiz.status_code == 200, res_quiz.text
-    assert res_quiz.json() == {"status": "empty", "error": None, "progress": None, "data": None}
+    assert res_quiz.json() == empty_envelope
 
 
 def test_download_endpoints_404_vietnamese(client):

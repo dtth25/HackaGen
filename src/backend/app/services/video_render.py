@@ -25,6 +25,20 @@ STAGE_FOREGROUND = (226, 232, 240)  # #e2e8f0
 STAGE_ACCENT = (251, 191, 36)  # #fbbf24
 STAGE_MUTED = (100, 116, 139)  # slate-500, for the small scene counter
 
+# Accent rotates per scene (bar, keyword line) so a multi-scene video doesn't look like the
+# same slide repeated — all chosen to read cleanly on the dark stage background.
+SCENE_ACCENT_PALETTE = [
+    (251, 191, 36),  # amber-400 (STAGE_ACCENT)
+    (56, 189, 248),  # sky-400
+    (52, 211, 153),  # emerald-400
+    (167, 139, 250),  # violet-400
+    (251, 113, 133),  # rose-400
+]
+
+
+def _scene_accent(idx: int) -> tuple:
+    return SCENE_ACCENT_PALETTE[(idx - 1) % len(SCENE_ACCENT_PALETTE)]
+
 FORMAT_SPECS: Dict[str, Dict[str, Any]] = {
     "standard": {"width": 1280, "height": 720, "scenes": (8, 10), "label": "Tiêu chuẩn", "target": "5-7 phút"},
     "overview": {"width": 1280, "height": 720, "scenes": (5, 6), "label": "Tổng quan", "target": "2-3 phút"},
@@ -166,47 +180,74 @@ def _wrap_text(draw: Any, text: str, font: Any, max_width: int) -> List[str]:
 
 
 def render_scene_frame(scene: VidScene, idx: int, total: int, width: int, height: int, out_path: str) -> None:
-    """Render a text-minimal still frame: large heading + optional short keyword line, on the
-    always-dark stage palette. Narration (spoken via TTS) carries the actual content."""
+    """Render a text-light still frame: heading, optional short keyword line, and up to a few
+    keyword bullets, on the always-dark stage palette. Narration (spoken via TTS) still
+    carries the real content — this just gives the eye a bit more to track. Alternates
+    centered/left-aligned layout and rotates the accent color per scene (_scene_accent) so a
+    multi-scene video doesn't look like the same slide repeated."""
     from PIL import Image, ImageDraw, ImageFont
 
     ttf_path = get_vietnamese_ttf_path()
     heading = prepare_pdf_plain_text(scene.title) or f"Phần {idx}"
     subtext = prepare_pdf_plain_text(scene.on_screen_text or "")
+    bullets = [prepare_pdf_plain_text(kp) for kp in (scene.key_points or []) if kp and kp.strip()]
+    accent = _scene_accent(idx)
+    left_aligned = idx % 2 == 0
 
     img = Image.new("RGB", (width, height), STAGE_BG)
     draw = ImageDraw.Draw(img)
 
     bar_w = max(6, width // 160)
-    draw.rectangle([0, 0, bar_w, height], fill=STAGE_ACCENT)
+    draw.rectangle([0, 0, bar_w, height], fill=accent)
 
     heading_size = max(36, width // 16)
     sub_size = max(20, width // 32)
+    bullet_size = max(18, width // 38)
     heading_font = ImageFont.truetype(ttf_path, heading_size) if ttf_path else ImageFont.load_default()
     sub_font = ImageFont.truetype(ttf_path, sub_size) if ttf_path else ImageFont.load_default()
+    bullet_font = ImageFont.truetype(ttf_path, bullet_size) if ttf_path else ImageFont.load_default()
 
-    max_text_width = int(width * 0.78)
+    max_text_width = int(width * (0.62 if left_aligned else 0.78))
+    left_margin = int(width * 0.12)
+
     heading_lines = _wrap_text(draw, heading, heading_font, max_text_width)
     sub_lines = _wrap_text(draw, subtext, sub_font, max_text_width) if subtext else []
+    bullet_lines: List[str] = []
+    for bp in bullets[:3]:
+        bullet_lines.extend(_wrap_text(draw, f"• {bp}", bullet_font, max_text_width))
 
     line_gap = int(heading_size * 0.25)
     heading_line_h = heading_size + line_gap
     sub_line_h = sub_size + line_gap // 2
+    bullet_line_h = bullet_size + line_gap // 2
 
-    total_h = len(heading_lines) * heading_line_h + (len(sub_lines) * sub_line_h + sub_line_h if sub_lines else 0)
+    total_h = len(heading_lines) * heading_line_h
+    if sub_lines:
+        total_h += sub_line_h // 2 + len(sub_lines) * sub_line_h
+    if bullet_lines:
+        total_h += int(bullet_line_h * 0.9) + len(bullet_lines) * bullet_line_h
     y = (height - total_h) // 2
 
+    def _draw_line(text: str, font: Any, fill: tuple, y_pos: int) -> None:
+        w = draw.textlength(text, font=font)
+        x = left_margin if left_aligned else (width - w) / 2
+        draw.text((x, y_pos), text, font=font, fill=fill)
+
     for line in heading_lines:
-        w = draw.textlength(line, font=heading_font)
-        draw.text(((width - w) / 2, y), line, font=heading_font, fill=STAGE_FOREGROUND)
+        _draw_line(line, heading_font, STAGE_FOREGROUND, y)
         y += heading_line_h
 
     if sub_lines:
         y += sub_line_h // 2
         for line in sub_lines:
-            w = draw.textlength(line, font=sub_font)
-            draw.text(((width - w) / 2, y), line, font=sub_font, fill=STAGE_ACCENT)
+            _draw_line(line, sub_font, accent, y)
             y += sub_line_h
+
+    if bullet_lines:
+        y += int(bullet_line_h * 0.9)
+        for line in bullet_lines:
+            _draw_line(line, bullet_font, STAGE_FOREGROUND, y)
+            y += bullet_line_h
 
     counter_font = ImageFont.truetype(ttf_path, max(16, width // 48)) if ttf_path else ImageFont.load_default()
     counter_text = f"{idx} / {total}"
@@ -216,16 +257,27 @@ def render_scene_frame(scene: VidScene, idx: int, total: int, width: int, height
     img.save(out_path, "PNG")
 
 
-def build_scene_clip(png_path: str, mp3_path: str, width: int, height: int, out_path: str) -> None:
-    """Mux a looped still image with its narration track into a single scene clip. All scene
-    clips share identical encode params so `concat_clips` can fast-path with `-c copy`."""
+def build_scene_clip(png_path: str, mp3_path: str, width: int, height: int, out_path: str, duration: float) -> None:
+    """Mux a looped still image with its narration track into a single scene clip, adding a
+    slow zoompan (subtle Ken-Burns drift) and a short fade in/out so scenes read as motion
+    graphics rather than a static slideshow. All scene clips share identical encode params so
+    `concat_clips` can fast-path with `-c copy`."""
+    fps = 30
+    total_frames = max(1, round(duration * fps))
+    fade_dur = min(0.4, duration / 4)
+    fade_out_start = max(0.0, duration - fade_dur)
+    vf = (
+        f"zoompan=z='min(zoom+0.0006,1.05)':d={total_frames}:s={width}x{height}:fps={fps},"
+        f"fade=t=in:st=0:d={fade_dur:.2f},"
+        f"fade=t=out:st={fade_out_start:.2f}:d={fade_dur:.2f}"
+    )
     _run_ffmpeg(
         [
             _get_ffmpeg(), "-y",
             "-loop", "1", "-i", png_path,
             "-i", mp3_path,
-            "-vf", f"scale={width}:{height}",
-            "-c:v", "libx264", "-tune", "stillimage", "-pix_fmt", "yuv420p", "-r", "30",
+            "-vf", vf,
+            "-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", str(fps),
             "-c:a", "aac", "-b:a", "192k",
             "-shortest",
             out_path,
@@ -349,7 +401,7 @@ def assemble_video(
             render_scene_frame(scene, i + 1, total_scenes, width, height, png_path)
 
             clip_path = os.path.join(scene_dir, f"scene_{i + 1}.mp4")
-            build_scene_clip(png_path, mp3_path, width, height, clip_path)
+            build_scene_clip(png_path, mp3_path, width, height, clip_path, duration)
             clip_paths.append(clip_path)
 
             if word_cues:

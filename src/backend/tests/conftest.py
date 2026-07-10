@@ -43,6 +43,16 @@ _test_client = TestClient(app)
 TEST_UPLOAD_DIR = "test_uploads_tmp"
 settings.UPLOAD_DIR = TEST_UPLOAD_DIR
 
+# Isolate the vector store from whatever collection local dev has been using — tests were
+# silently relying on the dev Chroma collection never having an incompatible embedding
+# function bound to it. Once dev testing populates data/chroma with real Gemini embeddings
+# (see embedding-pipeline-gemini-migration notes), pytest's PYTEST_CURRENT_TEST-gated
+# default (Chroma's bundled MiniLM) collides with the persisted dimension. Point tests at
+# their own throwaway collection instead, matching the DB/UPLOAD_DIR isolation above.
+TEST_CHROMA_DIR = "test_chroma_tmp"
+settings.CHROMA_PERSIST_DIR = TEST_CHROMA_DIR
+settings.CHROMA_COLLECTION_NAME = "test_ai_course_chunks"
+
 
 def _clean_upload_dir():
     os.makedirs(TEST_UPLOAD_DIR, exist_ok=True)

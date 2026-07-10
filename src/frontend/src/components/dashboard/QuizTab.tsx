@@ -22,6 +22,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { Markdown } from "@/components/ui/markdown";
 import { cn } from "@/lib/utils";
+import { RegenerateButton } from "@/components/dashboard/RegenerateButton";
 import { apiGetQuiz, apiGenerateQuiz, getDownloadQuizKeyUrl } from "@/lib/api";
 import type { QuizQuestion } from "@/lib/types";
 
@@ -78,6 +79,9 @@ export function QuizTab({ courseId }: QuizTabProps) {
   const [error, setError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [regenUsed, setRegenUsed] = useState<number | null>(null);
+  const [regenMax, setRegenMax] = useState<number | null>(null);
+  const [regenError, setRegenError] = useState<string | null>(null);
 
   // Generation config
   const [quantity, setQuantity] = useState(5);
@@ -105,6 +109,8 @@ export function QuizTab({ courseId }: QuizTabProps) {
     const poll = async () => {
       try {
         const res = await apiGetQuiz(courseId);
+        if (typeof res.regen_used === "number") setRegenUsed(res.regen_used);
+        if (typeof res.regen_max === "number") setRegenMax(res.regen_max);
         if (res.status === "ready" && res.data && res.data.length > 0) {
           setQuestions(res.data);
           resetTaking();
@@ -137,6 +143,8 @@ export function QuizTab({ courseId }: QuizTabProps) {
     if (hasFetched) return;
     apiGetQuiz(courseId)
       .then((res) => {
+        if (typeof res.regen_used === "number") setRegenUsed(res.regen_used);
+        if (typeof res.regen_max === "number") setRegenMax(res.regen_max);
         if (res.status === "ready" && res.data && res.data.length > 0) {
           setQuestions(res.data);
           resetTaking();
@@ -175,6 +183,25 @@ export function QuizTab({ courseId }: QuizTabProps) {
   const handleRetryAfterError = () => {
     setError(null);
     handleGenerate();
+  };
+
+  // Regenerating from the ready view keeps the current questions visible
+  // (stale-while-revalidate) instead of bouncing to the full-page ErrorState/EmptyState —
+  // a 429 (regen limit reached) surfaces as a small inline banner instead of blowing away
+  // otherwise-valid content. Reuses the currently configured quantity/difficulty.
+  const handleRegenerate = async () => {
+    setRegenError(null);
+    setGenerating(true);
+    setProgress(5);
+    try {
+      const res = await apiGenerateQuiz(courseId, { quantity, difficulty });
+      if (typeof res.regen_used === "number") setRegenUsed(res.regen_used);
+      if (typeof res.regen_max === "number") setRegenMax(res.regen_max);
+      startPolling(Date.now());
+    } catch (err) {
+      setRegenError(err instanceof Error ? err.message : "Tạo lại thất bại.");
+      setGenerating(false);
+    }
   };
 
   const total = questions?.length ?? 0;
@@ -483,8 +510,29 @@ export function QuizTab({ courseId }: QuizTabProps) {
               <Trophy className="h-4 w-4" /> Xem kết quả
             </Button>
           )}
+          {generating ? (
+            <Button disabled variant="outline" className="gap-1.5">
+              <RefreshCw className="h-4 w-4 animate-spin" /> Đang tạo lại ({progress}%)…
+            </Button>
+          ) : (
+            <RegenerateButton
+              label="bộ câu hỏi"
+              regenUsed={regenUsed}
+              regenMax={regenMax}
+              onConfirm={handleRegenerate}
+            />
+          )}
         </div>
       </div>
+
+      {regenError && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-error/40 bg-error/5 px-4 py-3 text-sm text-error">
+          <span>{regenError}</span>
+          <button onClick={() => setRegenError(null)} className="shrink-0 font-semibold hover:underline">
+            Đóng
+          </button>
+        </div>
+      )}
 
       {/* Progress bar */}
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">

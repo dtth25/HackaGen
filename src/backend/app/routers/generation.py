@@ -1,7 +1,7 @@
 """Generation Service router for HackaGen."""
 
 import os
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
@@ -19,7 +19,7 @@ from app.schemas.generation import (
     StudyPackResponse,
     VidGenerateRequest,
 )
-from app.services.generator import Generator
+from app.services.generator import MAX_REGENERATIONS, Generator
 from app.services.llm import LLMService
 from app.services.vector_store import get_vector_store
 
@@ -95,6 +95,27 @@ def resolve_and_validate_course(
     return get_valid_course(cid, current_user, db)
 
 
+def check_regen_or_raise(generator: Generator, course_id: str, artifact: str) -> tuple[int, int]:
+    """Enforce the regeneration cap (Generator.MAX_REGENERATIONS) before queueing a
+    generate-* background task. The first generation of an artifact is always allowed and
+    free; only re-triggers after it already reached "ready"/"error" count against the cap.
+    Raises 429 once exhausted. Returns (regen_used, regen_max) for the response envelope."""
+    allowed, used, max_allowed = generator.check_and_record_regen_attempt(course_id, artifact)
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Đã đạt giới hạn {max_allowed} lần tạo lại cho mục này.",
+        )
+    return used, max_allowed
+
+
+def regen_fields(generator: Generator, course_id: str, artifact: str) -> Dict[str, int]:
+    """Regen usage fields for an artifact-status envelope, so the frontend knows how many
+    regenerations remain without a separate study-pack round-trip."""
+    used = generator.get_regen_usage(course_id).get(artifact, 0)
+    return {"regen_used": used, "regen_max": MAX_REGENERATIONS}
+
+
 # =====================================================================
 # 1. Study Pack Endpoint
 # =====================================================================
@@ -133,8 +154,9 @@ def generate_book(
     prompt = (req and req.user_prompt) or user_prompt or ""
     detail = (req and req.detail_level) or detail_level or "Tiêu chuẩn"
     generator = get_generator()
+    regen_used, regen_max = check_regen_or_raise(generator, course.id, "book")
     background_tasks.add_task(generator.generate_book, course.id, detail_level=detail, user_prompt=prompt)
-    return GenerateResponse(course_id=course.id)
+    return GenerateResponse(course_id=course.id, regen_used=regen_used, regen_max=regen_max)
 
 
 @router_generate.post("/generate-slide", response_model=GenerateResponse)
@@ -152,8 +174,9 @@ def generate_slide(
     t = (req and req.topic) or topic
     n = (req and req.num_slides) or num_slides or 15
     generator = get_generator()
+    regen_used, regen_max = check_regen_or_raise(generator, course.id, "slides")
     background_tasks.add_task(generator.generate_slides, course.id, topic=t, num_slides=n)
-    return GenerateResponse(course_id=course.id)
+    return GenerateResponse(course_id=course.id, regen_used=regen_used, regen_max=regen_max)
 
 
 @router_generate.post("/generate-quiz", response_model=GenerateResponse)
@@ -173,8 +196,9 @@ def generate_quiz(
     q = (req and req.quantity) or quantity or 5
     d = (req and req.difficulty) or difficulty or "medium"
     generator = get_generator()
+    regen_used, regen_max = check_regen_or_raise(generator, course.id, "quiz")
     background_tasks.add_task(generator.generate_quiz, course.id, topic=t, quantity=q, difficulty=d)
-    return GenerateResponse(course_id=course.id)
+    return GenerateResponse(course_id=course.id, regen_used=regen_used, regen_max=regen_max)
 
 
 @router_generate.post("/generate-vid", response_model=GenerateResponse)
@@ -196,8 +220,9 @@ def generate_vid(
     v = (req and req.voice) or voice or "female"
     up = (req and req.user_prompt) or user_prompt or ""
     generator = get_generator()
+    regen_used, regen_max = check_regen_or_raise(generator, course.id, "vid")
     background_tasks.add_task(generator.generate_vid, course.id, topic=t, fmt=fmt, voice=v, user_prompt=up)
-    return GenerateResponse(course_id=course.id, estimated_time="3-5 minutes")
+    return GenerateResponse(course_id=course.id, estimated_time="3-5 minutes", regen_used=regen_used, regen_max=regen_max)
 
 
 # =====================================================================
@@ -232,6 +257,7 @@ def get_book(
         "error": info.get("error"),
         "progress": info.get("progress"),
         "data": data,
+        **regen_fields(generator, course_id, "book"),
     }
 
 
@@ -262,6 +288,7 @@ def get_slide(
         "error": info.get("error"),
         "progress": info.get("progress"),
         "data": data,
+        **regen_fields(generator, course_id, "slides"),
     }
 
 
@@ -293,6 +320,7 @@ def get_quiz(
         "error": info.get("error"),
         "progress": info.get("progress"),
         "data": questions,
+        **regen_fields(generator, course_id, "quiz"),
     }
 
 
@@ -323,6 +351,7 @@ def get_vid(
         "error": info.get("error"),
         "progress": info.get("progress"),
         "data": data,
+        **regen_fields(generator, course_id, "vid"),
     }
 
 

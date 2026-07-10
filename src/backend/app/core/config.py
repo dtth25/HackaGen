@@ -73,6 +73,28 @@ class Settings(BaseSettings):
         default="ai_course_chunks", description="ChromaDB collection name"
     )
 
+    # Embedding provider — routes chunk/query embedding through Gemini instead of Chroma's
+    # default English-centric local model, since content/queries here are Vietnamese.
+    EMBEDDING_PROVIDER: str = Field(default="gemini", description="Embedding provider: 'gemini' or 'default' (Chroma's bundled MiniLM)")
+    GEMINI_EMBEDDING_MODEL: str = Field(default="gemini-embedding-001", description="Gemini embedding model name")
+    EMBEDDING_BATCH_SIZE: int = Field(default=32, description="Chunks per embed_content batch call")
+    EMBEDDING_BATCH_DELAY: float = Field(default=0, description="Seconds to sleep between embedding batches")
+    EMBEDDING_MAX_RETRIES: int = Field(default=3, description="Max retries per embedding batch on failure")
+    EMBEDDING_MAX_RETRY_DELAY: float = Field(default=60, description="Max backoff delay (seconds) between embedding retries")
+    EMBEDDING_REQUESTS_PER_MINUTE: int = Field(default=72, description="Client-side rate limit for embedding API calls")
+    EMBEDDING_CACHE_DIR: str = Field(default="cache/chunk_embeddings", description="Directory for content-hash embedding cache")
+
+    # Document chunking tuning
+    DOCUMENT_CHUNK_SIZE: int = Field(default=1800, description="Target chunk size in characters")
+    DOCUMENT_CHUNK_OVERLAP: int = Field(default=120, description="Overlap in characters between consecutive chunks")
+
+    # OCR fallback for scanned PDF pages (rendered page image -> Gemini vision text extraction)
+    PDF_ENABLE_OCR: bool = Field(default=True, description="Enable OCR fallback for low-text (scanned) PDF pages")
+    PDF_OCR_MAX_PAGES: int = Field(default=12, description="Hard cap on number of pages OCR'd per document")
+    PDF_OCR_DPI: int = Field(default=120, description="DPI used when rendering a scanned page to an image for OCR")
+    PDF_TEXT_MIN_CHARS_PER_PAGE: int = Field(default=50, description="Below this many extracted chars, a page is considered a scan candidate")
+    PDF_SCAN_SAMPLE_PAGES: int = Field(default=12, description="Number of pages sampled to decide whether a document is scanned")
+
 
     @field_validator("DATABASE_URL", "JWT_SECRET", "GEMINI_API_KEY", mode="before")
     @classmethod

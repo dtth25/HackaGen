@@ -20,6 +20,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { cn } from "@/lib/utils";
 import { Markdown } from "@/components/ui/markdown";
+import { RegenerateButton } from "@/components/dashboard/RegenerateButton";
 import { apiGetBook, apiGenerateBook, getDownloadBookUrl } from "@/lib/api";
 import type { BookOutput } from "@/lib/types";
 
@@ -38,6 +39,9 @@ export function BookTab({ courseId }: BookTabProps) {
   const [progress, setProgress] = useState(0);
   const [activeIdx, setActiveIdx] = useState(-1); // -1 = "Giới thiệu" pane
   const [isExpanded, setIsExpanded] = useState(false);
+  const [regenUsed, setRegenUsed] = useState<number | null>(null);
+  const [regenMax, setRegenMax] = useState<number | null>(null);
+  const [regenError, setRegenError] = useState<string | null>(null);
 
   // Generation config
   const [detailLevel, setDetailLevel] = useState(DETAIL_OPTIONS[1]);
@@ -54,6 +58,8 @@ export function BookTab({ courseId }: BookTabProps) {
     const poll = async () => {
       try {
         const res = await apiGetBook(courseId);
+        if (typeof res.regen_used === "number") setRegenUsed(res.regen_used);
+        if (typeof res.regen_max === "number") setRegenMax(res.regen_max);
         if (res.status === "ready" && res.data && res.data.chapters?.length > 0) {
           setBook(res.data);
           setActiveIdx(-1);
@@ -86,6 +92,8 @@ export function BookTab({ courseId }: BookTabProps) {
     if (hasFetched) return;
     apiGetBook(courseId)
       .then((res) => {
+        if (typeof res.regen_used === "number") setRegenUsed(res.regen_used);
+        if (typeof res.regen_max === "number") setRegenMax(res.regen_max);
         if (res.status === "ready" && res.data) {
           setBook(res.data);
           setActiveIdx(-1);
@@ -144,6 +152,24 @@ export function BookTab({ courseId }: BookTabProps) {
   const handleRetryAfterError = () => {
     setError(null);
     handleGenerate();
+  };
+
+  // Regenerating from the ready view keeps the current book visible (stale-while-revalidate)
+  // instead of bouncing to the full-page ErrorState/EmptyState — a 429 (regen limit reached)
+  // surfaces as a small inline banner instead of blowing away otherwise-valid content.
+  const handleRegenerate = async () => {
+    setRegenError(null);
+    setGenerating(true);
+    setProgress(5);
+    try {
+      const res = await apiGenerateBook(courseId, { detail_level: detailLevel, user_prompt: userPrompt });
+      if (typeof res.regen_used === "number") setRegenUsed(res.regen_used);
+      if (typeof res.regen_max === "number") setRegenMax(res.regen_max);
+      startPolling(Date.now());
+    } catch (err) {
+      setRegenError(err instanceof Error ? err.message : "Tạo lại thất bại.");
+      setGenerating(false);
+    }
   };
 
   // ---------- Loading ----------
@@ -275,11 +301,32 @@ export function BookTab({ courseId }: BookTabProps) {
           >
             <Download className="h-4 w-4" /> Tải PDF
           </a>
-          <Button variant="outline" size="icon" onClick={handleRefresh} title="Tải lại sách">
+          {generating ? (
+            <Button disabled variant="outline" className="gap-1.5">
+              <RefreshCw className="h-4 w-4 animate-spin" /> Đang tạo lại ({progress}%)…
+            </Button>
+          ) : (
+            <RegenerateButton
+              label="sách ôn tập"
+              regenUsed={regenUsed}
+              regenMax={regenMax}
+              onConfirm={handleRegenerate}
+            />
+          )}
+          <Button variant="outline" size="icon" onClick={handleRefresh} title="Tải lại sách" disabled={generating}>
             <RefreshCw className="h-4 w-4" />
           </Button>
         </div>
       </div>
+
+      {regenError && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-error/40 bg-error/5 px-4 py-3 text-sm text-error">
+          <span>{regenError}</span>
+          <button onClick={() => setRegenError(null)} className="shrink-0 font-semibold hover:underline">
+            Đóng
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Chapter rail */}
