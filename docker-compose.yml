@@ -11,9 +11,21 @@ services:
     environment:
       - PYTHONPATH=/app
     volumes:
-      - ./runtime/uploads:/app/uploads
-      - ./runtime/indices:/app/indices
-      - ./runtime/questions:/app/questions
-      - ./runtime/books:/app/books
-      - ./runtime/slides:/app/slides
-      - ./runtime/videos:/app/videos
+      - ./data/app-data:/app/data        # CHROMA_PERSIST_DIR=data/chroma + DATABASE_URL sqlite:///./data/app.db
+      - ./data/uploads:/app/uploads      # UPLOAD_DIR — file upload + mọi artifact Book/Slide/Quiz/Vid
+      - ./data/outputs:/app/outputs      # OUTPUT_DIR — hiện chưa có writer thật, mount để tương thích
+      - ./data/cache:/app/cache          # EMBEDDING_CACHE_DIR=cache/chunk_embeddings
+    restart: unless-stopped
+
+  frontend:
+    container_name: ai-course-frontend
+    build:
+      context: ./src/frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped

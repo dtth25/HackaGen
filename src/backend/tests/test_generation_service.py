@@ -328,7 +328,9 @@ def test_book_api_error_status_envelope(client, monkeypatch):
     def _raise(*args, **kwargs):
         raise LLMGenerationError("api-boom")
 
-    monkeypatch.setattr(generator.llm, "generate_book_outline", _raise)
+    # Patch the actual LLM instance the "book" feature routes through — this may be a
+    # dedicated per-feature client (GEMINI_BOOK_API_KEY) distinct from `generator.llm`.
+    monkeypatch.setattr(generator._llm_for("book"), "generate_book_outline", _raise)
 
     res_gen = client.post(f"/api/generate-book?course_id={course_id}", headers=headers)
     assert res_gen.status_code == 200, res_gen.text

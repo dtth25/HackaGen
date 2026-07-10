@@ -34,9 +34,9 @@ Cài các công cụ sau trước khi setup từ máy sạch:
 - Python 3.11+.
 - `uv`.
 - Node.js 20+ và npm.
-- Gemini API key (`GOOGLE_API_KEY`).
-- Windows: cài **Microsoft C++ Build Tools** với workload "Desktop development with C++". Chroma phụ thuộc `chroma-hnswlib`; trên một số máy Windows package này phải build native wheel và sẽ fail nếu thiếu C++ toolchain.
-- Docker Desktop nếu muốn chạy backend bằng Docker.
+- Gemini API key (`GEMINI_API_KEY`).
+- Không cần cài toolchain build native (C++ Build Tools/gcc) trên bất kỳ OS nào — `chromadb` (pin hiện tại trong `uv.lock`) ship sẵn wheel prebuilt cho Linux (manylinux x86_64/aarch64), macOS và Windows.
+- Docker Engine + Docker Compose plugin nếu muốn chạy bằng Docker (khuyến nghị cho deploy lên Linux server — xem mục "Deploy lên Linux server").
 
 Kiểm tra nhanh:
 
@@ -51,22 +51,22 @@ npm --version
 
 Tạo file env ở root repo:
 
-Windows PowerShell:
-
-```powershell
-Copy-Item .env.example .env -Force
-```
-
 macOS/Linux:
 
 ```bash
 cp .env.example .env
 ```
 
+Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env -Force
+```
+
 Sửa `.env` và điền ít nhất:
 
 ```bash
-GOOGLE_API_KEY=your_gemini_api_key_here
+GEMINI_API_KEY=your_gemini_api_key_here
 JWT_SECRET=change-this-dev-secret
 VECTOR_DB_PROVIDER=chroma
 CHROMA_PERSIST_DIR=./data/chroma
@@ -84,6 +84,13 @@ ADMIN_PASSWORD=change-this-password
 
 Preset model có sẵn dưới dạng file example. Copy preset rồi sửa key/secrets nếu cần:
 
+macOS/Linux:
+
+```bash
+cp .env.flash.example .env
+cp .env.pro.example .env
+```
+
 Windows PowerShell:
 
 ```powershell
@@ -92,13 +99,6 @@ Copy-Item .env.flash.example .env -Force
 
 # Pro mode: chất lượng cao hơn cho một số tác vụ
 Copy-Item .env.pro.example .env -Force
-```
-
-macOS/Linux:
-
-```bash
-cp .env.flash.example .env
-cp .env.pro.example .env
 ```
 
 Backend tự load `.env` từ root repo, `src/`, hoặc `src/backend/`. Khởi động lại backend sau khi đổi env để log `[Startup Config]` hiển thị model đang active.
@@ -126,7 +126,7 @@ Kiểm tra readiness:
 curl http://127.0.0.1:8000/health
 ```
 
-Nếu `/health` trả `vector_db.ready=false`, kiểm tra lại `chromadb`, `CHROMA_PERSIST_DIR` và C++ Build Tools trên Windows. Backend vẫn có thể trả health, nhưng upload/generate sẽ fail cho tới khi Chroma ready.
+Nếu `/health` trả `vector_db.ready=false`, kiểm tra lại `chromadb` và `CHROMA_PERSIST_DIR`. Backend vẫn có thể trả health, nhưng upload/generate sẽ fail cho tới khi Chroma ready.
 
 ## Frontend Runbook
 
@@ -145,13 +145,13 @@ npm run dev
 
 Frontend chạy tại `http://localhost:3000`.
 
-Frontend gọi backend qua Next.js proxy `/api/backend/*`. Nếu backend không chạy ở `http://127.0.0.1:8000`, set biến server-side cho frontend:
+Frontend gọi thẳng backend từ client-side (không qua proxy Next.js). Nếu backend không chạy ở `http://localhost:8000`, set 1 trong 2 biến (tương đương nhau) trước khi build/dev:
 
 ```bash
-BACKEND_API_BASE_URL=http://127.0.0.1:8001
+NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8001
 ```
 
-`NEXT_PUBLIC_API_BASE_URL` vẫn được hỗ trợ như alias cũ, nhưng `BACKEND_API_BASE_URL` là biến nên dùng cho proxy hiện tại.
+Đây là biến `NEXT_PUBLIC_*` nên Next.js **inline lúc `next build`**, không đọc runtime — đổi giá trị bắt buộc phải build lại (`npm run build` hoặc, với Docker, `docker compose build frontend`), restart không đủ.
 
 Demo production mode để không thấy Next.js dev indicator:
 
@@ -168,15 +168,33 @@ npm run start
 4. Mở dashboard Study Pack hoặc generate Book, Slide, Quiz, Vid.
 5. Kiểm tra download: Book PDF, Slide PPTX, Quiz answer-key PDF, Vid MP4 nếu render thành công.
 
-## Docker Backend Option
+## Docker Compose (Backend + Frontend)
 
 ```bash
 cp .env.example .env
-# Sửa .env và điền GOOGLE_API_KEY/JWT_SECRET
-docker compose up --build backend
+# Sửa .env và điền GEMINI_API_KEY/JWT_SECRET
+docker compose up -d --build
 ```
 
-Runtime files khi chạy Docker được mount vào `runtime/`. Docker compose hiện chỉ chạy backend; frontend vẫn chạy bằng npm ở `src/frontend`.
+Chạy cả 2 service (`backend` cổng 8000, `frontend` cổng 3000) cùng lúc. Dữ liệu bền vững (Chroma vectors, SQLite, upload/artifact, embedding cache) được mount ra `./data/` trên host — restart container không mất dữ liệu.
+
+## Deploy lên Linux server
+
+Cách deploy khuyến nghị cho server thật (kể cả server trường) là Docker Compose ở trên. Ghi chú vận hành:
+
+**Prerequisites**: chỉ cần Docker Engine + Docker Compose plugin. Không cần cài build toolchain (gcc/C++) — image build sẵn dùng wheel/base image chuẩn.
+
+**Checklist env production** (sửa trong `.env` ở root trước khi build):
+- `ALLOWED_ORIGINS` phải chứa origin thật của frontend (vd. `http://<ip-hoặc-domain-server>:3000`) — thiếu thì browser sẽ bị CORS chặn âm thầm, khó debug.
+- `NEXT_PUBLIC_API_BASE_URL` phải là origin public thật của backend (vd. `http://<ip-hoặc-domain-server>:8000`) — **không** dùng tên service compose `backend` (không resolve được từ browser người dùng). Next.js inline biến này lúc `next build`, nên đổi giá trị bắt buộc phải `docker compose build frontend` lại, restart container không đủ.
+- `GEMINI_API_KEY` (và các `GEMINI_{BOOK,SLIDE,QUIZ,VID}_API_KEY` nếu dùng) phải là key thật, không phải placeholder.
+- Cân nhắc bật `AUTH_COOKIE_SECURE=true` khi server đã có HTTPS.
+
+**Chạy**: `docker compose up -d --build` dựng cả backend + frontend.
+
+**Dữ liệu**: toàn bộ state bền vững nằm ở `./data/` trên host (`app-data/` = Chroma + SQLite, `uploads/`, `outputs/`, `cache/`) — đây là phần cần backup định kỳ.
+
+**Ngoài phạm vi repo**: reverse proxy (nginx/Caddy), HTTPS/TLS, và domain routing đứng trước cổng 3000/8000 là trách nhiệm người vận hành server — repo này chưa có config sẵn cho phần đó.
 
 ## Local Architecture
 
