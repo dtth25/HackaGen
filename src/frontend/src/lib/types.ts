@@ -41,6 +41,7 @@ export interface CourseListItem {
   filenames?: string[];
   file_count?: number;
   error?: string;
+  name_pending?: boolean;
 }
 
 export interface CoursesResponse {
@@ -63,6 +64,7 @@ export interface CourseStatusResponse {
   has_quiz?: boolean;
   has_vid?: boolean;
   error?: string;
+  name_pending?: boolean;
 }
 
 // ============================================================
@@ -93,6 +95,8 @@ export interface GenerateResponse {
   status?: string;
   message?: string;
   estimated_time?: string;
+  regen_used?: number;
+  regen_max?: number;
 }
 
 export interface BookSection {
@@ -124,6 +128,8 @@ export interface BookArtifactStatus {
   error?: string | null;
   progress?: number | null;
   data: BookOutput | null;
+  regen_used?: number;
+  regen_max?: number;
 }
 
 export interface SlideItem {
@@ -149,6 +155,8 @@ export interface SlideArtifactStatus {
   error?: string | null;
   progress?: number | null;
   data: SlidesOutput | null;
+  regen_used?: number;
+  regen_max?: number;
 }
 
 export interface QuizOption {
@@ -180,6 +188,8 @@ export interface QuizArtifactStatus {
   error?: string | null;
   progress?: number | null;
   data: QuizQuestion[] | null;
+  regen_used?: number;
+  regen_max?: number;
 }
 
 export interface VidScene {
@@ -201,6 +211,8 @@ export interface VidArtifactStatus {
   error?: string | null;
   progress?: number | null;
   data: VidOutput | null;
+  regen_used?: number;
+  regen_max?: number;
 }
 
 // ============================================================

@@ -29,3 +29,4 @@ class Course(Base):
     chunk_count = Column(Integer, default=0, nullable=False)
     embedding_status = Column(String, default="pending", nullable=False)
     quality_score = Column(Integer, default=0, nullable=False)
+    error_message = Column(Text, nullable=True)  # Real reason processing failed, shown to the user

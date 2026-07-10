@@ -1,6 +1,6 @@
 """Pydantic schemas for Generation Service Skeleton."""
 
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 
 
@@ -54,6 +54,8 @@ class GenerateResponse(BaseModel):
     status: str = "queued"
     message: str = "Generation started..."
     estimated_time: str = "2 minutes"
+    regen_used: int = 0
+    regen_max: int = 0
 
 
 class ReadinessData(BaseModel):
@@ -82,6 +84,15 @@ class GroundingData(BaseModel):
     warnings: List[str] = []
 
 
+class RegenLimitsData(BaseModel):
+    """Regeneration usage per artifact type. The first generation of an artifact is always
+    free; only subsequent manual regenerations (whether triggered after "ready" or "error")
+    count against `max`, keyed by artifact ("book"/"slides"/"quiz"/"vid")."""
+
+    max: int = 0
+    used: Dict[str, int] = Field(default_factory=dict)
+
+
 class StudyPackData(BaseModel):
     """Core study pack content schema."""
 
@@ -93,6 +104,7 @@ class StudyPackData(BaseModel):
     readiness: ReadinessData
     quality_scores: QualityScoresData
     grounding: GroundingData
+    regen_limits: RegenLimitsData = Field(default_factory=RegenLimitsData)
 
 
 class StudyPackStats(BaseModel):

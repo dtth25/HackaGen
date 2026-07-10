@@ -1,8 +1,8 @@
 """Courses router for CRUD operations and status tracking."""
 
+import json
 import os
 import shutil
-from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -24,6 +24,24 @@ router = APIRouter(prefix="/api/courses", tags=["courses"])
 router_single = APIRouter(prefix="/api/course", tags=["courses"])
 
 MAX_COURSES_PER_USER = 10
+
+
+def _title_pending(course: Course) -> bool:
+    """True while AI course-title generation might still succeed on a later attempt — drives
+    the frontend's "Đang đặt tên..." state and keeps manual rename disabled until then, so a
+    user never overwrites a title that's still on its way. Once attempts are exhausted (or the
+    course errored out), this flips to False and normal manual rename takes over."""
+    if course.name or course.status not in ("processing", "ready"):
+        return False
+    meta = course.metadata_json or "{}"
+    if isinstance(meta, str):
+        try:
+            meta = json.loads(meta)
+        except Exception:
+            meta = {}
+    from app.services.document_processor import MAX_TITLE_ATTEMPTS
+
+    return meta.get("title_attempts", 0) < MAX_TITLE_ATTEMPTS
 
 
 def _enforce_course_limit(db: Session, user_id: str) -> None:
@@ -61,6 +79,8 @@ def get_user_courses(
                 filenames=filenames,
                 file_count=len(filenames),
                 created_at=c.created_at,
+                error=c.error_message,
+                name_pending=_title_pending(c),
             )
         )
     return {"courses": items, "total": len(items)}
@@ -159,7 +179,7 @@ def get_course_status(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Get course status with simulated background processing transition."""
+    """Get real course processing status."""
     course = (
         db.query(Course)
         .filter(Course.id == course_id, Course.is_deleted == False)  # noqa: E712
@@ -171,22 +191,23 @@ def get_course_status(
     if course.user_id != current_user.id and current_user.role != "admin":
         raise HTTPException(status_code=404, detail="Khóa học không tồn tại.")
 
-    # Simulate background processing transition if still processing after 1.5s (fallback for empty courses)
-    if course.status == "processing":
-        elapsed = (datetime.utcnow() - course.created_at).total_seconds()
-        if elapsed >= 1.5:
-            course.status = "ready"
-            course.stage = "completed"
-            course.progress = 100
-            db.commit()
+    # Ready but the AI title never landed (e.g. transient quota error during upload) — lazily
+    # retry here so a later poll can pick it up once quota recovers, capped at
+    # MAX_TITLE_ATTEMPTS total tries. Cheap no-op once a title exists or attempts are exhausted.
+    if course.status == "ready" and not course.name:
+        from app.services.document_processor import get_document_processor
+
+        retried_title = get_document_processor().retry_course_title_if_missing(course_id)
+        if retried_title:
             db.refresh(course)
 
     filenames = course.filenames if isinstance(course.filenames, list) else []
-    message = (
-        "Tài liệu đã sẵn sàng."
-        if course.status == "ready"
-        else "Đang phân tích và xử lý tài liệu..."
-    )
+    if course.status == "ready":
+        message = "Tài liệu đã sẵn sàng."
+    elif course.status == "failed":
+        message = course.error_message or "Xử lý tài liệu thất bại."
+    else:
+        message = "Đang phân tích và xử lý tài liệu..."
 
     return {
         "course_id": course.id,
@@ -200,12 +221,13 @@ def get_course_status(
         "message": message,
         "filenames": filenames,
         "file_count": len(filenames),
-        "error": None,
+        "error": course.error_message,
+        "name_pending": _title_pending(course),
         "document_quality_report": {
-            "score": course.quality_score if course.quality_score > 0 else 85,
-            "summary": "Tài liệu rõ ràng, cấu trúc tốt.",
+            "score": course.quality_score,
+            "summary": "Tài liệu rõ ràng, cấu trúc tốt." if course.quality_score >= 70 else "Chất lượng tài liệu trung bình, có thể ảnh hưởng đến nội dung sinh ra.",
         }
-        if course.status == "ready"
+        if course.status == "ready" and course.quality_score > 0
         else None,
     }
 

@@ -1,8 +1,10 @@
 """Generation Service responsible for RAG retrieval, LLM generation, scoring, and artifact storage."""
 
+import hashlib
 import json
 import logging
 import os
+import re
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 from app.core.config import settings
@@ -11,6 +13,7 @@ from app.schemas.generation import (
     GroundingData,
     QualityScoresData,
     ReadinessData,
+    RegenLimitsData,
     StudyPackData,
     StudyPackResponse,
     StudyPackStats,
@@ -23,12 +26,34 @@ from app.schemas.generator_output import (
     VidOutput,
     validate_and_score_output,
 )
-from app.services.llm import LLMGenerationError, LLMService
+from app.services.llm import LLMService
 from app.services.pdf_book import build_book_pdf
 from app.services.text_format import clean_text
-from app.services.vector_store import VectorStore
+from app.services.vector_store import Document, VectorStore
 
 logger = logging.getLogger(__name__)
+
+# Extra regenerations allowed per artifact type, per course, after the first generation.
+# The first generation of an artifact is always free — this only caps deliberate "I'm
+# not happy with the quality, try again" re-triggers, to protect the scarce Gemini quota.
+MAX_REGENERATIONS = 3
+
+
+_LEADING_ID_TOKEN_RE = re.compile(r"^([A-Za-z0-9-]+)[_\s]+")
+
+
+def _strip_leading_id_token(text: str) -> str:
+    """Strip a leading filename-style identifier code (e.g. "NLC416-14jh005357-58048_Title"
+    -> "Title") from a topic-fallback string, so a generated title/topic never leaks an
+    internal document ID. Only strips when the leading token has >=4 digits, so a real title
+    that happens to start with a short number (e.g. "3D Printing Basics") survives untouched."""
+    m = _LEADING_ID_TOKEN_RE.match(text)
+    if not m:
+        return text
+    token = m.group(1)
+    if sum(c.isdigit() for c in token) >= 4:
+        return text[m.end():].strip()
+    return text
 
 
 def _clean_slides_output(deck: SlidesOutput) -> SlidesOutput:
@@ -51,6 +76,7 @@ def _clean_vid_output(vid: VidOutput) -> VidOutput:
     for sc in vid.scenes:
         sc.title = clean_text(sc.title)
         sc.on_screen_text = clean_text(sc.on_screen_text or "")
+        sc.key_points = [clean_text(kp) for kp in sc.key_points]
         sc.narration = clean_text(sc.narration)
     return vid
 
@@ -75,16 +101,39 @@ class Generator:
         return db_session_factory()
 
     def _retrieve_context(self, course_id: str, query: str = "", k: int = 20) -> Tuple[str, List[str]]:
-        """Retrieve relevant chunks from Chroma vector store."""
+        """Retrieve relevant chunks from Chroma vector store, drop near-duplicate chunks
+        (retrieval overlap / re-retrieval across Book chapters), and order the survivors
+        by (source_file, page) so the LLM sees document-coherent context instead of chunks
+        shuffled by raw similarity rank."""
         search_query = query or "tổng quan kiến thức khóa học các chương quan trọng"
         chunks = self.vector_store.search(query=search_query, course_id=course_id, k=k)
         if not chunks:
             logger.warning(f"No vector chunks found for course {course_id}. RAG context will be empty.")
             return "", []
 
+        seen_hashes = set()
+        deduped = []
+        for doc in chunks:
+            normalized = " ".join(doc.content.strip().lower().split())[:150]
+            digest = hashlib.sha1(normalized.encode("utf-8")).hexdigest()
+            if digest in seen_hashes:
+                continue
+            seen_hashes.add(digest)
+            deduped.append(doc)
+
+        def _sort_key(doc: Document):
+            page = doc.metadata.get("page", 0)
+            try:
+                page = int(page)
+            except (TypeError, ValueError):
+                page = 0
+            return (str(doc.metadata.get("source_file", "")), page)
+
+        deduped.sort(key=_sort_key)
+
         context_lines = []
         valid_chunk_ids = []
-        for i, doc in enumerate(chunks):
+        for i, doc in enumerate(deduped):
             cid = doc.metadata.get("chunk_id") or f"chunk_{i+1}"
             valid_chunk_ids.append(cid)
             file_name = doc.metadata.get("source_file", "unknown")
@@ -367,10 +416,13 @@ class Generator:
             story.append(PageBreak())
 
             # --- Part 2: Answer Key & Explanations ---
+            # Same Dễ/Vừa/Khó label the web quiz badge shows — no internal "Bloom" jargon.
+            difficulty_vn = {"easy": "Dễ", "medium": "Vừa", "hard": "Khó"}
             story.append(Paragraph("PHẦN 2: ĐÁP ÁN & GIẢI THÍCH CHI TIẾT (ANSWER KEY & EXPLANATIONS)", part_style))
             for q in quiz_data.questions:
                 diff_str = getattr(q, "difficulty", "Medium") or "Medium"
-                story.append(Paragraph(f"<b>Câu {q.question_number} [Mức độ Bloom: {diff_str}]:</b> {prepare_pdf_text(q.question_text)}", q_style))
+                diff_label = difficulty_vn.get(diff_str.strip().lower(), diff_str)
+                story.append(Paragraph(f"<b>Câu {q.question_number} ({diff_label}):</b> {prepare_pdf_text(q.question_text)}", q_style))
                 story.append(Paragraph(f"<b>Đáp án đúng:</b> <font color='#16a34a'><b>{q.correct_answer}</b></font>", body_style))
                 if q.explanation:
                     story.append(Paragraph(f"<b>Giải thích chi tiết:</b> {prepare_pdf_text(q.explanation)}", body_style))
@@ -513,6 +565,73 @@ class Generator:
         finally:
             db.close()
 
+    def get_regen_usage(self, course_id: str, db_session_factory=None) -> Dict[str, int]:
+        """Read the current regeneration usage per artifact from Course.metadata_json."""
+        db = self._get_db(db_session_factory)
+        try:
+            course = db.query(Course).filter(Course.id == course_id).first()
+            if not course:
+                return {}
+            meta = course.metadata_json or "{}"
+            if isinstance(meta, str):
+                try:
+                    meta = json.loads(meta)
+                except Exception:
+                    meta = {}
+            return meta.get("study_pack", {}).get("regen_counts", {})
+        finally:
+            db.close()
+
+    def check_and_record_regen_attempt(
+        self, course_id: str, artifact: str, db_session_factory=None
+    ) -> Tuple[bool, int, int]:
+        """Gate a generate-* call as a "regeneration" only if the artifact already has a
+        ready/error status (i.e. it's been generated/attempted before) — the very first
+        generation is always free and never counted. Returns (allowed, used, max). When
+        the call is allowed and is in fact a regeneration, the counter is incremented and
+        persisted as a side effect.
+
+        Fails open on any bookkeeping error — a DB hiccup in the counter must never block
+        the user's actual ability to generate content."""
+        db = self._get_db(db_session_factory)
+        try:
+            course = db.query(Course).filter(Course.id == course_id).first()
+            if not course:
+                return True, 0, MAX_REGENERATIONS
+
+            meta = course.metadata_json or "{}"
+            if isinstance(meta, str):
+                try:
+                    meta = json.loads(meta)
+                except Exception:
+                    meta = {}
+            study_pack = meta.get("study_pack", {})
+            artifacts = study_pack.get("artifacts", {})
+            prior_status = artifacts.get(artifact, {}).get("status")
+
+            if prior_status not in ("ready", "error"):
+                # First-ever attempt for this artifact: not a regen, never blocked/counted.
+                regen_counts = study_pack.get("regen_counts", {})
+                return True, regen_counts.get(artifact, 0), MAX_REGENERATIONS
+
+            regen_counts = study_pack.get("regen_counts", {})
+            used = regen_counts.get(artifact, 0)
+            if used >= MAX_REGENERATIONS:
+                return False, used, MAX_REGENERATIONS
+
+            regen_counts[artifact] = used + 1
+            study_pack["regen_counts"] = regen_counts
+            meta["study_pack"] = study_pack
+            course.metadata_json = json.dumps(meta, ensure_ascii=False)
+            db.commit()
+            return True, used + 1, MAX_REGENERATIONS
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Error checking regen limit for {artifact}: {e}")
+            return True, 0, MAX_REGENERATIONS
+        finally:
+            db.close()
+
     def _resolve_topic(self, course_id: str, topic: Optional[str] = None, db_session_factory=None) -> str:
         """Resolve actual course/document topic if topic is missing or hardcoded generic AI string."""
         ignore_list = ["AI Quiz", "AI Overview", "AI Video", "AI Course", "General Students", ""]
@@ -529,6 +648,7 @@ class Generator:
                 for ext in [".pdf", ".docx", ".txt", ".PPTX", ".PDF", ".DOCX", ".TXT"]:
                     if fn.lower().endswith(ext.lower()):
                         fn = fn[:-len(ext)]
+                fn = _strip_leading_id_token(fn.strip())
                 if fn.strip():
                     return fn.strip()
             if course and course.metadata_json:
@@ -590,15 +710,9 @@ class Generator:
                     ch_context, ch_ids = context, base_ids
                 all_ids.update(ch_ids)
 
-                try:
-                    content = book_llm.generate_book_chapter(
-                        outline.title, plan, total, ch_context, detail_level, ch_ids
-                    )
-                except LLMGenerationError as e:
-                    logger.warning(f"Chapter '{plan.chapter_title}' failed once, retrying: {e}")
-                    content = book_llm.generate_book_chapter(
-                        outline.title, plan, total, ch_context, detail_level, ch_ids
-                    )
+                content = book_llm.generate_book_chapter(
+                    outline.title, plan, total, ch_context, detail_level, ch_ids
+                )
 
                 chapters.append(
                     BookChapter(
@@ -783,10 +897,10 @@ class Generator:
 
         quality_scores_meta = sp_meta.get("quality_scores", {})
         quality_scores = QualityScoresData(
-            study_guide_pdf=quality_scores_meta.get("study_guide_pdf", 85 if has_book else 0),
-            slides=quality_scores_meta.get("slides", 85 if has_slide else 0),
-            quiz=quality_scores_meta.get("quiz", 85 if has_quiz else 0),
-            vid=quality_scores_meta.get("vid", 85 if has_vid else 0),
+            study_guide_pdf=quality_scores_meta.get("study_guide_pdf", 0),
+            slides=quality_scores_meta.get("slides", 0),
+            quiz=quality_scores_meta.get("quiz", 0),
+            vid=quality_scores_meta.get("vid", 0),
         )
 
         grounding_meta = sp_meta.get("grounding", {})
@@ -795,6 +909,8 @@ class Generator:
             quality_score=grounding_meta.get("quality_score", q_score if (has_book or has_slide or has_quiz or has_vid) else 0),
             warnings=grounding_meta.get("warnings", []),
         )
+
+        regen_limits = RegenLimitsData(max=MAX_REGENERATIONS, used=sp_meta.get("regen_counts", {}))
 
         return StudyPackResponse(
             course_id=course_id,
@@ -808,7 +924,7 @@ class Generator:
                 has_quiz=has_quiz,
                 has_quiz_answer_key=has_quiz_key,
                 has_vid=has_vid,
-                quality_score=q_score or 85,
+                quality_score=q_score,
                 num_chunks=chunk_cnt,
             ),
             study_pack=StudyPackData(
@@ -820,5 +936,6 @@ class Generator:
                 readiness=readiness,
                 quality_scores=quality_scores,
                 grounding=grounding,
+                regen_limits=regen_limits,
             ),
         )

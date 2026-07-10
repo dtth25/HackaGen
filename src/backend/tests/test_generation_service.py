@@ -10,7 +10,7 @@ from app.services.vector_store import Document, get_vector_store
 
 def test_llm_service_and_prompts():
     """Test LLMService initialization, prompt loading, and structured output generation."""
-    llm = LLMService(model="gemini-2.5-flash")
+    llm = LLMService(model="gemini-3.5-flash")
     assert llm.prompts_dir is not None
     assert os.path.exists(os.path.join(llm.prompts_dir, "book_outline.txt"))
     assert os.path.exists(os.path.join(llm.prompts_dir, "book_chapter.txt"))

@@ -1,5 +1,6 @@
 """Pydantic schemas and quality scoring for HackaGen outputs."""
 
+import re
 from typing import Any, List, Optional, Tuple
 from pydantic import BaseModel, Field
 
@@ -151,14 +152,19 @@ class QuizOutput(BaseModel):
 
 
 class VidScene(BaseModel):
-    """Single video scene. Frames stay text-minimal (heading + optional short keyword line) —
-    the narration (spoken by TTS) carries the actual content, matching the NotebookLM-style
-    "voice-led, uncluttered frame" aesthetic rather than dense on-screen bullet text."""
+    """Single video scene. Frames stay text-light (heading + a few short keyword bullets) —
+    the narration (spoken by TTS) still carries the actual content, matching the NotebookLM-
+    style "voice-led, uncluttered frame" aesthetic rather than dense on-screen paragraphs."""
 
     scene_number: int = Field(..., description="Sequential scene number")
     title: str = Field(..., description="Short on-screen heading for the scene (<=6 words)")
     on_screen_text: Optional[str] = Field(
         "", description="Optional short keyword/phrase shown on screen (<=8 words), may be empty"
+    )
+    key_points: List[str] = Field(
+        default_factory=list,
+        description="2-3 short keyword bullets (<=6 words each) shown beneath the heading, "
+        "reinforcing what the narration covers; empty list is fine for intro/outro scenes",
     )
     narration: str = Field(..., description="Voice-over script / narration text, spoken naturally")
     duration_seconds: int = Field(0, description="Actual scene duration in seconds, filled in from TTS audio length")
@@ -180,6 +186,36 @@ class VidOutput(BaseModel):
 # =====================================================================
 # 8. Quality Scoring and Validation
 # =====================================================================
+
+
+_CHUNK_MENTION_RE = re.compile(r"\bchunk[_\s]*\d+\b", re.IGNORECASE)
+
+
+def _strip_chunk_mentions(text: str, label: str, warnings: List[str]) -> str:
+    """Defense-in-depth: the prompts forbid the model from naming internal chunk IDs in
+    user-facing text (e.g. "Dựa vào chunk_3..."), but strip any that slip through anyway
+    rather than leak an internal RAG concept the reader has no context for. Logs a warning
+    so drift in prompt compliance shows up in quality_score warnings."""
+    if not text or not _CHUNK_MENTION_RE.search(text):
+        return text
+    warnings.append(f"{label}: rò rỉ tham chiếu chunk nội bộ, đã tự động lọc.")
+    return _CHUNK_MENTION_RE.sub("tài liệu", text)
+
+
+def _check_grounding(
+    cited_ids: List[str], valid_ids: set, label: str, warnings: List[str]
+) -> Tuple[int, bool]:
+    """Validate that cited chunk IDs were actually retrieved, not just present.
+    Returns (score_penalty, is_grounded) — a citation pointing at a chunk ID that was
+    never retrieved is a hallucinated reference, not grounding, so it costs points
+    instead of counting toward the grounding boost."""
+    if not cited_ids:
+        return 0, False
+    invalid = [cid for cid in cited_ids if cid not in valid_ids]
+    if invalid and valid_ids:
+        warnings.append(f"{label} tham chiếu chunk không tồn tại: {invalid}")
+        return 5 * len(invalid), False
+    return 0, True
 
 
 def validate_and_score_output(
@@ -211,16 +247,22 @@ def validate_and_score_output(
                 if not ch.chapter_title or not ch.sections:
                     warnings.append(f"Chương '{ch.chapter_title}' thiếu nội dung chi tiết.")
                     base_score -= 5
+                label = f"Chương '{ch.chapter_title}'"
+                ch.introduction = _strip_chunk_mentions(ch.introduction, label, warnings)
+                for sec in ch.sections:
+                    sec.content = _strip_chunk_mentions(sec.content, label, warnings)
+                ch.key_points = [_strip_chunk_mentions(kp, label, warnings) for kp in ch.key_points]
+                ch.review_questions = [_strip_chunk_mentions(q, label, warnings) for q in ch.review_questions]
                 word_count = len(ch.introduction.split()) + sum(len(s.content.split()) for s in ch.sections)
                 if word_count < 400:
                     warnings.append(f"Chương '{ch.chapter_title}' quá ngắn ({word_count} từ).")
                     base_score -= 5
-                # Check grounding
-                if ch.source_chunk_ids:
+                penalty, grounded = _check_grounding(
+                    ch.source_chunk_ids, valid_chunk_ids_set, f"Chương '{ch.chapter_title}'", warnings
+                )
+                base_score -= penalty
+                if grounded:
                     grounded_items += 1
-                    invalid_refs = [cid for cid in ch.source_chunk_ids if cid not in valid_chunk_ids_set]
-                    if invalid_refs and valid_chunk_ids_set:
-                        warnings.append(f"Chương '{ch.chapter_title}' tham chiếu chunk không tồn tại: {invalid_refs}")
             # Boost score if well grounded
             if len(data.chapters) > 0 and (grounded_items / len(data.chapters)) >= 0.8:
                 base_score += 10
@@ -237,7 +279,14 @@ def validate_and_score_output(
                 if not sl.bullet_points:
                     warnings.append(f"Slide {sl.slide_number} thiếu nội dung bullet points.")
                     base_score -= 5
-                if sl.source_chunk_ids:
+                label = f"Slide {sl.slide_number}"
+                sl.title = _strip_chunk_mentions(sl.title, label, warnings)
+                sl.bullet_points = [_strip_chunk_mentions(b, label, warnings) for b in sl.bullet_points]
+                penalty, grounded = _check_grounding(
+                    sl.source_chunk_ids, valid_chunk_ids_set, f"Slide {sl.slide_number}", warnings
+                )
+                base_score -= penalty
+                if grounded:
                     grounded_items += 1
             if len(data.slides) > 0 and (grounded_items / len(data.slides)) >= 0.8:
                 base_score += 10
@@ -257,7 +306,16 @@ def validate_and_score_output(
                 if q.correct_answer not in ["A", "B", "C", "D"]:
                     warnings.append(f"Câu hỏi {q.question_number} có đáp án đúng không hợp lệ: {q.correct_answer}")
                     base_score -= 10
-                if q.source_chunk_ids:
+                label = f"Câu hỏi {q.question_number}"
+                q.question_text = _strip_chunk_mentions(q.question_text, label, warnings)
+                q.explanation = _strip_chunk_mentions(q.explanation, label, warnings)
+                for opt in q.options:
+                    opt.text = _strip_chunk_mentions(opt.text, label, warnings)
+                penalty, grounded = _check_grounding(
+                    q.source_chunk_ids, valid_chunk_ids_set, f"Câu hỏi {q.question_number}", warnings
+                )
+                base_score -= penalty
+                if grounded:
                     grounded_items += 1
             if len(data.questions) > 0 and (grounded_items / len(data.questions)) >= 0.8:
                 base_score += 10
@@ -274,7 +332,16 @@ def validate_and_score_output(
                 if not sc.narration or len(sc.narration.split()) < 5:
                     warnings.append(f"Phân cảnh {sc.scene_number} thiếu lời đọc hoặc quá ngắn.")
                     base_score -= 5
-                if sc.source_chunk_ids:
+                label = f"Phân cảnh {sc.scene_number}"
+                sc.title = _strip_chunk_mentions(sc.title, label, warnings)
+                sc.on_screen_text = _strip_chunk_mentions(sc.on_screen_text or "", label, warnings)
+                sc.key_points = [_strip_chunk_mentions(kp, label, warnings) for kp in sc.key_points]
+                sc.narration = _strip_chunk_mentions(sc.narration, label, warnings)
+                penalty, grounded = _check_grounding(
+                    sc.source_chunk_ids, valid_chunk_ids_set, f"Phân cảnh {sc.scene_number}", warnings
+                )
+                base_score -= penalty
+                if grounded:
                     grounded_items += 1
             if len(data.scenes) > 0 and (grounded_items / len(data.scenes)) >= 0.8:
                 base_score += 10
@@ -283,8 +350,5 @@ def validate_and_score_output(
 
     # Clamp score between 0 and 100
     quality_score = max(0, min(100, base_score))
-    # Ensure quality score satisfies criteria (> 70) when schema is valid and not empty
-    if quality_score <= 70 and not warnings:
-        quality_score = 75
 
     return data, quality_score, warnings
