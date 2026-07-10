@@ -71,6 +71,13 @@ export function CourseCard({ course, onDeleted, onRenamed }: CourseCardProps) {
 
   const cfg = statusConfig[status];
 
+  // AI course-title generation can lag behind (retried lazily by the backend on /status
+  // polls, capped at a couple attempts) — while it might still land, show a pending label
+  // instead of the raw filename and don't let the user rename over a title that could still
+  // show up on its own. Backend flips this off once attempts are exhausted so rename never
+  // stays stuck disabled forever.
+  const namePending = !!course.name_pending;
+
   const handleDelete = async () => {
     setDeleting(true);
     try {
@@ -84,8 +91,9 @@ export function CourseCard({ course, onDeleted, onRenamed }: CourseCardProps) {
     }
   };
 
-  const displayName =
-    course.name || course.filenames?.[0] || `Khóa học ${course.course_id.slice(0, 6)}`;
+  const displayName = namePending
+    ? "Đang đặt tên..."
+    : course.name || course.filenames?.[0] || `Khóa học ${course.course_id.slice(0, 6)}`;
   const exactTime = course.created_at ? formatExactTime(course.created_at) : "";
   const timeAgo = course.created_at ? formatTimeAgo(course.created_at) : "";
 
@@ -144,6 +152,12 @@ export function CourseCard({ course, onDeleted, onRenamed }: CourseCardProps) {
             )}
           </div>
         )}
+        {status === "error" && course.error && (
+          <p className="mt-2 flex items-start gap-1.5 text-xs text-destructive">
+            <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
+            <span className="line-clamp-2">{course.error}</span>
+          </p>
+        )}
         {timeAgo && (
           <p className="mt-2 text-xs text-muted-foreground">
             Tạo lúc {exactTime} · {timeAgo}
@@ -176,7 +190,8 @@ export function CourseCard({ course, onDeleted, onRenamed }: CourseCardProps) {
                 variant="ghost"
                 size="sm"
                 onClick={openRename}
-                title="Đổi tên khóa học"
+                disabled={namePending}
+                title={namePending ? "Đợi đặt tên tự động xong đã nhé" : "Đổi tên khóa học"}
               />
             }
           >

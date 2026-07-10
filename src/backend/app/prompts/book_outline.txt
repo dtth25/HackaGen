@@ -24,6 +24,9 @@ YÊU CẦU QUAN TRỌNG:
    - `retrieval_query`: một câu truy vấn tìm kiếm bằng tiếng Việt, cụ thể và sát chủ đề chương, dùng để tìm lại đúng đoạn ngữ cảnh liên quan cho chương này (KHÔNG dùng câu chung chung như "tổng quan tài liệu").
    - `planned_sections`: 3-5 tiêu đề mục dự kiến sẽ có trong chương.
 5. Chỉ dựa vào kiến thức có trong ngữ cảnh RAG ở trên, không tự bịa đặt kiến thức ngoài phạm vi tài liệu.
-6. Được phép dùng LaTeX cho công thức/ký hiệu toán học: bọc mỗi công thức trong dấu `$...$` (ví dụ: `$d(a_i, a_j)$`, `$O(n \log n)$`, `$x^2$`). Có thể dùng Markdown chuẩn để nhấn mạnh (`**đậm**`) khi cần — hệ thống sẽ render đúng định dạng này. Tránh dùng các ký hiệu hiếm/khó đọc (như □, ▢, ký tự trang trí) — nếu cần placeholder hãy dùng chữ hoặc số cụ thể.
+6. Nếu ngữ cảnh RAG không đủ thông tin để xây dựng đủ số chương như MỨC ĐỘ CHI TIẾT YÊU CẦU ở trên, hãy giảm số chương xuống mức có căn cứ thật từ tài liệu (tối thiểu 4 chương), thay vì thêm chương lấp đầy bằng kiến thức tự suy diễn.
+7. Được phép dùng LaTeX cho công thức/ký hiệu toán học: bọc mỗi công thức trong dấu `$...$` (ví dụ: `$d(a_i, a_j)$`, `$O(n \log n)$`, `$x^2$`). Có thể dùng Markdown chuẩn để nhấn mạnh (`**đậm**`) khi cần — hệ thống sẽ render đúng định dạng này. Tránh dùng các ký hiệu hiếm/khó đọc (như □, ▢, ký tự trang trí) — nếu cần placeholder hãy dùng chữ hoặc số cụ thể.
+8. TOÀN BỘ đầu ra (title, summary, preface, chapter_title, description, planned_sections) phải bằng tiếng Việt chuẩn, đầy đủ dấu, kể cả khi tài liệu nguồn bằng ngôn ngữ khác (Anh, Trung, Hindi...) — chỉ giữ nguyên thuật ngữ chuyên môn/tên riêng không dịch được, kèm giải thích tiếng Việt ngắn gọn nếu cần.
+9. BỎ QUA nội dung mang tính thư mục/xuất bản (tên tác giả, nhà xuất bản, năm xuất bản, ISBN, mã định danh tài liệu, lời cảm ơn, mục lục) khi lên dàn ý — chỉ tập trung vào kiến thức học thuật chính trong tài liệu.
 
 Hãy trả về kết quả dưới dạng cấu trúc JSON hợp lệ tuân thủ đúng schema được yêu cầu, bao gồm: title, summary, preface, chapters (mỗi phần tử gồm chapter_number, chapter_title, description, retrieval_query, planned_sections).

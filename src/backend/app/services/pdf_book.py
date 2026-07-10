@@ -62,7 +62,7 @@ def build_book_pdf(file_path: str, book: BookOutput) -> None:
     )
     front_h_style = ParagraphStyle(
         "BookFrontH", parent=styles["Heading1"], fontName=font_bold, fontSize=18, leading=22,
-        textColor=colors.HexColor("#1e3a8a"), spaceBefore=6, spaceAfter=14,
+        textColor=colors.HexColor("#1e3a8a"), spaceBefore=6, spaceAfter=14, keepWithNext=1,
     )
     toc_title_style = ParagraphStyle(
         "TocTitle", parent=styles["Heading1"], fontName=font_bold, fontSize=18, leading=22,
@@ -74,7 +74,7 @@ def build_book_pdf(file_path: str, book: BookOutput) -> None:
     )
     h2_style = ParagraphStyle(
         "BookH2", parent=styles["Heading2"], fontName=font_bold, fontSize=13, leading=17,
-        textColor=colors.HexColor("#334155"), spaceBefore=12, spaceAfter=6,
+        textColor=colors.HexColor("#334155"), spaceBefore=12, spaceAfter=6, keepWithNext=1,
     )
     body_style = ParagraphStyle(
         "BookBody", parent=styles["BodyText"], fontName=font_name, fontSize=11, leading=16.5,
@@ -82,7 +82,7 @@ def build_book_pdf(file_path: str, book: BookOutput) -> None:
     )
     box_label_style = ParagraphStyle(
         "BookBoxLabel", parent=styles["Normal"], fontName=font_bold, fontSize=11, leading=15,
-        textColor=colors.HexColor("#0f172a"), spaceBefore=6, spaceAfter=4,
+        textColor=colors.HexColor("#0f172a"), spaceBefore=6, spaceAfter=4, keepWithNext=1,
     )
     obj_style = ParagraphStyle(
         "BookObj", parent=styles["Normal"], fontName=font_name, fontSize=10.5, leading=15,

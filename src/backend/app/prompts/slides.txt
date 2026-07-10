@@ -12,11 +12,15 @@ NGỮ CẢNH TÀI LIỆU (RAG CONTEXT CHUNKS):
 
 YÊU CẦU QUAN TRỌNG:
 1. Chỉ dựa vào kiến thức trong ngữ cảnh RAG để xây dựng slide, không bịa đặt nội dung ngoài ngữ cảnh.
-2. Với mỗi slide được tạo ra, BẮT BUỘC liệt kê chính xác các mã chunk (ví dụ: ["chunk_1"]) vào mảng `source_chunk_ids` để trích dẫn nguồn.
-3. Nội dung bullet points ngắn gọn (mỗi ý không quá 20 từ), rõ ràng, dễ đọc trên slide.
-4. Sử dụng đa dạng các bố cục trang trình chiếu (`layout_type`: "default" | "two_column" | "quote") tùy theo tính chất nội dung: dùng "two_column" khi so sánh/liệt kê song song, dùng "quote" cho câu nói/điểm nhấn quan trọng, và "default" cho nội dung thông thường.
-5. Viết văn bản thuần — KHÔNG dùng cú pháp LaTeX (`$...$`, `\lệnh`) hay Markdown (`**`, `##`, dấu backtick). Ký hiệu toán/kỹ thuật viết bằng Unicode dễ đọc trực tiếp (ví dụ: ≤, ×, d(i, j), O(k), 10⁵) thay vì mã nguồn LaTeX.
-6. Chỉ số mảng/bảng quy hoạch động (DP) BẮT BUỘC viết bằng ngoặc vuông liền sau tên biến, ví dụ `P[i]`, `DP[i][j]`, `A[i][j-1]` — TUYỆT ĐỐI KHÔNG dùng cú pháp subscript gạch dưới (`P_i`, `DP_{{i,j}}`), vì hệ thống hiển thị slide sẽ chuyển chúng thành ký tự nhỏ khó đọc.
+2. Nếu ngữ cảnh RAG không đủ thông tin cho một slide dự kiến, hãy giảm số slide xuống mức có căn cứ thật từ tài liệu (vẫn giữ tối thiểu 10 slide), thay vì thêm slide nội dung chung chung để lấp đầy SỐ LƯỢNG SLIDE YÊU CẦU.
+3. Với mỗi slide được tạo ra, BẮT BUỘC liệt kê chính xác các mã chunk (ví dụ: ["chunk_1"]) vào mảng `source_chunk_ids` để trích dẫn nguồn.
+4. Nội dung bullet points ngắn gọn (mỗi ý không quá 20 từ), rõ ràng, dễ đọc trên slide.
+5. Sử dụng đa dạng các bố cục trang trình chiếu (`layout_type`: "default" | "two_column" | "quote") tùy theo tính chất nội dung: dùng "two_column" khi so sánh/liệt kê song song, dùng "quote" cho câu nói/điểm nhấn quan trọng, và "default" cho nội dung thông thường.
+6. Viết văn bản thuần — KHÔNG dùng cú pháp LaTeX (`$...$`, `\lệnh`) hay Markdown (`**`, `##`, dấu backtick). Ký hiệu toán/kỹ thuật viết bằng Unicode dễ đọc trực tiếp (ví dụ: ≤, ×, d(i, j), O(k), 10⁵) thay vì mã nguồn LaTeX.
+7. Chỉ số mảng/bảng quy hoạch động (DP) BẮT BUỘC viết bằng ngoặc vuông liền sau tên biến, ví dụ `P[i]`, `DP[i][j]`, `A[i][j-1]` — TUYỆT ĐỐI KHÔNG dùng cú pháp subscript gạch dưới (`P_i`, `DP_{{i,j}}`), vì hệ thống hiển thị slide sẽ chuyển chúng thành ký tự nhỏ khó đọc.
+8. TOÀN BỘ đầu ra (title, bullet_points) phải bằng tiếng Việt chuẩn, đầy đủ dấu, kể cả khi tài liệu nguồn bằng ngôn ngữ khác (Anh, Trung, Hindi...) — chỉ giữ nguyên thuật ngữ chuyên môn/tên riêng không dịch được, kèm giải thích tiếng Việt ngắn gọn nếu cần.
+9. Tuyệt đối KHÔNG nhắc đến các từ "chunk", "ngữ cảnh", "RAG", hay tên file/mã định danh tài liệu nguồn ở bất kỳ đâu trong title hay bullet_points — người xem không được biết về cơ chế truy xuất dữ liệu này.
+10. BỎ QUA nội dung mang tính thư mục/xuất bản (tên tác giả, nhà xuất bản, năm xuất bản, ISBN, mã định danh tài liệu, lời cảm ơn, mục lục) khi chọn nội dung cho slide — chỉ tập trung vào kiến thức học thuật chính trong tài liệu.
 
 Hãy trả về kết quả dưới dạng cấu trúc JSON hợp lệ tuân thủ đúng schema được yêu cầu, bao gồm:
 - title: Tiêu đề bộ slide bài giảng.

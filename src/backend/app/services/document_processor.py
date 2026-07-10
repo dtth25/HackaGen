@@ -1,9 +1,11 @@
 """Document processing service for extracting, cleaning, chunking, and embedding documents."""
 
+import json
 import logging
 import os
 import re
-from typing import List, Optional
+from collections import Counter
+from typing import List, Optional, Tuple
 from pydantic import BaseModel
 import fitz  # PyMuPDF
 import docx
@@ -11,6 +13,36 @@ from app.models.course import Course
 from app.services.vector_store import Document, VectorStore
 
 logger = logging.getLogger(__name__)
+
+_SENTENCE_BOUNDARY_RE = re.compile(r"[.?!][ \n]")
+
+# Total AI course-title attempts allowed per course (1 during initial upload processing +
+# lazy retries triggered from the status-poll endpoint) before giving up permanently.
+MAX_TITLE_ATTEMPTS = 2
+
+
+def _find_split_position(text: str, start: int, end: int, chunk_size: int) -> int:
+    """Find the best position to end a chunk at, preferring a sentence boundary, then a
+    newline, then a plain space — only within the back half of the window so a chunk
+    never ends up drastically shorter than requested. Returns -1 for a hard cut at `end`
+    when no good boundary is found."""
+    half = start + chunk_size // 2
+
+    best = -1
+    for m in _SENTENCE_BOUNDARY_RE.finditer(text, start, end):
+        pos = m.start() + 1  # right after the punctuation, before the trailing whitespace
+        if pos > half:
+            best = pos
+    if best != -1:
+        return best
+
+    split_pos = text.rfind("\n", start, end)
+    if split_pos == -1 or split_pos <= half:
+        split_pos = text.rfind(" ", start, end)
+    if split_pos != -1 and split_pos > half:
+        return split_pos
+
+    return -1
 
 
 class ProcessingResult(BaseModel):
@@ -29,12 +61,14 @@ class DocumentProcessor:
     def __init__(
         self,
         vector_store: VectorStore,
-        chunk_size: int = 1000,
-        chunk_overlap: int = 100,
+        chunk_size: Optional[int] = None,
+        chunk_overlap: Optional[int] = None,
     ):
+        from app.core.config import settings
+
         self.vector_store = vector_store
-        self.chunk_size = chunk_size
-        self.chunk_overlap = chunk_overlap
+        self.chunk_size = chunk_size if chunk_size is not None else settings.DOCUMENT_CHUNK_SIZE
+        self.chunk_overlap = chunk_overlap if chunk_overlap is not None else settings.DOCUMENT_CHUNK_OVERLAP
 
     def _update_course_db(
         self,
@@ -46,6 +80,7 @@ class DocumentProcessor:
         quality_score: int = 0,
         embedding_status: str = "pending",
         name: Optional[str] = None,
+        error_message: Optional[str] = None,
         db_session_factory=None,
     ):
         """Helper to update course status in database."""
@@ -71,6 +106,9 @@ class DocumentProcessor:
                     if name:
                         course.name = name
                     course.embedding_status = embedding_status
+                    # Clears any stale error from a prior attempt on success, persists the
+                    # real reason on failure — always set explicitly, not just on failure.
+                    course.error_message = error_message
                     db.commit()
         except Exception as e:
             logger.error(f"Failed to update course {course_id} in DB: {e}")
@@ -91,6 +129,72 @@ class DocumentProcessor:
             logger.warning(f"Course title generation failed, falling back to filename: {e}")
             return None
 
+    def _bump_title_attempts(self, course_id: str, db_session_factory=None) -> None:
+        """Increment the AI title-generation attempt counter in metadata_json. Self-contained
+        short-lived session (mirrors _update_course_db) so it never holds a DB connection open
+        across the slow Gemini call in _generate_course_title."""
+        if db_session_factory is None:
+            from app.services.database import SessionLocal as factory
+        else:
+            factory = db_session_factory
+        try:
+            with factory() as db:
+                course = db.query(Course).filter(Course.id == course_id).first()
+                if not course:
+                    return
+                meta = course.metadata_json or "{}"
+                if isinstance(meta, str):
+                    try:
+                        meta = json.loads(meta)
+                    except Exception:
+                        meta = {}
+                meta["title_attempts"] = meta.get("title_attempts", 0) + 1
+                course.metadata_json = json.dumps(meta, ensure_ascii=False)
+                db.commit()
+        except Exception as e:
+            logger.error(f"Failed to bump title_attempts for {course_id}: {e}")
+
+    def retry_course_title_if_missing(self, course_id: str, db_session_factory=None) -> Optional[str]:
+        """Lazily retry AI course-title generation for a ready course that still has no name
+        (e.g. the first attempt hit a transient Gemini quota error during upload). Called from
+        the course-status poll endpoint, so a later poll can pick up a title once quota
+        recovers. Capped at MAX_TITLE_ATTEMPTS total tries (tracked in metadata_json) across
+        the initial upload-time attempt and any lazy retries — never retries forever."""
+        if db_session_factory is None:
+            from app.services.database import SessionLocal as factory
+        else:
+            factory = db_session_factory
+
+        with factory() as db:
+            course = (
+                db.query(Course)
+                .filter(Course.id == course_id, Course.is_deleted == False)  # noqa: E712
+                .first()
+            )
+            if not course or course.name or course.status != "ready":
+                return None
+
+            meta = course.metadata_json or "{}"
+            if isinstance(meta, str):
+                try:
+                    meta = json.loads(meta)
+                except Exception:
+                    meta = {}
+            if meta.get("title_attempts", 0) >= MAX_TITLE_ATTEMPTS:
+                return None
+
+        docs = self.vector_store.get_course_chunks(course_id)
+        title = self._generate_course_title(docs) if docs else None
+        self._bump_title_attempts(course_id, db_session_factory)
+
+        if title:
+            with factory() as db:
+                course = db.query(Course).filter(Course.id == course_id).first()
+                if course and not course.name:
+                    course.name = title
+                    db.commit()
+        return title
+
     def extract_text_from_file(self, file_path: str) -> List[dict]:
         """Extract text from PDF/DOCX/TXT file. Returns list of dicts with content and page number."""
         if not os.path.exists(file_path):
@@ -109,13 +213,30 @@ class DocumentProcessor:
 
         if ext == ".pdf":
             try:
+                from app.core.config import settings
+
                 with fitz.open(file_path) as doc:
-                    for idx, page in enumerate(doc):
-                        text = page.get_text()
-                        if text and text.strip():
+                    page_texts = [(page.get_text() or "").strip() for page in doc]
+
+                    scan_mode = False
+                    if settings.PDF_ENABLE_OCR and page_texts:
+                        sample_n = min(settings.PDF_SCAN_SAMPLE_PAGES, len(page_texts))
+                        low_text_count = sum(
+                            1 for t in page_texts[:sample_n] if len(t) < settings.PDF_TEXT_MIN_CHARS_PER_PAGE
+                        )
+                        scan_mode = low_text_count >= max(1, sample_n // 2)
+
+                    ocr_budget = settings.PDF_OCR_MAX_PAGES if scan_mode else 0
+                    for idx, text in enumerate(page_texts):
+                        if scan_mode and ocr_budget > 0 and len(text) < settings.PDF_TEXT_MIN_CHARS_PER_PAGE:
+                            ocr_budget -= 1
+                            ocr_text = self._ocr_page(doc, idx, settings.PDF_OCR_DPI)
+                            if ocr_text and len(ocr_text) > len(text):
+                                text = ocr_text
+                        if text:
                             pages.append(
                                 {
-                                    "content": text.strip(),
+                                    "content": text,
                                     "page": idx + 1,
                                     "source_file": clean_filename,
                                 }
@@ -200,6 +321,23 @@ class DocumentProcessor:
 
         return pages
 
+    def _ocr_page(self, doc: "fitz.Document", page_index: int, dpi: int) -> Optional[str]:
+        """Render a PDF page to an image and ask Gemini vision to transcribe its text.
+        Best-effort: returns None on any failure so the caller keeps whatever text
+        extraction already produced (possibly empty/short)."""
+        try:
+            page = doc[page_index]
+            zoom = dpi / 72.0
+            pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom))
+            image_bytes = pix.tobytes("png")
+
+            from app.services.llm import LLMService
+
+            return LLMService().ocr_page_image(image_bytes) or None
+        except Exception as e:
+            logger.warning(f"OCR fallback failed for page {page_index + 1}: {e}")
+            return None
+
     def clean_text(self, text: str) -> str:
         """Clean extracted text: remove repetitive noise, extra whitespace, Table of Contents leaders."""
         if not text:
@@ -216,16 +354,38 @@ class DocumentProcessor:
 
         return "\n".join(cleaned_lines).strip()
 
-    def chunk_text(self, text: str, metadata: dict, course_id: str) -> List[Document]:
-        """Chunk text with overlap and attach required metadata."""
+    def chunk_text(
+        self,
+        text: str,
+        metadata: dict,
+        course_id: str,
+        page_offsets: Optional[List[Tuple[int, int, int]]] = None,
+    ) -> List[Document]:
+        """Chunk text with overlap and attach required metadata.
+
+        When `page_offsets` (list of (start, end, page_number) covering `text`) is given —
+        used when `text` is the concatenation of every page of one document, so ideas
+        split across a page boundary don't get fragmented — each chunk's `page` is derived
+        from the offset range it starts in instead of the single `metadata["page"]` value.
+        Without it, behaves exactly as a single-page chunk call (`metadata["page"]` for all
+        chunks), which is what direct single-page callers still rely on.
+        """
         if not text:
             return []
 
         chunks = []
         source_file = metadata.get("source_file", "unknown")
-        page = metadata.get("page", 1)
+        default_page = metadata.get("page", 1)
 
-        # Simple character/word boundary chunking with overlap
+        def _page_for_offset(pos: int) -> int:
+            if not page_offsets:
+                return default_page
+            for p_start, p_end, page_num in page_offsets:
+                if p_start <= pos < p_end:
+                    return page_num
+            return page_offsets[-1][2]
+
+        # Character-boundary chunking with overlap, preferring sentence/newline/space breaks
         start = 0
         text_len = len(text)
         idx = 0
@@ -233,15 +393,13 @@ class DocumentProcessor:
         while start < text_len:
             end = start + self.chunk_size
             if end < text_len:
-                # Try to find a newline or space near end to break cleanly
-                split_pos = text.rfind("\n", start, end)
-                if split_pos == -1 or split_pos <= start + self.chunk_size // 2:
-                    split_pos = text.rfind(" ", start, end)
-                if split_pos != -1 and split_pos > start + self.chunk_size // 2:
+                split_pos = _find_split_position(text, start, end, self.chunk_size)
+                if split_pos != -1:
                     end = split_pos
 
             chunk_content = text[start:end].strip()
             if chunk_content:
+                page = _page_for_offset(start)
                 chunk_id = f"{source_file}_p{page}_c{idx}"
                 source_chunk_id = f"{course_id}_{chunk_id}"
 
@@ -264,6 +422,81 @@ class DocumentProcessor:
 
         return chunks
 
+    def _strip_repeated_headers_footers(self, pages: List[dict]) -> List[dict]:
+        """Detect lines that repeat identically across >=3 pages of the same document
+        (running headers/footers) and strip them before chunking. Needs the full page
+        list at once (unlike clean_text, which only ever sees one page)."""
+        if len(pages) < 3:
+            return pages
+
+        line_counts: Counter = Counter()
+        for p in pages:
+            lines = {line.strip() for line in p["content"].split("\n") if line.strip()}
+            for line in lines:
+                if len(line) >= 3:
+                    line_counts[line] += 1
+
+        repeated = {line for line, count in line_counts.items() if count >= 3}
+        if not repeated:
+            return pages
+
+        result = []
+        for p in pages:
+            kept = [line for line in p["content"].split("\n") if line.strip() not in repeated]
+            result.append({**p, "content": "\n".join(kept)})
+        return result
+
+    def _is_low_information(self, text: str) -> bool:
+        """A chunk is noise if it's too short or mostly non-alphanumeric (leftover
+        table borders, decorative characters, stray symbols)."""
+        stripped = text.strip()
+        if len(stripped.split()) < 15:
+            return True
+        alnum_count = sum(1 for c in stripped if c.isalnum())
+        return len(stripped) > 0 and (alnum_count / len(stripped)) < 0.5
+
+    def extract_and_chunk_file(self, path: str, course_id: str) -> List[Document]:
+        """Extract, clean, dedup headers/footers, cross-page chunk, and low-info-prune a
+        single file. Shared by process_course() and the standalone re-embed migration
+        script (scripts/reembed_courses.py) so both stay in sync with chunking changes."""
+        extracted_pages = self.extract_text_from_file(path)
+        cleaned_pages = []
+        for page_data in extracted_pages:
+            cleaned = self.clean_text(page_data["content"])
+            if cleaned:
+                cleaned_pages.append({**page_data, "content": cleaned})
+        cleaned_pages = self._strip_repeated_headers_footers(cleaned_pages)
+
+        # Concatenate every page of this document into one string with an
+        # offset->page map, so a chunk never gets cut off just because it
+        # happens to straddle a page boundary.
+        combined_parts: List[str] = []
+        page_offsets: List[Tuple[int, int, int]] = []
+        offset = 0
+        source_file = None
+        for page_data in cleaned_pages:
+            content = page_data["content"]
+            if not content:
+                continue
+            source_file = page_data["source_file"]
+            combined_parts.append(content)
+            page_offsets.append((offset, offset + len(content), page_data["page"]))
+            offset += len(content)
+            combined_parts.append("\n\n")
+            offset += 2
+
+        if not combined_parts:
+            return []
+
+        combined_text = "".join(combined_parts)
+        page_meta = {"page": page_offsets[0][2], "source_file": source_file}
+        doc_chunks = self.chunk_text(combined_text, page_meta, course_id, page_offsets=page_offsets)
+        filtered_chunks = [c for c in doc_chunks if not self._is_low_information(c.content)]
+        # Pruning noise should never zero out a whole document's contribution —
+        # a genuinely tiny document (or a chunk_size small enough to slice below
+        # the word-count floor) should still upload, not silently disappear.
+        return filtered_chunks or doc_chunks
+
     def process_course(
         self, course_id: str, file_paths: List[str], db_session_factory=None
     ) -> ProcessingResult:
@@ -285,19 +518,9 @@ class DocumentProcessor:
 
         all_documents: List[Document] = []
         try:
-            # 1. Extract & 2. Clean
+            # 1. Extract, 2. Clean, 3. Chunk
             for path in file_paths:
-                extracted_pages = self.extract_text_from_file(path)
-                for page_data in extracted_pages:
-                    cleaned = self.clean_text(page_data["content"])
-                    if cleaned:
-                        # 3. Chunk text
-                        page_meta = {
-                            "page": page_data["page"],
-                            "source_file": page_data["source_file"],
-                        }
-                        page_chunks = self.chunk_text(cleaned, page_meta, course_id)
-                        all_documents.extend(page_chunks)
+                all_documents.extend(self.extract_and_chunk_file(path, course_id))
 
             self._update_course_db(
                 course_id,
@@ -326,8 +549,11 @@ class DocumentProcessor:
             # Calculate quality score (e.g., based on average chunk length and total chunks)
             quality_score = min(100, max(50, len(all_documents) * 5 + 60))
 
-            # Best-effort AI title (falls back to filename in the UI if this returns None)
+            # Best-effort AI title (falls back to filename in the UI if this returns None) —
+            # /status polling can lazily retry this later (retry_course_title_if_missing),
+            # so count this as attempt 1 of MAX_TITLE_ATTEMPTS.
             course_title = self._generate_course_title(all_documents)
+            self._bump_title_attempts(course_id, db_session_factory)
 
             # Completed!
             self._update_course_db(
@@ -363,6 +589,7 @@ class DocumentProcessor:
                 stage="failed",
                 progress=0,
                 embedding_status="failed",
+                error_message=error_msg[:500],
                 db_session_factory=db_session_factory,
             )
             return ProcessingResult(

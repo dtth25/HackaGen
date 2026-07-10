@@ -130,7 +130,10 @@ def test_courses_all_ownership(client):
     assert res_b.json()["courses"][0]["filenames"] == ["docB.pdf"]
 
 
-def test_course_status_simulation(client):
+def test_course_status_reflects_real_state_not_simulated(client):
+    """/status must report the DB's real status — a course with no attached processing
+    pipeline (created directly via POST /api/courses, bypassing upload) must stay
+    "processing" indefinitely instead of being force-flipped to "ready" after a timer."""
     headers = get_auth_headers(client, "status@example.com")
     res = client.post(
         "/api/courses",
@@ -139,18 +142,55 @@ def test_course_status_simulation(client):
     )
     course_id = res.json()["id"]
 
-    # Immediately check status -> processing
     status_res1 = client.get(f"/api/course/{course_id}/status", headers=headers)
     assert status_res1.status_code == 200
     assert status_res1.json()["status"] == "processing"
 
-    # Wait 1.6 seconds to trigger simulated transition
+    # Past the old 1.5s simulated-transition threshold — must still be genuinely processing,
+    # not force-flipped by a timer with no real pipeline behind it.
     time.sleep(1.6)
     status_res2 = client.get(f"/api/course/{course_id}/status", headers=headers)
     assert status_res2.status_code == 200
-    assert status_res2.json()["status"] == "ready"
-    assert status_res2.json()["progress"] == 100
-    assert status_res2.json()["message"] == "Tài liệu đã sẵn sàng."
+    assert status_res2.json()["status"] == "processing"
+    assert status_res2.json()["message"] == "Đang phân tích và xử lý tài liệu..."
+
+
+def test_course_status_failed_exposes_real_error(client):
+    """A course that failed real processing must surface the actual error reason via
+    /status (error field + Vietnamese message), and via GET /courses/all — not a generic
+    "Lỗi" badge with no explanation (error is never persisted -> None was the old bug)."""
+    from app.models.course import Course
+    from app.services.database import SessionLocal
+
+    headers = get_auth_headers(client, "failed_status@example.com")
+    res = client.post(
+        "/api/courses",
+        headers=headers,
+        json={"filenames": ["broken.pdf"]},
+    )
+    course_id = res.json()["id"]
+
+    db = SessionLocal()
+    try:
+        course = db.query(Course).filter(Course.id == course_id).first()
+        course.status = "failed"
+        course.error_message = "Không thể trích xuất văn bản từ file PDF (file có thể bị hỏng)."
+        db.commit()
+    finally:
+        db.close()
+
+    status_res = client.get(f"/api/course/{course_id}/status", headers=headers)
+    assert status_res.status_code == 200
+    body = status_res.json()
+    assert body["status"] == "failed"
+    assert body["error"] == "Không thể trích xuất văn bản từ file PDF (file có thể bị hỏng)."
+    assert body["message"] == body["error"]
+
+    list_res = client.get("/api/courses/all", headers=headers)
+    assert list_res.status_code == 200
+    items = [c for c in list_res.json()["courses"] if c["course_id"] == course_id]
+    assert len(items) == 1
+    assert items[0]["error"] == "Không thể trích xuất văn bản từ file PDF (file có thể bị hỏng)."
 
 
 def test_delete_course_and_cleanup(client, test_upload_dir):

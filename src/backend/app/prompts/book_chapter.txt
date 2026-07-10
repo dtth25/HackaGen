@@ -31,7 +31,10 @@ YÊU CẦU QUAN TRỌNG:
 6. `key_points`: 3-5 điểm kiến thức cốt lõi cần ghi nhớ sau khi học xong chương.
 7. `review_questions`: 2-4 câu hỏi ôn tập giúp người đọc tự kiểm tra hiểu bài, không kèm đáp án.
 8. Chỉ sử dụng kiến thức có trong ngữ cảnh RAG ở trên, không tự bịa đặt kiến thức ngoài phạm vi tài liệu. BẮT BUỘC liệt kê chính xác các mã chunk đã dùng (ví dụ: ["chunk_1", "chunk_2"]) vào mảng `source_chunk_ids`.
-9. Tuyệt đối KHÔNG nhắc đến các từ "chunk", "ngữ cảnh", "RAG", hay tên file tài liệu nguồn ở bất kỳ đâu trong nội dung văn bản (introduction, sections, key_points, review_questions) — người đọc không được biết về cơ chế truy xuất dữ liệu này.
-10. Chỉ số mảng/bảng quy hoạch động (DP) BẮT BUỘC viết bằng ngoặc vuông liền sau tên biến, ví dụ `P[i]`, `DP[i][j]`, `A[i][j-1]` — TUYỆT ĐỐI KHÔNG dùng cú pháp subscript gạch dưới (`P_i`, `DP_{{i,j}}`) cho chỉ số mảng.
+9. Nếu ngữ cảnh RAG không đủ căn cứ cho một mục dự kiến trong CÁC MỤC DỰ KIẾN TRONG CHƯƠNG, hãy nêu ngắn gọn trong chính mục đó rằng tài liệu nguồn không đề cập chi tiết đến nội dung này, hoặc bỏ mục đó, thay vì suy diễn/viết chung chung để lấp đầy độ dài.
+10. Tuyệt đối KHÔNG nhắc đến các từ "chunk", "ngữ cảnh", "RAG", hay tên file tài liệu nguồn ở bất kỳ đâu trong nội dung văn bản (introduction, sections, key_points, review_questions) — người đọc không được biết về cơ chế truy xuất dữ liệu này.
+11. Chỉ số mảng/bảng quy hoạch động (DP) BẮT BUỘC viết bằng ngoặc vuông liền sau tên biến, ví dụ `P[i]`, `DP[i][j]`, `A[i][j-1]` — TUYỆT ĐỐI KHÔNG dùng cú pháp subscript gạch dưới (`P_i`, `DP_{{i,j}}`) cho chỉ số mảng.
+12. TOÀN BỘ đầu ra phải bằng tiếng Việt chuẩn, đầy đủ dấu, kể cả khi tài liệu nguồn bằng ngôn ngữ khác (Anh, Trung, Hindi...) — chỉ giữ nguyên thuật ngữ chuyên môn/tên riêng không dịch được, kèm giải thích tiếng Việt ngắn gọn nếu cần.
+13. BỎ QUA nội dung mang tính thư mục/xuất bản (tên tác giả, nhà xuất bản, năm xuất bản, ISBN, mã định danh tài liệu, lời cảm ơn, mục lục) khi viết chương — chỉ tập trung vào kiến thức học thuật chính trong tài liệu.
 
 Hãy trả về kết quả dưới dạng cấu trúc JSON hợp lệ tuân thủ đúng schema được yêu cầu, bao gồm: chapter_title, introduction, objectives, sections (title + content), key_points, review_questions, source_chunk_ids.

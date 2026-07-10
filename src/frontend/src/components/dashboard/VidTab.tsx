@@ -21,6 +21,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { cn } from "@/lib/utils";
+import { RegenerateButton } from "@/components/dashboard/RegenerateButton";
 import {
   apiGetVid,
   apiGenerateVid,
@@ -58,6 +59,9 @@ export function VidTab({ courseId }: VidTabProps) {
   const [error, setError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [regenUsed, setRegenUsed] = useState<number | null>(null);
+  const [regenMax, setRegenMax] = useState<number | null>(null);
+  const [regenError, setRegenError] = useState<string | null>(null);
 
   // Generation config
   const [format, setFormat] = useState("standard");
@@ -79,6 +83,8 @@ export function VidTab({ courseId }: VidTabProps) {
     const poll = async () => {
       try {
         const res = await apiGetVid(courseId);
+        if (typeof res.regen_used === "number") setRegenUsed(res.regen_used);
+        if (typeof res.regen_max === "number") setRegenMax(res.regen_max);
         if (res.status === "ready" && res.data && res.data.scenes?.length > 0) {
           setVideo(res.data);
           setHasFetched(true);
@@ -110,6 +116,8 @@ export function VidTab({ courseId }: VidTabProps) {
     if (hasFetched) return;
     apiGetVid(courseId)
       .then((res) => {
+        if (typeof res.regen_used === "number") setRegenUsed(res.regen_used);
+        if (typeof res.regen_max === "number") setRegenMax(res.regen_max);
         if (res.status === "ready" && res.data) {
           setVideo(res.data);
         } else if (res.status === "processing") {
@@ -166,6 +174,24 @@ export function VidTab({ courseId }: VidTabProps) {
   const handleRetryAfterError = () => {
     setError(null);
     handleGenerate();
+  };
+
+  // Regenerating from the ready view keeps the current video visible (stale-while-revalidate)
+  // instead of bouncing to the full-page ErrorState/EmptyState — a 429 (regen limit reached)
+  // surfaces as a small inline banner instead of blowing away otherwise-valid content.
+  const handleRegenerate = async () => {
+    setRegenError(null);
+    setGenerating(true);
+    setProgress(5);
+    try {
+      const res = await apiGenerateVid(courseId, { format, voice, user_prompt: userPrompt });
+      if (typeof res.regen_used === "number") setRegenUsed(res.regen_used);
+      if (typeof res.regen_max === "number") setRegenMax(res.regen_max);
+      startPolling(Date.now());
+    } catch (err) {
+      setRegenError(err instanceof Error ? err.message : "Tạo lại thất bại.");
+      setGenerating(false);
+    }
   };
 
   const toggleFullScreen = () => {
@@ -372,8 +398,30 @@ export function VidTab({ courseId }: VidTabProps) {
             <Maximize2 className="h-4 w-4" />
             <span className="hidden sm:inline">Toàn màn hình</span>
           </Button>
+
+          {generating ? (
+            <Button disabled variant="outline" className="gap-1.5">
+              <RefreshCw className="h-4 w-4 animate-spin" /> Đang tạo lại ({progress}%)…
+            </Button>
+          ) : (
+            <RegenerateButton
+              label="video"
+              regenUsed={regenUsed}
+              regenMax={regenMax}
+              onConfirm={handleRegenerate}
+            />
+          )}
         </div>
       </div>
+
+      {regenError && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-error/40 bg-error/5 px-4 py-3 text-sm text-error">
+          <span>{regenError}</span>
+          <button onClick={() => setRegenError(null)} className="shrink-0 font-semibold hover:underline">
+            Đóng
+          </button>
+        </div>
+      )}
 
       {/* Player stage */}
       <div

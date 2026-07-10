@@ -106,6 +106,7 @@ desktop.ini
 # Generated runtime outputs (bổ sung)
 src/data/chroma/
 data/chroma/
+src/backend/test_chroma_tmp/
 
 # Local databases (SQLite dev DB, Chroma store)
 *.db

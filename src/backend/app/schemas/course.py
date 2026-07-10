@@ -34,6 +34,8 @@ class CourseListItem(BaseModel):
     filenames: List[str] = []
     file_count: int = 0
     created_at: Optional[datetime] = None
+    error: Optional[str] = None
+    name_pending: bool = False
 
 
 class CourseListResponse(BaseModel):
@@ -54,6 +56,7 @@ class CourseStatusResponse(BaseModel):
     filenames: List[str] = []
     file_count: int = 0
     error: Optional[str] = None
+    name_pending: bool = False
     document_quality_report: Optional[Dict[str, Any]] = None
 
 
