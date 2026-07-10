@@ -54,3 +54,13 @@ export {
   AccordionTrigger,
   AccordionContent,
 } from "@/components/ui/accordion";
+export { QualityScoreBadge } from "@/components/ui/QualityScoreBadge";
+export { Badge, badgeVariants } from "@/components/ui/badge";
+export {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from "@/components/ui/tabs";
+export { Skeleton } from "@/components/ui/skeleton";
+export { Markdown } from "@/components/ui/markdown";

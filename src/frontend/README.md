@@ -1,36 +1,61 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# HackaGen Frontend
 
-## Getting Started
+Frontend này là Next.js App Router app cho Document-to-Study-Pack flow. README root ở `../../README.md` là runbook chính để setup cả backend và frontend từ máy sạch; file này chỉ ghi các lệnh frontend cần nhớ.
 
-First, run the development server:
+## Requirements
+
+- Node.js 20+ và npm.
+- Backend FastAPI đang chạy, mặc định ở `http://127.0.0.1:8000`.
+
+## Setup
+
+```bash
+npm install
+```
+
+## Run Dev
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Mở `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Frontend gọi backend qua Next.js proxy `/api/backend/*`. Nếu backend không chạy ở port mặc định, set:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+BACKEND_API_BASE_URL=http://127.0.0.1:8001
+```
 
-## Learn More
+`NEXT_PUBLIC_API_BASE_URL` vẫn được hỗ trợ như alias cũ, nhưng `BACKEND_API_BASE_URL` là biến nên dùng cho proxy hiện tại.
 
-To learn more about Next.js, take a look at the following resources:
+## Production Demo
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm run build
+npm run start
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Checks
 
-## Deploy on Vercel
+```bash
+npm run lint
+npm run build
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Low-Memory Windows Notes
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Next.js 16 dùng Turbopack mặc định cho `next dev` nếu không chỉ định flag. Project này để `npm run dev` chạy `next dev --webpack` nhằm nhẹ hơn cho laptop Windows 8GB RAM. Chỉ dùng `npm run dev:turbo` khi cần benchmark hoặc debug Turbopack.
+
+Nếu `node.exe` dùng quá nhiều RAM hoặc terminal bị treo:
+
+```powershell
+taskkill /F /IM node.exe
+Remove-Item -Recurse -Force .next
+npm run dev
+```
+
+Các mẹo khác:
+
+- Đóng dev server trùng lặp trước khi chạy server mới.
+- Nếu memory tăng sau một phiên dài, chạy `npm run fresh` để xóa `.next` và restart dev server.
