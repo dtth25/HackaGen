@@ -1,11 +1,13 @@
-"""Transactional email sending (verification codes, password reset) via Resend.
+"""Transactional email sending (verification codes, password reset) via SMTP.
 
 Sends are synchronous and raise on failure — a user waiting on a code needs to
 know immediately if delivery failed, not get a fake "email sent" response
 (same "no silent fallback" stance already applied to LLM generation).
 """
 
-import resend
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
 from app.core.config import logger, settings
 
@@ -14,17 +16,17 @@ _ACCENT = "#2454c4"
 
 
 class EmailNotConfiguredError(Exception):
-    """RESEND_API_KEY / EMAIL_FROM_ADDRESS missing — operator setup incomplete."""
+    """SMTP_USER / SMTP_PASSWORD missing — operator setup incomplete."""
 
 
 class EmailSendError(Exception):
-    """Resend API call failed."""
+    """SMTP send failed."""
 
 
 def _require_configured() -> None:
-    if not settings.RESEND_API_KEY or not settings.EMAIL_FROM_ADDRESS:
+    if not settings.SMTP_USER or not settings.SMTP_PASSWORD:
         raise EmailNotConfiguredError(
-            "RESEND_API_KEY/EMAIL_FROM_ADDRESS chưa được cấu hình trên server."
+            "SMTP_USER/SMTP_PASSWORD chưa được cấu hình trên server."
         )
 
 
@@ -51,32 +53,37 @@ def _code_email_html(heading: str, body: str, code: str) -> str:
 
 
 def _send(to_email: str, subject: str, heading: str, body: str, code: str) -> None:
-    if not settings.RESEND_API_KEY or not settings.EMAIL_FROM_ADDRESS:
+    if not settings.SMTP_USER or not settings.SMTP_PASSWORD:
         if settings.EMAIL_DEV_FALLBACK:
-            _dev_fallback(to_email, code, "RESEND_API_KEY/EMAIL_FROM_ADDRESS chưa cấu hình")
+            _dev_fallback(to_email, code, "SMTP_USER/SMTP_PASSWORD chưa cấu hình")
             return
         _require_configured()
 
-    resend.api_key = settings.RESEND_API_KEY
+    from_address = settings.EMAIL_FROM_ADDRESS or settings.SMTP_USER
     html = _code_email_html(heading, body, code)
     text = f"{heading}\n\n{body}\n\nMã: {code}\n\nMã có hiệu lực trong {settings.EMAIL_OTP_EXPIRE_MINUTES} phút."
+
+    message = MIMEMultipart("alternative")
+    message["Subject"] = subject
+    message["From"] = from_address
+    message["To"] = to_email
+    message.attach(MIMEText(text, "plain", "utf-8"))
+    message.attach(MIMEText(html, "html", "utf-8"))
+
     try:
-        resend.Emails.send(
-            {
-                "from": settings.EMAIL_FROM_ADDRESS,
-                "to": [to_email],
-                "subject": subject,
-                "html": html,
-                "text": text,
-            }
-        )
+        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=15) as server:
+            server.starttls()
+            server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+            # Envelope sender must be the authenticated account — Gmail ignores/rejects
+            # a mismatched one regardless of the "From" header set above.
+            server.sendmail(settings.SMTP_USER, [to_email], message.as_string())
     except Exception as e:
         if settings.EMAIL_DEV_FALLBACK:
-            # Real send attempted and failed (e.g. Resend sending domain not verified
-            # yet) — degrade to console instead of blocking local testing on it.
+            # Real send attempted and failed (e.g. bad App Password) — degrade to
+            # console instead of blocking local testing on it.
             _dev_fallback(to_email, code, f"Gửi email thật thất bại ({e})")
             return
-        logger.error("Resend email send failed for %s: %s", to_email, e, exc_info=True)
+        logger.error("SMTP email send failed for %s: %s", to_email, e, exc_info=True)
         raise EmailSendError(f"Không gửi được email: {e}") from e
 
 
