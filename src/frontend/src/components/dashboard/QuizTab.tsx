@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { usePollingArtifact } from "@/hooks/usePollingArtifact";
 import {
   HelpCircle,
   Sparkles,
@@ -74,15 +75,6 @@ function difficultyMeta(raw?: string): { label: string; variant: "secondary" | "
 }
 
 export function QuizTab({ courseId }: QuizTabProps) {
-  const [questions, setQuestions] = useState<QuizQuestion[] | null>(null);
-  const [hasFetched, setHasFetched] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [generating, setGenerating] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [regenUsed, setRegenUsed] = useState<number | null>(null);
-  const [regenMax, setRegenMax] = useState<number | null>(null);
-  const [regenError, setRegenError] = useState<string | null>(null);
-
   // Generation config
   const [quantity, setQuantity] = useState(5);
   const [difficulty, setDifficulty] = useState("mixed");
@@ -91,10 +83,7 @@ export function QuizTab({ courseId }: QuizTabProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [showResults, setShowResults] = useState(false);
-
-  const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const loading = !hasFetched && !error;
+  const [regenError, setRegenError] = useState<string | null>(null);
 
   const resetTaking = useCallback(() => {
     setCurrentIndex(0);
@@ -102,68 +91,32 @@ export function QuizTab({ courseId }: QuizTabProps) {
     setShowResults(false);
   }, []);
 
-  const startPolling = (startedAt: number) => {
-    const TIMEOUT_MS = 3 * 60 * 1000;
-    const POLL_MS = 3000;
+  const {
+    data: questions,
+    setData: setQuestions,
+    hasFetched,
+    error,
+    setError,
+    generating,
+    setGenerating,
+    progress,
+    setProgress,
+    regenUsed,
+    setRegenUsed,
+    regenMax,
+    setRegenMax,
+    startPolling,
+  } = usePollingArtifact<QuizQuestion[]>({
+    courseId,
+    fetchFn: apiGetQuiz,
+    isReady: (data) => data.length > 0,
+    timeoutMs: 3 * 60 * 1000,
+    timeoutMessage: "Quá trình tạo trắc nghiệm mất nhiều thời gian hơn dự kiến. Vui lòng thử lại sau.",
+    defaultErrorMessage: "Tạo trắc nghiệm thất bại.",
+    onReady: resetTaking,
+  });
 
-    const poll = async () => {
-      try {
-        const res = await apiGetQuiz(courseId);
-        if (typeof res.regen_used === "number") setRegenUsed(res.regen_used);
-        if (typeof res.regen_max === "number") setRegenMax(res.regen_max);
-        if (res.status === "ready" && res.data && res.data.length > 0) {
-          setQuestions(res.data);
-          resetTaking();
-          setHasFetched(true);
-          setGenerating(false);
-          setProgress(100);
-          return;
-        }
-        if (res.status === "error") {
-          setError(res.error || "Tạo trắc nghiệm thất bại.");
-          setGenerating(false);
-          return;
-        }
-        if (typeof res.progress === "number") setProgress(res.progress);
-      } catch {
-        // Ignore transient errors while the background job is still running.
-      }
-      if (Date.now() - startedAt > TIMEOUT_MS) {
-        setError("Quá trình tạo trắc nghiệm mất nhiều thời gian hơn dự kiến. Vui lòng thử lại sau.");
-        setGenerating(false);
-        return;
-      }
-      pollTimer.current = setTimeout(poll, POLL_MS);
-    };
-
-    pollTimer.current = setTimeout(poll, POLL_MS);
-  };
-
-  useEffect(() => {
-    if (hasFetched) return;
-    apiGetQuiz(courseId)
-      .then((res) => {
-        if (typeof res.regen_used === "number") setRegenUsed(res.regen_used);
-        if (typeof res.regen_max === "number") setRegenMax(res.regen_max);
-        if (res.status === "ready" && res.data && res.data.length > 0) {
-          setQuestions(res.data);
-          resetTaking();
-        } else if (res.status === "processing") {
-          setGenerating(true);
-          setProgress(res.progress ?? 5);
-          startPolling(Date.now());
-        } else if (res.status === "error") {
-          setError(res.error || "Tạo trắc nghiệm thất bại.");
-        }
-      })
-      .catch((err) => setError(err instanceof Error ? err.message : "Không thể tải bộ câu hỏi."))
-      .finally(() => setHasFetched(true));
-
-    return () => {
-      if (pollTimer.current) clearTimeout(pollTimer.current);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [courseId, hasFetched]);
+  const loading = !hasFetched && !error;
 
   const handleGenerate = async () => {
     setGenerating(true);
@@ -399,7 +352,6 @@ export function QuizTab({ courseId }: QuizTabProps) {
               variant="outline"
               onClick={() => {
                 setQuestions(null);
-                setHasFetched(true);
               }}
               className="gap-1.5"
             >

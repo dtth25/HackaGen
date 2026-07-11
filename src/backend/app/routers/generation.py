@@ -35,25 +35,26 @@ def get_generator() -> Generator:
     """Singleton helper to get Generator instance.
 
     Each of the 4 generation features (Book/Slide/Quiz/Vid) can be configured with its own
-    Gemini API key (GEMINI_{BOOK,SLIDE,QUIZ,VID}_API_KEY), falling back to the shared
-    GEMINI_API_KEY when a feature-specific key isn't set.
+    Gemini API key (GEMINI_{BOOK,SLIDE,QUIZ,VID}_API_KEY) and/or its own model
+    (GEMINI_{BOOK,SLIDE,QUIZ,VIDEO}_MODEL), each falling back independently to the shared
+    GEMINI_API_KEY / GEMINI_DEFAULT_MODEL when left unset.
     """
     global _generator_instance
     if _generator_instance is None:
         vs = get_vector_store()
         llm = LLMService()
-        # Only spin up a separate client for a feature that actually has its own key
-        # configured — otherwise reuse the shared `llm` instance instead of creating
-        # redundant genai.Client objects that all fall back to the same GEMINI_API_KEY.
-        feature_keys = {
-            "book": settings.GEMINI_BOOK_API_KEY,
-            "slides": settings.GEMINI_SLIDE_API_KEY,
-            "quiz": settings.GEMINI_QUIZ_API_KEY,
-            "vid": settings.GEMINI_VID_API_KEY,
+        # Only spin up a separate client for a feature that actually overrides the key
+        # and/or model — otherwise reuse the shared `llm` instance instead of creating
+        # redundant genai.Client objects that would end up identically configured.
+        feature_overrides = {
+            "book": (settings.GEMINI_BOOK_API_KEY, settings.GEMINI_BOOK_MODEL),
+            "slides": (settings.GEMINI_SLIDE_API_KEY, settings.GEMINI_SLIDE_MODEL),
+            "quiz": (settings.GEMINI_QUIZ_API_KEY, settings.GEMINI_QUIZ_MODEL),
+            "vid": (settings.GEMINI_VID_API_KEY, settings.GEMINI_VIDEO_MODEL),
         }
         feature_llms = {
-            feature: LLMService(api_key=key) if key else llm
-            for feature, key in feature_keys.items()
+            feature: LLMService(api_key=key or None, model=model or None) if (key or model) else llm
+            for feature, (key, model) in feature_overrides.items()
         }
         _generator_instance = Generator(vs, llm, feature_llms)
     return _generator_instance

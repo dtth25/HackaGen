@@ -8,6 +8,36 @@ from app.services.llm import LLMService
 from app.services.vector_store import Document, get_vector_store
 
 
+def test_llm_service_default_model_comes_from_settings(monkeypatch):
+    """LLMService() with no explicit model must use settings.GEMINI_DEFAULT_MODEL, not a
+    hardcoded literal — regression guard for the dead model-routing config bug where
+    GEMINI_{BOOK,SLIDE,QUIZ,VIDEO,COURSE}_MODEL had zero effect on anything."""
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "GEMINI_DEFAULT_MODEL", "gemini-test-default")
+    assert LLMService().model_name == "gemini-test-default"
+    assert LLMService(model="explicit-override").model_name == "explicit-override"
+
+
+def test_get_generator_feature_model_override(monkeypatch):
+    """A feature-specific GEMINI_{FEATURE}_MODEL must produce a dedicated LLMService with
+    that model, while a feature left blank must reuse the shared instance."""
+    from app.core.config import settings
+    from app.routers import generation as generation_router
+
+    monkeypatch.setattr(settings, "GEMINI_BOOK_MODEL", "gemini-book-special")
+    monkeypatch.setattr(settings, "GEMINI_SLIDE_MODEL", "")
+    monkeypatch.setattr(settings, "GEMINI_BOOK_API_KEY", "")
+    monkeypatch.setattr(settings, "GEMINI_SLIDE_API_KEY", "")
+    generation_router._generator_instance = None
+    gen = generation_router.get_generator()
+    try:
+        assert gen.feature_llms["book"].model_name == "gemini-book-special"
+        assert gen.feature_llms["slides"] is gen.llm
+    finally:
+        generation_router._generator_instance = None
+
+
 def test_llm_service_and_prompts():
     """Test LLMService initialization, prompt loading, and structured output generation."""
     llm = LLMService(model="gemini-3.5-flash")

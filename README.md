@@ -186,9 +186,11 @@ Cách deploy khuyến nghị cho server thật (kể cả server trường) là 
 
 **Chỉ có ĐÚNG 1 file env cần quan tâm khi deploy: `.env` ở root repo.** Không phải `src/backend/.env` (không tồn tại, đừng tạo — backend luôn resolve `.env` theo đường dẫn tuyệt đối về root, bất kể cwd). Không phải `src/frontend/.env` (file đó chỉ để `npm run dev` local dùng — **Docker build không đọc nó**; giá trị thật được `docker-compose.yml` truyền vào qua build `arg` lấy từ root `.env`, xem `src/frontend/Dockerfile`). Nếu build script nào đó tự chạy `npm run build` trực tiếp trong `src/frontend` (không qua `docker compose build`), nó sẽ **không** thấy `NEXT_PUBLIC_API_BASE_URL` của root `.env` — đây chính là nguyên nhân bug "frontend gọi localhost:8000 sau khi deploy". Luôn deploy bằng đúng 1 lệnh `docker compose up -d --build` ở root, không tự build tay từng service.
 
+**Kiến trúc mạng**: backend **không** cần mở cổng ra internet. `docker-compose.yml` bind cổng 8000 vào `127.0.0.1` (chỉ debug được từ chính server, `curl localhost:8000/health`), còn browser người dùng không bao giờ gọi thẳng backend — mọi request `/api/*` từ frontend đi qua chính domain của frontend, được `next.config.ts`'s `rewrites()` proxy server-side sang backend qua mạng nội bộ Docker (`BACKEND_INTERNAL_URL=http://backend:8000`, tự cấu hình sẵn trong compose, không cần sửa). Chỉ cần mở/trỏ domain vào **đúng 1 cổng 3000** (frontend) ra ngoài.
+
 **Checklist env production** (sửa trong `.env` ở root trước khi build):
-- `ALLOWED_ORIGINS` phải chứa origin thật của frontend (vd. `http://<ip-hoặc-domain-server>:3000`) — thiếu thì browser sẽ bị CORS chặn âm thầm, khó debug.
-- `NEXT_PUBLIC_API_BASE_URL` phải là origin public thật của backend (vd. `http://<ip-hoặc-domain-server>:8000`) — **không** dùng tên service compose `backend` (không resolve được từ browser người dùng). Next.js inline biến này lúc `next build`, nên đổi giá trị bắt buộc phải `docker compose build frontend` lại, restart container không đủ.
+- `NEXT_PUBLIC_API_BASE_URL` phải để **RỖNG** (`NEXT_PUBLIC_API_BASE_URL=`) — rỗng nghĩa là browser gọi same-origin rồi được proxy nội bộ như trên. Nếu điền domain/IP thật vào đây, browser sẽ cố gọi thẳng cổng 8000 và **fail** vì cổng đó không public. Next.js inline biến này lúc `next build`, nên đổi giá trị bắt buộc phải `docker compose build frontend` lại, restart container không đủ.
+- `ALLOWED_ORIGINS` không còn bắt buộc cho luồng browser chính (browser giờ gọi same-origin, không phải cross-origin nữa) — có thể để nguyên default, không cần sửa.
 - `GEMINI_API_KEY` (và các `GEMINI_{BOOK,SLIDE,QUIZ,VID}_API_KEY` nếu dùng) phải là key thật, không phải placeholder.
 - `RESEND_API_KEY` + `EMAIL_FROM_ADDRESS` phải là domain đã verify thật trên Resend, và `EMAIL_DEV_FALLBACK=false` (hoặc bỏ hẳn dòng này) — bật `true` ở production nghĩa là user đăng ký "thành công" nhưng không ai nhận được mã xác thực.
 - Cân nhắc bật `AUTH_COOKIE_SECURE=true` khi server đã có HTTPS.
@@ -197,36 +199,26 @@ Cách deploy khuyến nghị cho server thật (kể cả server trường) là 
 
 **Dữ liệu**: toàn bộ state bền vững nằm ở `./data/` trên host (`app-data/` = Chroma + SQLite, `uploads/`, `outputs/`, `cache/`) — đây là phần cần backup định kỳ.
 
-**Ngoài phạm vi repo**: reverse proxy (nginx/Caddy), HTTPS/TLS, và domain routing đứng trước cổng 3000/8000 là trách nhiệm người vận hành server — repo này chưa có config sẵn cho phần đó.
+**Ngoài phạm vi repo**: reverse proxy (nginx/Caddy) và HTTPS/TLS đứng trước cổng 3000 là trách nhiệm người vận hành server — repo này chưa có config sẵn cho phần đó. Chỉ cần route đúng 1 cổng 3000, không cần route cổng 8000 nữa.
 
 ## Local Architecture
 
-Local/dev mode hiện tại:
+Local/dev mode hiện tại — **không có provider-abstraction layer nào**, mỗi thứ dưới đây là 1 implementation cụ thể duy nhất, không phải 1 trong nhiều provider chọn được qua env:
 
 - Frontend: Next.js App Router trong `src/frontend`.
 - Backend: FastAPI trong `src/backend`.
-- Vector DB: `VECTOR_DB_PROVIDER=chroma`, lưu local tại `CHROMA_PERSIST_DIR`.
-- File storage: `STORAGE_PROVIDER=local`, upload/generated files lưu trên filesystem.
-- Job queue: `JOB_QUEUE_PROVIDER=inline`, chạy background bằng local thread.
-- Cache: `CACHE_PROVIDER=local`, document hash/cache embedding dùng file JSON/local files.
+- Vector DB: Chroma, code thật ở `src/backend/app/services/vector_store.py`, lưu local tại `CHROMA_PERSIST_DIR`. Không có interface/2nd provider nào khác trong repo.
+- File storage: filesystem thô (`os.path` + `UPLOAD_DIR`), rải rác trong `document_processor.py`/`generator.py`/`upload.py` — không có service module riêng.
+- Job queue: FastAPI `BackgroundTasks` gọi trực tiếp trong router — không có queue/broker thật.
+- Cache: `src/backend/app/services/cache.py` — dùng thật cho JWT blacklist + document/embedding cache.
 - Database: SQLite qua `DATABASE_URL`.
 - Auth: Bearer JWT + HttpOnly cookie; protected APIs require active user.
 
-Provider extension points:
-
-- Vector store interface: `src/backend/vector_db/base.py`.
-- Vector provider facade: `src/backend/vector_db/manager.py`.
-- File storage interface: `src/backend/services/storage.py`.
-- Job queue interface: `src/backend/services/jobs.py`.
-- Cache interface: `src/backend/services/cache.py`.
-
-Production providers như Postgres, Redis worker/cache, S3/R2 storage, Qdrant/Milvus/pgvector chỉ là hướng mở rộng. Nếu chọn provider chưa implement, backend phải báo lỗi rõ, không fallback âm thầm sang local.
+Postgres, Redis worker/cache, S3/R2 storage, Qdrant/Milvus/pgvector chỉ là hướng mở rộng tương lai — **chưa có code nào** cho các provider này. `.env.example` giữ lại tên biến (`VECTOR_DB_PROVIDER`, `STORAGE_PROVIDER`, `JOB_QUEUE_PROVIDER`, `CACHE_PROVIDER`, `MILVUS_*`, `S3_*`, `REDIS_URL`...) làm chỗ đặt tên sẵn cho lần thực sự implement, nhưng set chúng trong `.env` hôm nay không có tác dụng gì — không có field `Settings` nào đọc các biến đó.
 
 ## Chroma Notes
 
-Chroma là vector database bắt buộc cho local/dev. Nếu `VECTOR_DB_PROVIDER` unset, backend mặc định dùng `chroma`.
-
-FAISS không phải provider chính trong flow hiện tại. `src/backend/vector_db/faiss_manager.py` còn trong repo cho legacy tests/migration reference. Setting `VECTOR_DB_PROVIDER=faiss` hoặc `simple_dev_only` được normalize về `chroma` với warning.
+Chroma là vector database bắt buộc, và là **provider duy nhất** trong code hiện tại (`app/services/vector_store.py`) — không có FAISS hay `vector_db/` package nào trong repo để chuyển sang; `VECTOR_DB_PROVIDER` không phải field `Settings` nào và không có tác dụng gì (xem "Local Architecture" ở trên).
 
 Chroma được dùng vì app cần:
 

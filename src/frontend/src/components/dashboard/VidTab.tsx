@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { usePollingArtifact } from "@/hooks/usePollingArtifact";
 import type { LucideIcon } from "lucide-react";
 import {
   Video,
@@ -54,88 +55,41 @@ function formatDuration(totalSeconds?: number | null): string {
 }
 
 export function VidTab({ courseId }: VidTabProps) {
-  const [video, setVideo] = useState<VidOutput | null>(null);
-  const [hasFetched, setHasFetched] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [generating, setGenerating] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [regenUsed, setRegenUsed] = useState<number | null>(null);
-  const [regenMax, setRegenMax] = useState<number | null>(null);
-  const [regenError, setRegenError] = useState<string | null>(null);
-
   // Generation config
   const [format, setFormat] = useState("standard");
   const [voice, setVoice] = useState("female");
   const [userPrompt, setUserPrompt] = useState("");
+  const [regenError, setRegenError] = useState<string | null>(null);
 
   const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const stageRef = useRef<HTMLDivElement>(null);
   const downloadMenuRef = useRef<HTMLDivElement>(null);
-  const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const {
+    data: video,
+    hasFetched,
+    error,
+    setError,
+    generating,
+    setGenerating,
+    progress,
+    setProgress,
+    regenUsed,
+    setRegenUsed,
+    regenMax,
+    setRegenMax,
+    startPolling,
+  } = usePollingArtifact<VidOutput>({
+    courseId,
+    fetchFn: apiGetVid,
+    isReady: (data) => (data.scenes?.length ?? 0) > 0,
+    timeoutMs: 8 * 60 * 1000,
+    timeoutMessage: "Quá trình tạo video mất nhiều thời gian hơn dự kiến. Vui lòng thử lại sau.",
+    defaultErrorMessage: "Tạo video thất bại.",
+  });
 
   const loading = !hasFetched && !error;
-
-  const startPolling = (startedAt: number) => {
-    const TIMEOUT_MS = 8 * 60 * 1000;
-    const POLL_MS = 3000;
-
-    const poll = async () => {
-      try {
-        const res = await apiGetVid(courseId);
-        if (typeof res.regen_used === "number") setRegenUsed(res.regen_used);
-        if (typeof res.regen_max === "number") setRegenMax(res.regen_max);
-        if (res.status === "ready" && res.data && res.data.scenes?.length > 0) {
-          setVideo(res.data);
-          setHasFetched(true);
-          setGenerating(false);
-          setProgress(100);
-          return;
-        }
-        if (res.status === "error") {
-          setError(res.error || "Tạo video thất bại.");
-          setGenerating(false);
-          return;
-        }
-        if (typeof res.progress === "number") setProgress(res.progress);
-      } catch {
-        // Ignore transient errors while the background job is still running.
-      }
-      if (Date.now() - startedAt > TIMEOUT_MS) {
-        setError("Quá trình tạo video mất nhiều thời gian hơn dự kiến. Vui lòng thử lại sau.");
-        setGenerating(false);
-        return;
-      }
-      pollTimer.current = setTimeout(poll, POLL_MS);
-    };
-
-    pollTimer.current = setTimeout(poll, POLL_MS);
-  };
-
-  useEffect(() => {
-    if (hasFetched) return;
-    apiGetVid(courseId)
-      .then((res) => {
-        if (typeof res.regen_used === "number") setRegenUsed(res.regen_used);
-        if (typeof res.regen_max === "number") setRegenMax(res.regen_max);
-        if (res.status === "ready" && res.data) {
-          setVideo(res.data);
-        } else if (res.status === "processing") {
-          setGenerating(true);
-          setProgress(res.progress ?? 5);
-          startPolling(Date.now());
-        } else if (res.status === "error") {
-          setError(res.error || "Tạo video thất bại.");
-        }
-      })
-      .catch((err) => setError(err instanceof Error ? err.message : "Không thể tải video bài giảng."))
-      .finally(() => setHasFetched(true));
-
-    return () => {
-      if (pollTimer.current) clearTimeout(pollTimer.current);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [courseId, hasFetched]);
 
   // Close download menu on outside click
   useEffect(() => {

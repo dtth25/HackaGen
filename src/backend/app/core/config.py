@@ -51,6 +51,16 @@ class Settings(BaseSettings):
     OPENROUTER_API_KEY: str = Field(default="", description="OpenRouter API key, used only as a Gemini fallback")
     OPENROUTER_MODEL: str = Field(default="openai/gpt-4o-mini", description="OpenRouter model slug for the fallback")
 
+    # Model routing — mirrors the GEMINI_{FEATURE}_API_KEY pattern above. Each feature
+    # falls back to GEMINI_DEFAULT_MODEL when left blank (see LLMService.__init__ and
+    # generation.py::get_generator / document_processor.py::_generate_course_title).
+    GEMINI_DEFAULT_MODEL: str = Field(default="gemini-2.5-flash", description="Model used when a feature has no override")
+    GEMINI_BOOK_MODEL: str = Field(default="", description="Model for Book generation (falls back to GEMINI_DEFAULT_MODEL)")
+    GEMINI_SLIDE_MODEL: str = Field(default="", description="Model for Slide generation (falls back to GEMINI_DEFAULT_MODEL)")
+    GEMINI_QUIZ_MODEL: str = Field(default="", description="Model for Quiz generation (falls back to GEMINI_DEFAULT_MODEL)")
+    GEMINI_VIDEO_MODEL: str = Field(default="", description="Model for Vid generation (falls back to GEMINI_DEFAULT_MODEL)")
+    GEMINI_COURSE_MODEL: str = Field(default="", description="Model for course-title generation (falls back to GEMINI_DEFAULT_MODEL)")
+
     # Optional variables
     ALLOWED_ORIGINS: Union[List[str], str] = Field(
         default=["http://localhost:3000", "http://127.0.0.1:3000"],

@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.deps import get_current_user, get_db
 from app.models.course import Course
 from app.models.user import User
+from app.routers.generation import get_valid_course
 from app.schemas.course import (
     CourseCreate,
     CourseListItem,
@@ -94,16 +95,7 @@ def rename_course(
     db: Session = Depends(get_db),
 ):
     """Rename a course."""
-    course = (
-        db.query(Course)
-        .filter(Course.id == course_id, Course.is_deleted == False)  # noqa: E712
-        .first()
-    )
-    if not course:
-        raise HTTPException(status_code=404, detail="Khóa học không tồn tại.")
-
-    if course.user_id != current_user.id and current_user.role != "admin":
-        raise HTTPException(status_code=404, detail="Khóa học không tồn tại.")
+    course = get_valid_course(course_id, current_user, db)
 
     name = body.name.strip()
     if not name:
@@ -122,16 +114,7 @@ def delete_course(
     db: Session = Depends(get_db),
 ):
     """Soft delete a course and remove its local uploaded files."""
-    course = (
-        db.query(Course)
-        .filter(Course.id == course_id, Course.is_deleted == False)  # noqa: E712
-        .first()
-    )
-    if not course:
-        raise HTTPException(status_code=404, detail="Khóa học không tồn tại.")
-
-    if course.user_id != current_user.id and current_user.role != "admin":
-        raise HTTPException(status_code=404, detail="Khóa học không tồn tại.")
+    course = get_valid_course(course_id, current_user, db)
 
     # Soft delete in database
     course.is_deleted = True
@@ -153,16 +136,7 @@ def get_course_status(
     db: Session = Depends(get_db),
 ):
     """Get real course processing status."""
-    course = (
-        db.query(Course)
-        .filter(Course.id == course_id, Course.is_deleted == False)  # noqa: E712
-        .first()
-    )
-    if not course:
-        raise HTTPException(status_code=404, detail="Khóa học không tồn tại.")
-
-    if course.user_id != current_user.id and current_user.role != "admin":
-        raise HTTPException(status_code=404, detail="Khóa học không tồn tại.")
+    course = get_valid_course(course_id, current_user, db)
 
     filenames = course.filenames if isinstance(course.filenames, list) else []
     if course.status == "ready":

@@ -4,8 +4,13 @@ services:
     build:
       context: ./src
       dockerfile: backend/Dockerfile
+    # Bound to localhost only — the backend is not meant to be reachable from the
+    # internet directly. The frontend container proxies /api/* to it over the
+    # internal Docker network (see BACKEND_INTERNAL_URL below); this host-side
+    # binding just lets you `curl localhost:8000/health` on the server itself
+    # for debugging.
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     env_file:
       - ./.env
     environment:
@@ -26,6 +31,11 @@ services:
         NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
     ports:
       - "3000:3000"
+    environment:
+      # Runtime-only (not baked at build time like NEXT_PUBLIC_*) — next.config.ts's
+      # rewrites() reads this to proxy /api/* server-side to the backend container,
+      # over Docker Compose's internal network via the service name `backend`.
+      - BACKEND_INTERNAL_URL=http://backend:8000
     depends_on:
       - backend
     restart: unless-stopped

@@ -11,12 +11,12 @@ from app.core.config import settings
 from app.core.deps import get_current_user, get_db
 from app.models.course import Course
 from app.models.user import User
+from app.routers.courses import _enforce_course_limit
 from app.schemas.course import UploadResponse
 from app.services.document_processor import get_document_processor
 
 router = APIRouter(prefix="/api", tags=["upload"])
 
-MAX_COURSES_PER_USER = 10
 MAX_FILES_PER_UPLOAD = 5
 
 
@@ -42,16 +42,7 @@ async def upload_files(
             detail=f"Chỉ được phép tải lên tối đa {MAX_FILES_PER_UPLOAD} file mỗi lần.",
         )
 
-    existing_course_count = (
-        db.query(Course)
-        .filter(Course.user_id == current_user.id, Course.is_deleted == False)  # noqa: E712
-        .count()
-    )
-    if existing_course_count >= MAX_COURSES_PER_USER:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Bạn đã đạt giới hạn tối đa {MAX_COURSES_PER_USER} khóa học. Vui lòng xóa bớt khóa học cũ để tạo mới.",
-        )
+    _enforce_course_limit(db, current_user.id)
 
     allowed_exts = {".pdf", ".docx", ".txt"}
     max_size = 50 * 1024 * 1024  # 50 MB

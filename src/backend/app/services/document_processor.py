@@ -114,12 +114,13 @@ class DocumentProcessor:
         falls back to the document's own filename, like how chat UIs name a conversation
         once and leave the rest to manual rename."""
         try:
+            from app.core.config import settings
             from app.services.llm import LLMService
 
             sample = "\n\n".join(doc.content for doc in all_documents[:5])[:4000]
             if not sample.strip():
                 return None
-            result = LLMService().generate_course_title(sample)
+            result = LLMService(model=settings.GEMINI_COURSE_MODEL or None).generate_course_title(sample)
             title = (result.title or "").strip()
             return title or None
         except Exception as e:
