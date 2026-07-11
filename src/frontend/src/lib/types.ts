@@ -8,6 +8,7 @@ export interface User {
   full_name: string | null;
   role: "user" | "admin";
   is_active: boolean;
+  is_verified: boolean;
   created_at?: string;
   updated_at?: string;
 }
@@ -29,6 +30,20 @@ export interface RegisterRequest {
   full_name?: string;
 }
 
+export interface RegisterResponse {
+  email: string;
+  message: string;
+}
+
+export interface VerifyEmailRequest {
+  email: string;
+  code: string;
+}
+
+export interface MessageResponse {
+  message: string;
+}
+
 // ============================================================
 // Course Types
 // ============================================================
@@ -41,7 +56,6 @@ export interface CourseListItem {
   filenames?: string[];
   file_count?: number;
   error?: string;
-  name_pending?: boolean;
 }
 
 export interface CoursesResponse {
@@ -64,7 +78,6 @@ export interface CourseStatusResponse {
   has_quiz?: boolean;
   has_vid?: boolean;
   error?: string;
-  name_pending?: boolean;
 }
 
 // ============================================================

@@ -151,7 +151,9 @@ def test_generation_api_endpoints_complete(client):
     # Register & login
     reg_data = {"email": "gen_api@example.com", "password": "password123", "full_name": "Gen API User"}
     res = client.post("/api/auth/register", json=reg_data)
-    if res.status_code != 201:
+    if res.status_code == 201:
+        res = client.post("/api/auth/verify-email", json={"email": "gen_api@example.com", "code": "000000"})
+    else:
         res = client.post("/api/auth/login", json={"email": "gen_api@example.com", "password": "password123"})
     token = res.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
@@ -313,7 +315,9 @@ def test_book_api_error_status_envelope(client, monkeypatch):
 
     reg_data = {"email": "book_err_api@example.com", "password": "password123", "full_name": "Book Err User"}
     res = client.post("/api/auth/register", json=reg_data)
-    if res.status_code != 201:
+    if res.status_code == 201:
+        res = client.post("/api/auth/verify-email", json={"email": "book_err_api@example.com", "code": "000000"})
+    else:
         res = client.post("/api/auth/login", json={"email": "book_err_api@example.com", "password": "password123"})
     token = res.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}

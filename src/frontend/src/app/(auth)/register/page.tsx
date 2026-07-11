@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { apiRegister } from "@/lib/api";
-import { setToken, setStoredUser } from "@/lib/auth";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -46,14 +45,12 @@ export default function RegisterPage() {
     setLoading(true);
     setErrors({});
     try {
-      const res = await apiRegister({
+      await apiRegister({
         email,
         password,
         full_name: fullName.trim() || undefined,
       });
-      setToken(res.access_token);
-      setStoredUser(res.user);
-      router.push("/courses");
+      router.push(`/verify-email?email=${encodeURIComponent(email)}`);
     } catch (err) {
       setErrors({
         general:

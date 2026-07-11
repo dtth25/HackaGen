@@ -184,13 +184,16 @@ Cách deploy khuyến nghị cho server thật (kể cả server trường) là 
 
 **Prerequisites**: chỉ cần Docker Engine + Docker Compose plugin. Không cần cài build toolchain (gcc/C++) — image build sẵn dùng wheel/base image chuẩn.
 
+**Chỉ có ĐÚNG 1 file env cần quan tâm khi deploy: `.env` ở root repo.** Không phải `src/backend/.env` (không tồn tại, đừng tạo — backend luôn resolve `.env` theo đường dẫn tuyệt đối về root, bất kể cwd). Không phải `src/frontend/.env` (file đó chỉ để `npm run dev` local dùng — **Docker build không đọc nó**; giá trị thật được `docker-compose.yml` truyền vào qua build `arg` lấy từ root `.env`, xem `src/frontend/Dockerfile`). Nếu build script nào đó tự chạy `npm run build` trực tiếp trong `src/frontend` (không qua `docker compose build`), nó sẽ **không** thấy `NEXT_PUBLIC_API_BASE_URL` của root `.env` — đây chính là nguyên nhân bug "frontend gọi localhost:8000 sau khi deploy". Luôn deploy bằng đúng 1 lệnh `docker compose up -d --build` ở root, không tự build tay từng service.
+
 **Checklist env production** (sửa trong `.env` ở root trước khi build):
 - `ALLOWED_ORIGINS` phải chứa origin thật của frontend (vd. `http://<ip-hoặc-domain-server>:3000`) — thiếu thì browser sẽ bị CORS chặn âm thầm, khó debug.
 - `NEXT_PUBLIC_API_BASE_URL` phải là origin public thật của backend (vd. `http://<ip-hoặc-domain-server>:8000`) — **không** dùng tên service compose `backend` (không resolve được từ browser người dùng). Next.js inline biến này lúc `next build`, nên đổi giá trị bắt buộc phải `docker compose build frontend` lại, restart container không đủ.
 - `GEMINI_API_KEY` (và các `GEMINI_{BOOK,SLIDE,QUIZ,VID}_API_KEY` nếu dùng) phải là key thật, không phải placeholder.
+- `RESEND_API_KEY` + `EMAIL_FROM_ADDRESS` phải là domain đã verify thật trên Resend, và `EMAIL_DEV_FALLBACK=false` (hoặc bỏ hẳn dòng này) — bật `true` ở production nghĩa là user đăng ký "thành công" nhưng không ai nhận được mã xác thực.
 - Cân nhắc bật `AUTH_COOKIE_SECURE=true` khi server đã có HTTPS.
 
-**Chạy**: `docker compose up -d --build` dựng cả backend + frontend.
+**Chạy**: `docker compose up -d --build` dựng cả backend + frontend. Sau **mọi** lần `git pull` có đổi code, chạy lại đúng lệnh này (không chỉ `docker compose restart`) — đặc biệt bắt buộc nếu đổi bất kỳ biến `NEXT_PUBLIC_*` nào, vì nó bị bake cứng vào frontend lúc build.
 
 **Dữ liệu**: toàn bộ state bền vững nằm ở `./data/` trên host (`app-data/` = Chroma + SQLite, `uploads/`, `outputs/`, `cache/`) — đây là phần cần backup định kỳ.
 

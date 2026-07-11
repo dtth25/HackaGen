@@ -1,12 +1,8 @@
 """Courses router for CRUD operations and status tracking."""
 
-import json
-import os
-import shutil
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
 from app.core.deps import get_current_user, get_db
 from app.models.course import Course
 from app.models.user import User
@@ -24,24 +20,6 @@ router = APIRouter(prefix="/api/courses", tags=["courses"])
 router_single = APIRouter(prefix="/api/course", tags=["courses"])
 
 MAX_COURSES_PER_USER = 10
-
-
-def _title_pending(course: Course) -> bool:
-    """True while AI course-title generation might still succeed on a later attempt — drives
-    the frontend's "Đang đặt tên..." state and keeps manual rename disabled until then, so a
-    user never overwrites a title that's still on its way. Once attempts are exhausted (or the
-    course errored out), this flips to False and normal manual rename takes over."""
-    if course.name or course.status not in ("processing", "ready"):
-        return False
-    meta = course.metadata_json or "{}"
-    if isinstance(meta, str):
-        try:
-            meta = json.loads(meta)
-        except Exception:
-            meta = {}
-    from app.services.document_processor import MAX_TITLE_ATTEMPTS
-
-    return meta.get("title_attempts", 0) < MAX_TITLE_ATTEMPTS
 
 
 def _enforce_course_limit(db: Session, user_id: str) -> None:
@@ -68,6 +46,7 @@ def get_user_courses(
         query = query.filter(Course.user_id == current_user.id)
 
     courses = query.order_by(Course.created_at.desc()).all()
+
     items = []
     for c in courses:
         filenames = c.filenames if isinstance(c.filenames, list) else []
@@ -80,7 +59,6 @@ def get_user_courses(
                 file_count=len(filenames),
                 created_at=c.created_at,
                 error=c.error_message,
-                name_pending=_title_pending(c),
             )
         )
     return {"courses": items, "total": len(items)}
@@ -160,14 +138,9 @@ def delete_course(
     course.status = "deleted"
     db.commit()
 
-    # Cleanup local storage
-    upload_dir = os.path.join(settings.UPLOAD_DIR, course.id)
-    if os.path.exists(upload_dir):
-        shutil.rmtree(upload_dir, ignore_errors=True)
+    from app.services.document_processor import get_document_processor
 
-    # Cleanup vector store chunks
-    from app.services.vector_store import get_vector_store
-    get_vector_store().delete_course(course.id)
+    get_document_processor().purge_course_storage(course.id)
 
     return {"status": "deleted"}
 
@@ -191,16 +164,6 @@ def get_course_status(
     if course.user_id != current_user.id and current_user.role != "admin":
         raise HTTPException(status_code=404, detail="Khóa học không tồn tại.")
 
-    # Ready but the AI title never landed (e.g. transient quota error during upload) — lazily
-    # retry here so a later poll can pick it up once quota recovers, capped at
-    # MAX_TITLE_ATTEMPTS total tries. Cheap no-op once a title exists or attempts are exhausted.
-    if course.status == "ready" and not course.name:
-        from app.services.document_processor import get_document_processor
-
-        retried_title = get_document_processor().retry_course_title_if_missing(course_id)
-        if retried_title:
-            db.refresh(course)
-
     filenames = course.filenames if isinstance(course.filenames, list) else []
     if course.status == "ready":
         message = "Tài liệu đã sẵn sàng."
@@ -222,7 +185,6 @@ def get_course_status(
         "filenames": filenames,
         "file_count": len(filenames),
         "error": course.error_message,
-        "name_pending": _title_pending(course),
         "document_quality_report": {
             "score": course.quality_score,
             "summary": "Tài liệu rõ ràng, cấu trúc tốt." if course.quality_score >= 70 else "Chất lượng tài liệu trung bình, có thể ảnh hưởng đến nội dung sinh ra.",

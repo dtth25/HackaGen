@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
-import { Menu, X, BookOpen, LogOut, Plus } from "lucide-react";
+import { Menu, X, BookOpen, LogOut, Plus, UserRound } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { isAuthenticated, removeToken } from "@/lib/auth";
@@ -76,6 +76,17 @@ export function Header() {
                 <Plus className="mr-1 h-4 w-4" />
                 Tạo mới
               </Link>
+              <Link
+                href="/account"
+                className={buttonVariants({
+                  variant: "ghost",
+                  size: "sm",
+                  className: pathname === "/account" ? "bg-accent" : "",
+                })}
+              >
+                <UserRound className="mr-1 h-4 w-4" />
+                Tài khoản
+              </Link>
               <Button variant="ghost" size="sm" onClick={handleLogout}>
                 <LogOut className="mr-1 h-4 w-4" />
                 Đăng xuất
@@ -138,6 +149,13 @@ export function Header() {
                 onClick={() => setMobileOpen(false)}
               >
                 Tạo mới
+              </Link>
+              <Link
+                href="/account"
+                className="block rounded-md px-3 py-2 text-sm hover:bg-accent"
+                onClick={() => setMobileOpen(false)}
+              >
+                Tài khoản
               </Link>
               <button
                 className="block w-full text-left rounded-md px-3 py-2 text-sm hover:bg-accent text-destructive"

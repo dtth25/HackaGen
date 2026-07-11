@@ -1,6 +1,5 @@
 """Document processing service for extracting, cleaning, chunking, and embedding documents."""
 
-import json
 import logging
 import os
 import re
@@ -15,10 +14,6 @@ from app.services.vector_store import Document, VectorStore
 logger = logging.getLogger(__name__)
 
 _SENTENCE_BOUNDARY_RE = re.compile(r"[.?!][ \n]")
-
-# Total AI course-title attempts allowed per course (1 during initial upload processing +
-# lazy retries triggered from the status-poll endpoint) before giving up permanently.
-MAX_TITLE_ATTEMPTS = 2
 
 
 def _find_split_position(text: str, start: int, end: int, chunk_size: int) -> int:
@@ -115,7 +110,9 @@ class DocumentProcessor:
 
     def _generate_course_title(self, all_documents: List[Document]) -> Optional[str]:
         """Best-effort AI-generated short course title from a sample of extracted text.
-        Returns None on any failure/offline mode so callers fall back to the filename."""
+        Tried exactly once per course (from process_course) — on any failure the caller
+        falls back to the document's own filename, like how chat UIs name a conversation
+        once and leave the rest to manual rename."""
         try:
             from app.services.llm import LLMService
 
@@ -126,74 +123,30 @@ class DocumentProcessor:
             title = (result.title or "").strip()
             return title or None
         except Exception as e:
-            logger.warning(f"Course title generation failed, falling back to filename: {e}")
+            logger.error(f"Course title generation failed, falling back to filename: {e}", exc_info=True)
             return None
 
-    def _bump_title_attempts(self, course_id: str, db_session_factory=None) -> None:
-        """Increment the AI title-generation attempt counter in metadata_json. Self-contained
-        short-lived session (mirrors _update_course_db) so it never holds a DB connection open
-        across the slow Gemini call in _generate_course_title."""
-        if db_session_factory is None:
-            from app.services.database import SessionLocal as factory
-        else:
-            factory = db_session_factory
-        try:
-            with factory() as db:
-                course = db.query(Course).filter(Course.id == course_id).first()
-                if not course:
-                    return
-                meta = course.metadata_json or "{}"
-                if isinstance(meta, str):
-                    try:
-                        meta = json.loads(meta)
-                    except Exception:
-                        meta = {}
-                meta["title_attempts"] = meta.get("title_attempts", 0) + 1
-                course.metadata_json = json.dumps(meta, ensure_ascii=False)
-                db.commit()
-        except Exception as e:
-            logger.error(f"Failed to bump title_attempts for {course_id}: {e}")
+    @staticmethod
+    def _filename_fallback_title(file_path: str) -> str:
+        """Clean a filename into a presentable course title: drop the upload-time timestamp
+        prefix and the extension (e.g. '1730000000_Virtual Tree.pdf' -> 'Virtual Tree')."""
+        filename = os.path.basename(file_path)
+        parts = filename.split("_", 1)
+        if len(parts) == 2 and parts[0].isdigit():
+            filename = parts[1]
+        return os.path.splitext(filename)[0].strip() or filename
 
-    def retry_course_title_if_missing(self, course_id: str, db_session_factory=None) -> Optional[str]:
-        """Lazily retry AI course-title generation for a ready course that still has no name
-        (e.g. the first attempt hit a transient Gemini quota error during upload). Called from
-        the course-status poll endpoint, so a later poll can pick up a title once quota
-        recovers. Capped at MAX_TITLE_ATTEMPTS total tries (tracked in metadata_json) across
-        the initial upload-time attempt and any lazy retries — never retries forever."""
-        if db_session_factory is None:
-            from app.services.database import SessionLocal as factory
-        else:
-            factory = db_session_factory
+    def purge_course_storage(self, course_id: str) -> None:
+        """Remove on-disk uploads and vector store chunks for a course. Shared by
+        single-course delete and full-account deletion so the cleanup logic lives in
+        exactly one place."""
+        import shutil
+        from app.core.config import settings
 
-        with factory() as db:
-            course = (
-                db.query(Course)
-                .filter(Course.id == course_id, Course.is_deleted == False)  # noqa: E712
-                .first()
-            )
-            if not course or course.name or course.status != "ready":
-                return None
-
-            meta = course.metadata_json or "{}"
-            if isinstance(meta, str):
-                try:
-                    meta = json.loads(meta)
-                except Exception:
-                    meta = {}
-            if meta.get("title_attempts", 0) >= MAX_TITLE_ATTEMPTS:
-                return None
-
-        docs = self.vector_store.get_course_chunks(course_id)
-        title = self._generate_course_title(docs) if docs else None
-        self._bump_title_attempts(course_id, db_session_factory)
-
-        if title:
-            with factory() as db:
-                course = db.query(Course).filter(Course.id == course_id).first()
-                if course and not course.name:
-                    course.name = title
-                    db.commit()
-        return title
+        upload_dir = os.path.join(settings.UPLOAD_DIR, course_id)
+        if os.path.exists(upload_dir):
+            shutil.rmtree(upload_dir, ignore_errors=True)
+        self.vector_store.delete_course(course_id)
 
     def extract_text_from_file(self, file_path: str) -> List[dict]:
         """Extract text from PDF/DOCX/TXT file. Returns list of dicts with content and page number."""
@@ -549,11 +502,12 @@ class DocumentProcessor:
             # Calculate quality score (e.g., based on average chunk length and total chunks)
             quality_score = min(100, max(50, len(all_documents) * 5 + 60))
 
-            # Best-effort AI title (falls back to filename in the UI if this returns None) —
-            # /status polling can lazily retry this later (retry_course_title_if_missing),
-            # so count this as attempt 1 of MAX_TITLE_ATTEMPTS.
-            course_title = self._generate_course_title(all_documents)
-            self._bump_title_attempts(course_id, db_session_factory)
+            # One AI-naming attempt per course, like a chat UI naming a new conversation —
+            # no retries. Falls back to the (cleaned) uploaded filename so `name` is always
+            # set once a course is ready; after this, naming is purely manual (rename).
+            course_title = self._generate_course_title(all_documents) or self._filename_fallback_title(
+                file_paths[0]
+            )
 
             # Completed!
             self._update_course_db(
