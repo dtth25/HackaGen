@@ -83,20 +83,32 @@ class Settings(BaseSettings):
         default=False, description="Whether auth cookie requires HTTPS"
     )
 
-    # Email verification / password reset — sent via Resend. Left blank by default
-    # (unlike GEMINI_API_KEY) so a fresh checkout without Resend set up still boots;
-    # attempting to actually send an email with these unset fails loudly at call time
-    # instead of crashing the whole app over a feature not yet configured.
-    RESEND_API_KEY: str = Field(default="", description="Resend API key for transactional email")
+    # Email verification / password reset — sent via SMTP (Gmail: smtp.gmail.com + an
+    # App Password, not the account password). Left blank by default (unlike
+    # GEMINI_API_KEY) so a fresh checkout without SMTP set up still boots; attempting to
+    # actually send an email with these unset fails loudly at call time instead of
+    # crashing the whole app over a feature not yet configured.
+    SMTP_HOST: str = Field(default="smtp.gmail.com", description="SMTP server host for transactional email")
+    SMTP_PORT: int = Field(default=587, description="SMTP server port (587 = STARTTLS)")
+    SMTP_USER: str = Field(default="", description="SMTP login username, e.g. a Gmail address")
+    SMTP_PASSWORD: str = Field(
+        default="", description="SMTP login password — for Gmail this must be an App Password, not the account password"
+    )
     EMAIL_FROM_ADDRESS: str = Field(
-        default="", description="Verified sender, e.g. 'HackaGen <no-reply@yourdomain>'"
+        default="",
+        description=(
+            "Sender shown to recipients, e.g. 'HackaGen <account@gmail.com>'. Falls back "
+            "to SMTP_USER when blank. The email portion should match SMTP_USER — Gmail "
+            "rejects/rewrites a From address that isn't the authenticated account (or one "
+            "of its verified Send-As aliases)."
+        ),
     )
     EMAIL_DEV_FALLBACK: bool = Field(
         default=False,
         description=(
-            "When true AND RESEND_API_KEY is unset, log OTP codes to the server console "
-            "instead of failing — local/dev testing convenience only. Never enable in "
-            "production: it lets register/reset-password 'succeed' with nobody actually "
+            "When true AND SMTP_USER/SMTP_PASSWORD is unset, log OTP codes to the server "
+            "console instead of failing — local/dev testing convenience only. Never enable "
+            "in production: it lets register/reset-password 'succeed' with nobody actually "
             "receiving the code."
         ),
     )
