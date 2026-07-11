@@ -2,6 +2,7 @@
 
 import os
 import time
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -9,15 +10,24 @@ from fastapi.responses import JSONResponse
 from app.core.config import logger, settings
 from app.models.course import Course
 from app.routers import admin, auth, courses, upload, generation
+from app.services.admin_seed import seed_default_admin
 from app.services.database import SessionLocal
 from app.services.vector_store import get_vector_store
 
 START_TIME = time.time()
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    seed_default_admin()
+    yield
+
+
 app = FastAPI(
     title="HackaGen API",
     version="3.0.0",
     description="HackaGen API - Core Infrastructure & Auth",
+    lifespan=lifespan,
 )
 
 # Configure CORS (CRITICAL)

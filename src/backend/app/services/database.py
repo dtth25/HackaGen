@@ -47,6 +47,10 @@ else:
         pool_pre_ping=True,
     )
 
+# NOTE: no PRAGMA foreign_keys=ON is set here, so SQLite never enforces the
+# ondelete="CASCADE" declared on FK columns in app/models/*.py — those cascades only
+# happen because application code (e.g. auth.py::delete_account) deletes child rows
+# by hand before deleting the parent. Keep that in mind before adding a new FK.
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()

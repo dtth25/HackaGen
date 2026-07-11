@@ -10,6 +10,7 @@ from sqlalchemy.pool import StaticPool
 from app.core.config import settings
 from app.models.course import Course  # noqa: F401
 from app.models.user import User  # noqa: F401
+from app.models.email_otp import EmailOtpCode  # noqa: F401
 from app.services.cache import cache
 from app.services.database import Base, get_db
 from main import app
@@ -78,6 +79,21 @@ def setup_database_and_storage():
     yield
     Base.metadata.drop_all(bind=engine)
     _clean_upload_dir()
+
+
+TEST_OTP_CODE = "000000"
+
+
+@pytest.fixture(autouse=True)
+def stub_email_delivery(monkeypatch):
+    """Tests have no real Resend key configured — fix the OTP code so tests can complete
+    the register->verify-email flow deterministically, and no-op the actual send so it
+    doesn't hit the network or raise EmailNotConfiguredError."""
+    from app.services import email_service, otp_service
+
+    monkeypatch.setattr(otp_service, "generate_code", lambda: TEST_OTP_CODE)
+    monkeypatch.setattr(email_service, "send_verification_code", lambda *a, **k: None)
+    monkeypatch.setattr(email_service, "send_password_reset_code", lambda *a, **k: None)
 
 
 

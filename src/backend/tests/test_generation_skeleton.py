@@ -7,7 +7,9 @@ def get_auth_headers_and_course(client, email: str = "gen_user@example.com"):
     """Register/login user and create an uploaded course."""
     reg_data = {"email": email, "password": "password123", "full_name": "Gen User"}
     res = client.post("/api/auth/register", json=reg_data)
-    if res.status_code != 201:
+    if res.status_code == 201:
+        res = client.post("/api/auth/verify-email", json={"email": email, "code": "000000"})
+    else:
         res = client.post(
             "/api/auth/login", json={"email": email, "password": "password123"}
         )

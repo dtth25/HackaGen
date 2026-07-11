@@ -3,6 +3,9 @@ import type {
   AuthResponse,
   LoginRequest,
   RegisterRequest,
+  RegisterResponse,
+  VerifyEmailRequest,
+  MessageResponse,
   CoursesResponse,
   CourseStatusResponse,
   UploadResponse,
@@ -15,11 +18,30 @@ import type {
   VidArtifactStatus,
 } from "@/lib/types";
 
+/** Thrown by apiFetch on any non-2xx response. Carries the raw `detail` payload
+ * (string or structured object, e.g. `{code, message}`) so callers can branch on
+ * it instead of parsing `.message` back out. */
+export class ApiRequestError extends Error {
+  status: number;
+  detail: unknown;
+
+  constructor(message: string, status: number, detail?: unknown) {
+    super(message);
+    this.name = "ApiRequestError";
+    this.status = status;
+    this.detail = detail;
+  }
+}
+
 // Base URL for the FastAPI backend. Prefer the documented public env vars;
-// fall back to the conventional local/dev backend port.
+// fall back to the conventional local/dev backend port. An explicitly blank
+// NEXT_PUBLIC_API_BASE_URL means same-origin (`??`, not `||`, so "" doesn't
+// fall through) — used in prod deploys where the browser only ever talks to
+// this frontend's own domain, and next.config.ts proxies /api/* server-side
+// to the backend over the internal Docker network instead.
 const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL ||
-  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  process.env.NEXT_PUBLIC_API_URL ??
+  process.env.NEXT_PUBLIC_API_BASE_URL ??
   "http://localhost:8000";
 
 // ============================================================
@@ -56,24 +78,27 @@ async function apiFetch<T>(
     throw new Error("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
   }
 
-  if (response.status === 403) {
+  // Login's 403 carries a structured {code, message} detail (e.g. unverified email) that
+  // callers need to branch on — don't collapse it into the generic permission message below.
+  if (response.status === 403 && path !== "/api/auth/login") {
     throw new Error("Bạn không có quyền truy cập tài nguyên này.");
   }
 
   if (!response.ok) {
     let message = "Đã xảy ra lỗi. Vui lòng thử lại.";
+    let detail: unknown;
     try {
       const errorBody = await response.json();
-      if (errorBody.detail) {
-        message =
-          typeof errorBody.detail === "string"
-            ? errorBody.detail
-            : JSON.stringify(errorBody.detail);
+      detail = errorBody.detail;
+      if (detail && typeof detail === "object" && "message" in detail) {
+        message = String((detail as { message: unknown }).message);
+      } else if (typeof detail === "string") {
+        message = detail;
       }
     } catch {
       // Use default message
     }
-    throw new Error(message);
+    throw new ApiRequestError(message, response.status, detail);
   }
 
   if (response.status === 204) {
@@ -96,8 +121,46 @@ export async function apiLogin(data: LoginRequest): Promise<AuthResponse> {
 
 export async function apiRegister(
   data: RegisterRequest
+): Promise<RegisterResponse> {
+  return apiFetch<RegisterResponse>("/api/auth/register", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function apiVerifyEmail(
+  data: VerifyEmailRequest
 ): Promise<AuthResponse> {
-  return apiFetch<AuthResponse>("/api/auth/register", {
+  return apiFetch<AuthResponse>("/api/auth/verify-email", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function apiResendVerification(
+  email: string
+): Promise<MessageResponse> {
+  return apiFetch<MessageResponse>("/api/auth/resend-verification", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function apiForgotPassword(
+  email: string
+): Promise<MessageResponse> {
+  return apiFetch<MessageResponse>("/api/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function apiResetPassword(data: {
+  email: string;
+  code: string;
+  new_password: string;
+}): Promise<MessageResponse> {
+  return apiFetch<MessageResponse>("/api/auth/reset-password", {
     method: "POST",
     body: JSON.stringify(data),
   });
@@ -111,6 +174,13 @@ export async function apiLogout(): Promise<void> {
   } catch {
     // Ignore network errors on logout
   }
+}
+
+export async function apiDeleteAccount(password: string): Promise<MessageResponse> {
+  return apiFetch<MessageResponse>("/api/auth/me", {
+    method: "DELETE",
+    body: JSON.stringify({ password }),
+  });
 }
 
 export async function apiGetCurrentUser(): Promise<User> {
