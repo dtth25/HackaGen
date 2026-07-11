@@ -34,15 +34,18 @@ export class ApiRequestError extends Error {
 }
 
 // Base URL for the FastAPI backend. Prefer the documented public env vars;
-// fall back to the conventional local/dev backend port. An explicitly blank
-// NEXT_PUBLIC_API_BASE_URL means same-origin (`??`, not `||`, so "" doesn't
-// fall through) — used in prod deploys where the browser only ever talks to
-// this frontend's own domain, and next.config.ts proxies /api/* server-side
-// to the backend over the internal Docker network instead.
+// fall back to same-origin in production builds, or the conventional local
+// backend port in dev. `??` (not `||`) so an explicitly blank
+// NEXT_PUBLIC_API_BASE_URL still means same-origin. The NODE_ENV-based final
+// fallback matters because a production build that never had NEXT_PUBLIC_*
+// injected (e.g. `npm run build` run directly, outside `docker compose
+// build`'s build-arg pipeline) must NOT silently default to
+// "http://localhost:8000" — that resolves to each visitor's own machine, not
+// the server, and breaks every request with "Failed to fetch".
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ??
   process.env.NEXT_PUBLIC_API_BASE_URL ??
-  "http://localhost:8000";
+  (process.env.NODE_ENV === "production" ? "" : "http://localhost:8000");
 
 // ============================================================
 // Core Fetch Wrapper
