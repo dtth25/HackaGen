@@ -34,6 +34,7 @@ import type { CourseStatusResponse, StudyPackResponse } from "@/lib/types";
 import { normalizeCourseStatus } from "@/lib/types";
 import { CONTAINER_NARROW } from "@/lib/layout";
 import { cn } from "@/lib/utils";
+import { DEFAULT_POLL_MS } from "@/hooks/usePollingArtifact";
 
 export default function CourseDashboardPage() {
   return (
@@ -118,7 +119,7 @@ function DashboardContent() {
       } catch (err) {
         console.error("Polling error:", err);
       }
-    }, 3000);
+    }, DEFAULT_POLL_MS);
 
     return () => clearInterval(interval);
   }, [course, params.id]);

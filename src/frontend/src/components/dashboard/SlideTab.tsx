@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { usePollingArtifact } from "@/hooks/usePollingArtifact";
 import {
   Presentation,
   Download,
@@ -34,88 +35,38 @@ interface SlideTabProps {
 }
 
 export function SlideTab({ courseId }: SlideTabProps) {
-  const [deck, setDeck] = useState<SlidesOutput | null>(null);
-  const [hasFetched, setHasFetched] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [generating, setGenerating] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [regenUsed, setRegenUsed] = useState<number | null>(null);
-  const [regenMax, setRegenMax] = useState<number | null>(null);
-  const [regenError, setRegenError] = useState<string | null>(null);
-
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPresenterMode, setIsPresenterMode] = useState(false);
   const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
+  const [regenError, setRegenError] = useState<string | null>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const downloadMenuRef = useRef<HTMLDivElement>(null);
-  const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const {
+    data: deck,
+    hasFetched,
+    error,
+    setError,
+    generating,
+    setGenerating,
+    progress,
+    setProgress,
+    regenUsed,
+    setRegenUsed,
+    regenMax,
+    setRegenMax,
+    startPolling,
+  } = usePollingArtifact<SlidesOutput>({
+    courseId,
+    fetchFn: apiGetSlide,
+    isReady: (data) => (data.slides?.length ?? 0) > 0,
+    timeoutMs: 3 * 60 * 1000,
+    timeoutMessage: "Quá trình tạo slide mất nhiều thời gian hơn dự kiến. Vui lòng thử lại sau.",
+    defaultErrorMessage: "Tạo slide thất bại.",
+    onReady: () => setCurrentIndex(0),
+  });
 
   const loading = !hasFetched && !error;
-
-  const startPolling = (startedAt: number) => {
-    const TIMEOUT_MS = 3 * 60 * 1000;
-    const POLL_MS = 3000;
-
-    const poll = async () => {
-      try {
-        const res = await apiGetSlide(courseId);
-        if (typeof res.regen_used === "number") setRegenUsed(res.regen_used);
-        if (typeof res.regen_max === "number") setRegenMax(res.regen_max);
-        if (res.status === "ready" && res.data && res.data.slides?.length > 0) {
-          setDeck(res.data);
-          setCurrentIndex(0);
-          setHasFetched(true);
-          setGenerating(false);
-          setProgress(100);
-          return;
-        }
-        if (res.status === "error") {
-          setError(res.error || "Tạo slide thất bại.");
-          setGenerating(false);
-          return;
-        }
-        if (typeof res.progress === "number") setProgress(res.progress);
-      } catch {
-        // Ignore transient errors while the background job is still running.
-      }
-      if (Date.now() - startedAt > TIMEOUT_MS) {
-        setError("Quá trình tạo slide mất nhiều thời gian hơn dự kiến. Vui lòng thử lại sau.");
-        setGenerating(false);
-        return;
-      }
-      pollTimer.current = setTimeout(poll, POLL_MS);
-    };
-
-    pollTimer.current = setTimeout(poll, POLL_MS);
-  };
-
-  useEffect(() => {
-    if (hasFetched) return;
-    apiGetSlide(courseId)
-      .then((res) => {
-        if (typeof res.regen_used === "number") setRegenUsed(res.regen_used);
-        if (typeof res.regen_max === "number") setRegenMax(res.regen_max);
-        if (res.status === "ready" && res.data) {
-          setDeck(res.data);
-          setCurrentIndex(0);
-        } else if (res.status === "processing") {
-          setGenerating(true);
-          setProgress(res.progress ?? 5);
-          startPolling(Date.now());
-        } else if (res.status === "error") {
-          setError(res.error || "Tạo slide thất bại.");
-        }
-      })
-      .catch((err) =>
-        setError(err instanceof Error ? err.message : "Không thể tải danh sách bài giảng.")
-      )
-      .finally(() => setHasFetched(true));
-
-    return () => {
-      if (pollTimer.current) clearTimeout(pollTimer.current);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [courseId, hasFetched]);
 
   // Close download menu on outside click
   useEffect(() => {

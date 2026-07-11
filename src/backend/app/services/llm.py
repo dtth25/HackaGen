@@ -23,7 +23,7 @@ from app.schemas.generator_output import (
 
 logger = logging.getLogger(__name__)
 
-COURSE_TITLE_MAX_TOKENS = 256
+COURSE_TITLE_MAX_TOKENS = 512
 BOOK_OUTLINE_MAX_TOKENS = 8192
 BOOK_CHAPTER_MAX_TOKENS = 16384
 SLIDES_MAX_TOKENS = 8192
@@ -43,6 +43,10 @@ def _slides_max_tokens(num_slides: int) -> int:
 
 class LLMGenerationError(Exception):
     """Raised when a strict (no-silent-fallback) Gemini call fails after all retries."""
+
+
+class _OpenRouterNotConfigured(Exception):
+    """Internal signal: OPENROUTER_API_KEY isn't set, so there's no fallback to try."""
 
 
 def _friendly_gemini_error(exc: Exception) -> str:
@@ -67,9 +71,10 @@ def _friendly_gemini_error(exc: Exception) -> str:
 class LLMService:
     """Service wrapper for Google Gemini API."""
 
-    def __init__(self, model: str = "gemini-3.5-flash", api_key: Optional[str] = None):
-        self.model_name = model
+    def __init__(self, model: Optional[str] = None, api_key: Optional[str] = None):
+        self.model_name = model or settings.GEMINI_DEFAULT_MODEL
         self.client = None
+        self._openrouter_client = None
         self._init_client(api_key)
         self.prompts_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "prompts")
 
@@ -147,7 +152,51 @@ class LLMService:
             if attempt < attempts:
                 time.sleep(2)
 
+        # Gemini (the free, primary provider) is exhausted — try OpenRouter once as a
+        # last-resort fallback before giving up, if the caller has configured a key.
+        try:
+            return self._call_openrouter_fallback(prompt, schema_model, max_output_tokens)
+        except _OpenRouterNotConfigured:
+            pass
+        except Exception as e:
+            logger.warning(f"OpenRouter fallback also failed: {e}")
+
         raise LLMGenerationError(_friendly_gemini_error(last_error) if last_error else "Gemini generation failed.")
+
+    def _call_openrouter_fallback(self, prompt: str, schema_model: Any, max_output_tokens: int) -> Any:
+        """Last-resort fallback used only after Gemini's own retries are exhausted. Reuses
+        the same schema_model for both the request (as a JSON Schema) and response parsing
+        (schema_model.model_validate_json) so callers of _call_gemini_strict don't need to
+        know which provider actually answered."""
+        if not settings.OPENROUTER_API_KEY:
+            raise _OpenRouterNotConfigured()
+
+        if self._openrouter_client is None:
+            from openai import OpenAI
+
+            self._openrouter_client = OpenAI(
+                base_url="https://openrouter.ai/api/v1", api_key=settings.OPENROUTER_API_KEY
+            )
+
+        response = self._openrouter_client.chat.completions.create(
+            model=settings.OPENROUTER_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=max_output_tokens,
+            temperature=0.2,
+            response_format={
+                "type": "json_schema",
+                "json_schema": {
+                    "name": schema_model.__name__,
+                    "schema": schema_model.model_json_schema(),
+                    "strict": True,
+                },
+            },
+        )
+        content = response.choices[0].message.content if response.choices else None
+        if not content:
+            raise LLMGenerationError("OpenRouter returned an empty response")
+        logger.info(f"Gemini exhausted attempts — recovered via OpenRouter fallback ({settings.OPENROUTER_MODEL}).")
+        return schema_model.model_validate_json(content)
 
     def ocr_page_image(self, image_bytes: bytes) -> str:
         """Best-effort OCR: send a rendered PDF page image to Gemini vision and return the
@@ -183,7 +232,7 @@ class LLMService:
         def _fallback():
             return CourseTitleOutput(title="")
 
-        return self._call_gemini_strict(prompt, CourseTitleOutput, _fallback, COURSE_TITLE_MAX_TOKENS, attempts=1)
+        return self._call_gemini_strict(prompt, CourseTitleOutput, _fallback, COURSE_TITLE_MAX_TOKENS)
 
     def generate_book_outline(
         self,

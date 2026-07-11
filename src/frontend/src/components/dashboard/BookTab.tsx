@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import {
   BookOpen,
   Sparkles,
@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 import { Markdown } from "@/components/ui/markdown";
 import { RegenerateButton } from "@/components/dashboard/RegenerateButton";
 import { apiGetBook, apiGenerateBook, getDownloadBookUrl } from "@/lib/api";
+import { usePollingArtifact } from "@/hooks/usePollingArtifact";
 import type { BookOutput } from "@/lib/types";
 
 interface BookTabProps {
@@ -31,88 +32,41 @@ interface BookTabProps {
 const DETAIL_OPTIONS = ["Tóm tắt", "Tiêu chuẩn", "Chuyên sâu"];
 
 export function BookTab({ courseId }: BookTabProps) {
-  const [book, setBook] = useState<BookOutput | null>(null);
-  const [hasFetched, setHasFetched] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [generating, setGenerating] = useState(false);
-  const [progress, setProgress] = useState(0);
   const [activeIdx, setActiveIdx] = useState(-1); // -1 = "Giới thiệu" pane
   const [isExpanded, setIsExpanded] = useState(false);
-  const [regenUsed, setRegenUsed] = useState<number | null>(null);
-  const [regenMax, setRegenMax] = useState<number | null>(null);
   const [regenError, setRegenError] = useState<string | null>(null);
 
   // Generation config
   const [detailLevel, setDetailLevel] = useState(DETAIL_OPTIONS[1]);
   const [userPrompt, setUserPrompt] = useState("");
 
-  const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const {
+    data: book,
+    setData: setBook,
+    hasFetched,
+    error,
+    setError,
+    generating,
+    setGenerating,
+    progress,
+    setProgress,
+    regenUsed,
+    setRegenUsed,
+    regenMax,
+    setRegenMax,
+    startPolling,
+  } = usePollingArtifact<BookOutput>({
+    courseId,
+    fetchFn: apiGetBook,
+    isReady: (data) => (data.chapters?.length ?? 0) > 0,
+    timeoutMs: 6 * 60 * 1000,
+    timeoutMessage: "Quá trình tạo sách ôn tập mất nhiều thời gian hơn dự kiến. Vui lòng thử làm mới lại sau.",
+    defaultErrorMessage: "Tạo sách ôn tập thất bại.",
+    onReady: () => setActiveIdx(-1),
+  });
 
   const loading = isFetching || (!hasFetched && !error);
-
-  const startPolling = (startedAt: number) => {
-    const TIMEOUT_MS = 6 * 60 * 1000;
-    const POLL_MS = 3000;
-
-    const poll = async () => {
-      try {
-        const res = await apiGetBook(courseId);
-        if (typeof res.regen_used === "number") setRegenUsed(res.regen_used);
-        if (typeof res.regen_max === "number") setRegenMax(res.regen_max);
-        if (res.status === "ready" && res.data && res.data.chapters?.length > 0) {
-          setBook(res.data);
-          setActiveIdx(-1);
-          setHasFetched(true);
-          setGenerating(false);
-          setProgress(100);
-          return;
-        }
-        if (res.status === "error") {
-          setError(res.error || "Tạo sách ôn tập thất bại.");
-          setGenerating(false);
-          return;
-        }
-        if (typeof res.progress === "number") setProgress(res.progress);
-      } catch {
-        // Ignore transient errors while the background job is still running.
-      }
-      if (Date.now() - startedAt > TIMEOUT_MS) {
-        setError("Quá trình tạo sách ôn tập mất nhiều thời gian hơn dự kiến. Vui lòng thử làm mới lại sau.");
-        setGenerating(false);
-        return;
-      }
-      pollTimer.current = setTimeout(poll, POLL_MS);
-    };
-
-    pollTimer.current = setTimeout(poll, POLL_MS);
-  };
-
-  useEffect(() => {
-    if (hasFetched) return;
-    apiGetBook(courseId)
-      .then((res) => {
-        if (typeof res.regen_used === "number") setRegenUsed(res.regen_used);
-        if (typeof res.regen_max === "number") setRegenMax(res.regen_max);
-        if (res.status === "ready" && res.data) {
-          setBook(res.data);
-          setActiveIdx(-1);
-        } else if (res.status === "processing") {
-          setGenerating(true);
-          setProgress(res.progress ?? 5);
-          startPolling(Date.now());
-        } else if (res.status === "error") {
-          setError(res.error || "Tạo sách ôn tập thất bại.");
-        }
-      })
-      .catch((err) => setError(err instanceof Error ? err.message : "Không thể tải sách ôn tập."))
-      .finally(() => setHasFetched(true));
-
-    return () => {
-      if (pollTimer.current) clearTimeout(pollTimer.current);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [courseId, hasFetched]);
 
   const handleRefresh = async () => {
     setIsFetching(true);

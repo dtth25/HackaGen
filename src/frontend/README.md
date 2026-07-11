@@ -21,13 +21,9 @@ npm run dev
 
 Mở `http://localhost:3000`.
 
-Frontend gọi backend qua Next.js proxy `/api/backend/*`. Nếu backend không chạy ở port mặc định, set:
+Frontend gọi thẳng backend từ trình duyệt (không qua proxy Next.js nào) — xem `src/lib/api.ts`. Backend URL đọc từ `NEXT_PUBLIC_API_URL` (hoặc alias `NEXT_PUBLIC_API_BASE_URL`), mặc định `http://localhost:8000` nếu không set. File `.env` trong chính thư mục `src/frontend/` (không phải `.env` ở root repo — đó là của backend) là nơi Next.js đọc biến này lúc dev/build.
 
-```bash
-BACKEND_API_BASE_URL=http://127.0.0.1:8001
-```
-
-`NEXT_PUBLIC_API_BASE_URL` vẫn được hỗ trợ như alias cũ, nhưng `BACKEND_API_BASE_URL` là biến nên dùng cho proxy hiện tại.
+**Quan trọng — đây là biến `NEXT_PUBLIC_*` nên Next.js inline cứng lúc `next build`, không đọc được lúc runtime.** Đổi giá trị bắt buộc phải build lại (`npm run build`, hoặc với Docker là `docker compose build frontend`); chỉ restart process/container là không đủ. Xem thêm mục "Deploy lên Linux server" ở README root.
 
 ## Production Demo
 

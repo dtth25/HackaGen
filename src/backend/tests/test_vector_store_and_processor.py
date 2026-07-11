@@ -13,7 +13,9 @@ def get_auth_headers(client, email: str = "vec_user@example.com"):
     """Register/login user and return auth headers."""
     reg_data = {"email": email, "password": "password123", "full_name": "Vector User"}
     res = client.post("/api/auth/register", json=reg_data)
-    if res.status_code != 201:
+    if res.status_code == 201:
+        res = client.post("/api/auth/verify-email", json={"email": email, "code": "000000"})
+    else:
         res = client.post(
             "/api/auth/login", json={"email": email, "password": "password123"}
         )

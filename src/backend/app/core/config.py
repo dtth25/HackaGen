@@ -4,7 +4,7 @@ import logging
 import sys
 from pathlib import Path
 from typing import List, Union
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = logging.getLogger("api")
@@ -45,6 +45,22 @@ class Settings(BaseSettings):
     GEMINI_QUIZ_API_KEY: str = Field(default="", description="Gemini API key for Quiz generation (falls back to GEMINI_API_KEY)")
     GEMINI_VID_API_KEY: str = Field(default="", description="Gemini API key for Video generation (falls back to GEMINI_API_KEY)")
 
+    # Optional automatic fallback when Gemini fails/hits quota — Gemini stays the primary
+    # (free) provider for every feature; OpenRouter only kicks in as a last resort inside
+    # LLMService._call_gemini_strict. Blank = no-op, behavior unchanged.
+    OPENROUTER_API_KEY: str = Field(default="", description="OpenRouter API key, used only as a Gemini fallback")
+    OPENROUTER_MODEL: str = Field(default="openai/gpt-4o-mini", description="OpenRouter model slug for the fallback")
+
+    # Model routing — mirrors the GEMINI_{FEATURE}_API_KEY pattern above. Each feature
+    # falls back to GEMINI_DEFAULT_MODEL when left blank (see LLMService.__init__ and
+    # generation.py::get_generator / document_processor.py::_generate_course_title).
+    GEMINI_DEFAULT_MODEL: str = Field(default="gemini-2.5-flash", description="Model used when a feature has no override")
+    GEMINI_BOOK_MODEL: str = Field(default="", description="Model for Book generation (falls back to GEMINI_DEFAULT_MODEL)")
+    GEMINI_SLIDE_MODEL: str = Field(default="", description="Model for Slide generation (falls back to GEMINI_DEFAULT_MODEL)")
+    GEMINI_QUIZ_MODEL: str = Field(default="", description="Model for Quiz generation (falls back to GEMINI_DEFAULT_MODEL)")
+    GEMINI_VIDEO_MODEL: str = Field(default="", description="Model for Vid generation (falls back to GEMINI_DEFAULT_MODEL)")
+    GEMINI_COURSE_MODEL: str = Field(default="", description="Model for course-title generation (falls back to GEMINI_DEFAULT_MODEL)")
+
     # Optional variables
     ALLOWED_ORIGINS: Union[List[str], str] = Field(
         default=["http://localhost:3000", "http://127.0.0.1:3000"],
@@ -66,6 +82,34 @@ class Settings(BaseSettings):
     AUTH_COOKIE_SECURE: bool = Field(
         default=False, description="Whether auth cookie requires HTTPS"
     )
+
+    # Email verification / password reset — sent via Resend. Left blank by default
+    # (unlike GEMINI_API_KEY) so a fresh checkout without Resend set up still boots;
+    # attempting to actually send an email with these unset fails loudly at call time
+    # instead of crashing the whole app over a feature not yet configured.
+    RESEND_API_KEY: str = Field(default="", description="Resend API key for transactional email")
+    EMAIL_FROM_ADDRESS: str = Field(
+        default="", description="Verified sender, e.g. 'HackaGen <no-reply@yourdomain>'"
+    )
+    EMAIL_DEV_FALLBACK: bool = Field(
+        default=False,
+        description=(
+            "When true AND RESEND_API_KEY is unset, log OTP codes to the server console "
+            "instead of failing — local/dev testing convenience only. Never enable in "
+            "production: it lets register/reset-password 'succeed' with nobody actually "
+            "receiving the code."
+        ),
+    )
+    EMAIL_OTP_EXPIRE_MINUTES: int = Field(default=10, description="OTP code validity window")
+    EMAIL_OTP_MAX_ATTEMPTS: int = Field(default=5, description="Max wrong-code guesses before an OTP is locked")
+    EMAIL_OTP_RESEND_COOLDOWN_SECONDS: int = Field(
+        default=60, description="Minimum seconds between two OTP sends for the same purpose"
+    )
+
+    # Default admin bootstrap — idempotent, runs once at startup if enabled.
+    CREATE_DEFAULT_ADMIN: bool = Field(default=False, description="Seed a default admin user at startup")
+    ADMIN_EMAIL: str = Field(default="", description="Email for the seeded default admin")
+    ADMIN_PASSWORD: str = Field(default="", description="Password for the seeded default admin")
     CHROMA_PERSIST_DIR: str = Field(
         default="data/chroma", description="ChromaDB persistent directory"
     )
@@ -118,6 +162,14 @@ class Settings(BaseSettings):
             except Exception:
                 return [origin.strip() for origin in value.split(",") if origin.strip()]
         return value
+
+    @model_validator(mode="after")
+    def validate_admin_bootstrap(self) -> "Settings":
+        if self.CREATE_DEFAULT_ADMIN and (not self.ADMIN_EMAIL.strip() or not self.ADMIN_PASSWORD.strip()):
+            raise ValueError(
+                "CREATE_DEFAULT_ADMIN=true requires ADMIN_EMAIL and ADMIN_PASSWORD to also be set"
+            )
+        return self
 
 
 try:

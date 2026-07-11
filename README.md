@@ -34,9 +34,9 @@ Cài các công cụ sau trước khi setup từ máy sạch:
 - Python 3.11+.
 - `uv`.
 - Node.js 20+ và npm.
-- Gemini API key (`GOOGLE_API_KEY`).
-- Windows: cài **Microsoft C++ Build Tools** với workload "Desktop development with C++". Chroma phụ thuộc `chroma-hnswlib`; trên một số máy Windows package này phải build native wheel và sẽ fail nếu thiếu C++ toolchain.
-- Docker Desktop nếu muốn chạy backend bằng Docker.
+- Gemini API key (`GEMINI_API_KEY`).
+- Không cần cài toolchain build native (C++ Build Tools/gcc) trên bất kỳ OS nào — `chromadb` (pin hiện tại trong `uv.lock`) ship sẵn wheel prebuilt cho Linux (manylinux x86_64/aarch64), macOS và Windows.
+- Docker Engine + Docker Compose plugin nếu muốn chạy bằng Docker (khuyến nghị cho deploy lên Linux server — xem mục "Deploy lên Linux server").
 
 Kiểm tra nhanh:
 
@@ -51,22 +51,22 @@ npm --version
 
 Tạo file env ở root repo:
 
-Windows PowerShell:
-
-```powershell
-Copy-Item .env.example .env -Force
-```
-
 macOS/Linux:
 
 ```bash
 cp .env.example .env
 ```
 
+Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env -Force
+```
+
 Sửa `.env` và điền ít nhất:
 
 ```bash
-GOOGLE_API_KEY=your_gemini_api_key_here
+GEMINI_API_KEY=your_gemini_api_key_here
 JWT_SECRET=change-this-dev-secret
 VECTOR_DB_PROVIDER=chroma
 CHROMA_PERSIST_DIR=./data/chroma
@@ -84,6 +84,13 @@ ADMIN_PASSWORD=change-this-password
 
 Preset model có sẵn dưới dạng file example. Copy preset rồi sửa key/secrets nếu cần:
 
+macOS/Linux:
+
+```bash
+cp .env.flash.example .env
+cp .env.pro.example .env
+```
+
 Windows PowerShell:
 
 ```powershell
@@ -92,13 +99,6 @@ Copy-Item .env.flash.example .env -Force
 
 # Pro mode: chất lượng cao hơn cho một số tác vụ
 Copy-Item .env.pro.example .env -Force
-```
-
-macOS/Linux:
-
-```bash
-cp .env.flash.example .env
-cp .env.pro.example .env
 ```
 
 Backend tự load `.env` từ root repo, `src/`, hoặc `src/backend/`. Khởi động lại backend sau khi đổi env để log `[Startup Config]` hiển thị model đang active.
@@ -126,7 +126,7 @@ Kiểm tra readiness:
 curl http://127.0.0.1:8000/health
 ```
 
-Nếu `/health` trả `vector_db.ready=false`, kiểm tra lại `chromadb`, `CHROMA_PERSIST_DIR` và C++ Build Tools trên Windows. Backend vẫn có thể trả health, nhưng upload/generate sẽ fail cho tới khi Chroma ready.
+Nếu `/health` trả `vector_db.ready=false`, kiểm tra lại `chromadb` và `CHROMA_PERSIST_DIR`. Backend vẫn có thể trả health, nhưng upload/generate sẽ fail cho tới khi Chroma ready.
 
 ## Frontend Runbook
 
@@ -145,13 +145,13 @@ npm run dev
 
 Frontend chạy tại `http://localhost:3000`.
 
-Frontend gọi backend qua Next.js proxy `/api/backend/*`. Nếu backend không chạy ở `http://127.0.0.1:8000`, set biến server-side cho frontend:
+Frontend gọi thẳng backend từ client-side (không qua proxy Next.js). Nếu backend không chạy ở `http://localhost:8000`, set 1 trong 2 biến (tương đương nhau) trước khi build/dev:
 
 ```bash
-BACKEND_API_BASE_URL=http://127.0.0.1:8001
+NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8001
 ```
 
-`NEXT_PUBLIC_API_BASE_URL` vẫn được hỗ trợ như alias cũ, nhưng `BACKEND_API_BASE_URL` là biến nên dùng cho proxy hiện tại.
+Đây là biến `NEXT_PUBLIC_*` nên Next.js **inline lúc `next build`**, không đọc runtime — đổi giá trị bắt buộc phải build lại (`npm run build` hoặc, với Docker, `docker compose build frontend`), restart không đủ.
 
 Demo production mode để không thấy Next.js dev indicator:
 
@@ -168,44 +168,57 @@ npm run start
 4. Mở dashboard Study Pack hoặc generate Book, Slide, Quiz, Vid.
 5. Kiểm tra download: Book PDF, Slide PPTX, Quiz answer-key PDF, Vid MP4 nếu render thành công.
 
-## Docker Backend Option
+## Docker Compose (Backend + Frontend)
 
 ```bash
 cp .env.example .env
-# Sửa .env và điền GOOGLE_API_KEY/JWT_SECRET
-docker compose up --build backend
+# Sửa .env và điền GEMINI_API_KEY/JWT_SECRET
+docker compose up -d --build
 ```
 
-Runtime files khi chạy Docker được mount vào `runtime/`. Docker compose hiện chỉ chạy backend; frontend vẫn chạy bằng npm ở `src/frontend`.
+Chạy cả 2 service (`backend` cổng 8000, `frontend` cổng 3000) cùng lúc. Dữ liệu bền vững (Chroma vectors, SQLite, upload/artifact, embedding cache) được mount ra `./data/` trên host — restart container không mất dữ liệu.
+
+## Deploy lên Linux server
+
+Cách deploy khuyến nghị cho server thật (kể cả server trường) là Docker Compose ở trên. Ghi chú vận hành:
+
+**Prerequisites**: chỉ cần Docker Engine + Docker Compose plugin. Không cần cài build toolchain (gcc/C++) — image build sẵn dùng wheel/base image chuẩn.
+
+**Chỉ có ĐÚNG 1 file env cần quan tâm khi deploy: `.env` ở root repo.** Không phải `src/backend/.env` (không tồn tại, đừng tạo — backend luôn resolve `.env` theo đường dẫn tuyệt đối về root, bất kể cwd). Không phải `src/frontend/.env` (file đó chỉ để `npm run dev` local dùng — **Docker build không đọc nó**; giá trị thật được `docker-compose.yml` truyền vào qua build `arg` lấy từ root `.env`, xem `src/frontend/Dockerfile`). Nếu build script nào đó tự chạy `npm run build` trực tiếp trong `src/frontend` (không qua `docker compose build`), nó sẽ **không** thấy `NEXT_PUBLIC_API_BASE_URL` của root `.env` — đây chính là nguyên nhân bug "frontend gọi localhost:8000 sau khi deploy". Luôn deploy bằng đúng 1 lệnh `docker compose up -d --build` ở root, không tự build tay từng service.
+
+**Kiến trúc mạng**: backend **không** cần mở cổng ra internet. `docker-compose.yml` bind cổng 8000 vào `127.0.0.1` (chỉ debug được từ chính server, `curl localhost:8000/health`), còn browser người dùng không bao giờ gọi thẳng backend — mọi request `/api/*` từ frontend đi qua chính domain của frontend, được `next.config.ts`'s `rewrites()` proxy server-side sang backend qua mạng nội bộ Docker (`BACKEND_INTERNAL_URL=http://backend:8000`, tự cấu hình sẵn trong compose, không cần sửa). Chỉ cần mở/trỏ domain vào **đúng 1 cổng 3000** (frontend) ra ngoài.
+
+**Checklist env production** (sửa trong `.env` ở root trước khi build):
+- `NEXT_PUBLIC_API_BASE_URL` phải để **RỖNG** (`NEXT_PUBLIC_API_BASE_URL=`) — rỗng nghĩa là browser gọi same-origin rồi được proxy nội bộ như trên. Nếu điền domain/IP thật vào đây, browser sẽ cố gọi thẳng cổng 8000 và **fail** vì cổng đó không public. Next.js inline biến này lúc `next build`, nên đổi giá trị bắt buộc phải `docker compose build frontend` lại, restart container không đủ.
+- `ALLOWED_ORIGINS` không còn bắt buộc cho luồng browser chính (browser giờ gọi same-origin, không phải cross-origin nữa) — có thể để nguyên default, không cần sửa.
+- `GEMINI_API_KEY` (và các `GEMINI_{BOOK,SLIDE,QUIZ,VID}_API_KEY` nếu dùng) phải là key thật, không phải placeholder.
+- `RESEND_API_KEY` + `EMAIL_FROM_ADDRESS` phải là domain đã verify thật trên Resend, và `EMAIL_DEV_FALLBACK=false` (hoặc bỏ hẳn dòng này) — bật `true` ở production nghĩa là user đăng ký "thành công" nhưng không ai nhận được mã xác thực.
+- Cân nhắc bật `AUTH_COOKIE_SECURE=true` khi server đã có HTTPS.
+
+**Chạy**: `docker compose up -d --build` dựng cả backend + frontend. Sau **mọi** lần `git pull` có đổi code, chạy lại đúng lệnh này (không chỉ `docker compose restart`) — đặc biệt bắt buộc nếu đổi bất kỳ biến `NEXT_PUBLIC_*` nào, vì nó bị bake cứng vào frontend lúc build.
+
+**Dữ liệu**: toàn bộ state bền vững nằm ở `./data/` trên host (`app-data/` = Chroma + SQLite, `uploads/`, `outputs/`, `cache/`) — đây là phần cần backup định kỳ.
+
+**Ngoài phạm vi repo**: reverse proxy (nginx/Caddy) và HTTPS/TLS đứng trước cổng 3000 là trách nhiệm người vận hành server — repo này chưa có config sẵn cho phần đó. Chỉ cần route đúng 1 cổng 3000, không cần route cổng 8000 nữa.
 
 ## Local Architecture
 
-Local/dev mode hiện tại:
+Local/dev mode hiện tại — **không có provider-abstraction layer nào**, mỗi thứ dưới đây là 1 implementation cụ thể duy nhất, không phải 1 trong nhiều provider chọn được qua env:
 
 - Frontend: Next.js App Router trong `src/frontend`.
 - Backend: FastAPI trong `src/backend`.
-- Vector DB: `VECTOR_DB_PROVIDER=chroma`, lưu local tại `CHROMA_PERSIST_DIR`.
-- File storage: `STORAGE_PROVIDER=local`, upload/generated files lưu trên filesystem.
-- Job queue: `JOB_QUEUE_PROVIDER=inline`, chạy background bằng local thread.
-- Cache: `CACHE_PROVIDER=local`, document hash/cache embedding dùng file JSON/local files.
+- Vector DB: Chroma, code thật ở `src/backend/app/services/vector_store.py`, lưu local tại `CHROMA_PERSIST_DIR`. Không có interface/2nd provider nào khác trong repo.
+- File storage: filesystem thô (`os.path` + `UPLOAD_DIR`), rải rác trong `document_processor.py`/`generator.py`/`upload.py` — không có service module riêng.
+- Job queue: FastAPI `BackgroundTasks` gọi trực tiếp trong router — không có queue/broker thật.
+- Cache: `src/backend/app/services/cache.py` — dùng thật cho JWT blacklist + document/embedding cache.
 - Database: SQLite qua `DATABASE_URL`.
 - Auth: Bearer JWT + HttpOnly cookie; protected APIs require active user.
 
-Provider extension points:
-
-- Vector store interface: `src/backend/vector_db/base.py`.
-- Vector provider facade: `src/backend/vector_db/manager.py`.
-- File storage interface: `src/backend/services/storage.py`.
-- Job queue interface: `src/backend/services/jobs.py`.
-- Cache interface: `src/backend/services/cache.py`.
-
-Production providers như Postgres, Redis worker/cache, S3/R2 storage, Qdrant/Milvus/pgvector chỉ là hướng mở rộng. Nếu chọn provider chưa implement, backend phải báo lỗi rõ, không fallback âm thầm sang local.
+Postgres, Redis worker/cache, S3/R2 storage, Qdrant/Milvus/pgvector chỉ là hướng mở rộng tương lai — **chưa có code nào** cho các provider này. `.env.example` giữ lại tên biến (`VECTOR_DB_PROVIDER`, `STORAGE_PROVIDER`, `JOB_QUEUE_PROVIDER`, `CACHE_PROVIDER`, `MILVUS_*`, `S3_*`, `REDIS_URL`...) làm chỗ đặt tên sẵn cho lần thực sự implement, nhưng set chúng trong `.env` hôm nay không có tác dụng gì — không có field `Settings` nào đọc các biến đó.
 
 ## Chroma Notes
 
-Chroma là vector database bắt buộc cho local/dev. Nếu `VECTOR_DB_PROVIDER` unset, backend mặc định dùng `chroma`.
-
-FAISS không phải provider chính trong flow hiện tại. `src/backend/vector_db/faiss_manager.py` còn trong repo cho legacy tests/migration reference. Setting `VECTOR_DB_PROVIDER=faiss` hoặc `simple_dev_only` được normalize về `chroma` với warning.
+Chroma là vector database bắt buộc, và là **provider duy nhất** trong code hiện tại (`app/services/vector_store.py`) — không có FAISS hay `vector_db/` package nào trong repo để chuyển sang; `VECTOR_DB_PROVIDER` không phải field `Settings` nào và không có tác dụng gì (xem "Local Architecture" ở trên).
 
 Chroma được dùng vì app cần:
 

@@ -7,7 +7,7 @@ import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { apiLogin } from "@/lib/api";
+import { apiLogin, ApiRequestError } from "@/lib/api";
 import { setToken, setStoredUser } from "@/lib/auth";
 
 export default function LoginPage() {
@@ -15,6 +15,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [needsVerification, setNeedsVerification] = useState(false);
   const [errors, setErrors] = useState<{
     email?: string;
     password?: string;
@@ -43,12 +44,20 @@ export default function LoginPage() {
 
     setLoading(true);
     setErrors({});
+    setNeedsVerification(false);
     try {
       const res = await apiLogin({ email, password });
       setToken(res.access_token);
       setStoredUser(res.user);
       router.push("/courses");
     } catch (err) {
+      const detail =
+        err instanceof ApiRequestError && err.detail && typeof err.detail === "object"
+          ? (err.detail as { code?: string; message?: string })
+          : null;
+      if (detail?.code === "email_not_verified") {
+        setNeedsVerification(true);
+      }
       setErrors({
         general:
           err instanceof Error
@@ -73,6 +82,17 @@ export default function LoginPage() {
         {errors.general && (
           <div className="rounded-lg border border-destructive/50 bg-destructive/5 px-4 py-3 text-sm text-destructive">
             {errors.general}
+            {needsVerification && (
+              <>
+                {" "}
+                <Link
+                  href={`/verify-email?email=${encodeURIComponent(email)}`}
+                  className="font-medium underline"
+                >
+                  Xác thực ngay
+                </Link>
+              </>
+            )}
           </div>
         )}
 
@@ -94,7 +114,15 @@ export default function LoginPage() {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="password">Mật khẩu</Label>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="password">Mật khẩu</Label>
+            <Link
+              href="/forgot-password"
+              className="text-sm font-medium text-primary hover:underline"
+            >
+              Quên mật khẩu?
+            </Link>
+          </div>
           <Input
             id="password"
             type="password"

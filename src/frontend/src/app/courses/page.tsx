@@ -11,6 +11,7 @@ import { apiGetCourses } from "@/lib/api";
 import type { CourseListItem } from "@/lib/types";
 import { CONTAINER_WIDE } from "@/lib/layout";
 import { cn } from "@/lib/utils";
+import { DEFAULT_POLL_MS } from "@/hooks/usePollingArtifact";
 
 export default function CoursesPage() {
   return (
@@ -77,7 +78,7 @@ function CoursesContent() {
       } catch (err) {
         console.error("Polling error:", err);
       }
-    }, 3000);
+    }, DEFAULT_POLL_MS);
 
     return () => clearInterval(interval);
   }, [courses]);

@@ -117,7 +117,9 @@ def test_generate_endpoint_returns_429_when_limit_reached(client):
     must return 429 with a clear message instead of silently queueing another job."""
     reg_data = {"email": "regen_api@example.com", "password": "password123", "full_name": "Regen User"}
     res = client.post("/api/auth/register", json=reg_data)
-    if res.status_code != 201:
+    if res.status_code == 201:
+        res = client.post("/api/auth/verify-email", json={"email": "regen_api@example.com", "code": "000000"})
+    else:
         res = client.post("/api/auth/login", json={"email": "regen_api@example.com", "password": "password123"})
     token = res.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}

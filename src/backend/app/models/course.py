@@ -15,6 +15,11 @@ class Course(Base):
     __tablename__ = "courses"
 
     id = Column(String, primary_key=True, default=generate_uuid_12, index=True)
+    # ondelete="CASCADE" is metadata only — SQLite doesn't enforce it without
+    # PRAGMA foreign_keys=ON (not set anywhere in database.py), so deleting a User
+    # does NOT delete their courses at the DB level. Cascade cleanup for this table
+    # is done by hand in app/routers/auth.py::delete_account. If you add a new table
+    # with a FK to courses.id/users.id, you must add its own manual cleanup too.
     user_id = Column(
         String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
