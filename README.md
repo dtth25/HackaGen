@@ -192,8 +192,9 @@ Cách deploy khuyến nghị cho server thật (kể cả server trường) là 
 - `NEXT_PUBLIC_API_BASE_URL` phải để **RỖNG** (`NEXT_PUBLIC_API_BASE_URL=`) — rỗng nghĩa là browser gọi same-origin rồi được proxy nội bộ như trên. Nếu điền domain/IP thật vào đây, browser sẽ cố gọi thẳng cổng 8000 và **fail** vì cổng đó không public. Next.js inline biến này lúc `next build`, nên đổi giá trị bắt buộc phải `docker compose build frontend` lại, restart container không đủ.
 - `ALLOWED_ORIGINS` không còn bắt buộc cho luồng browser chính (browser giờ gọi same-origin, không phải cross-origin nữa) — có thể để nguyên default, không cần sửa.
 - `GEMINI_API_KEY` (và các `GEMINI_{BOOK,SLIDE,QUIZ,VID}_API_KEY` nếu dùng) phải là key thật, không phải placeholder.
-- `RESEND_API_KEY` + `EMAIL_FROM_ADDRESS` phải là domain đã verify thật trên Resend, và `EMAIL_DEV_FALLBACK=false` (hoặc bỏ hẳn dòng này) — bật `true` ở production nghĩa là user đăng ký "thành công" nhưng không ai nhận được mã xác thực.
+- `SMTP_HOST/SMTP_PORT/SMTP_USER/SMTP_PASSWORD` + `EMAIL_FROM_ADDRESS` phải là tài khoản Gmail thật (SMTP_PASSWORD là "App Password", không phải mật khẩu đăng nhập thường), và `EMAIL_DEV_FALLBACK=false` (hoặc bỏ hẳn dòng này) — bật `true` ở production nghĩa là user đăng ký "thành công" nhưng không ai nhận được mã xác thực.
 - Cân nhắc bật `AUTH_COOKIE_SECURE=true` khi server đã có HTTPS.
+- Nếu cổng 3000 hoặc 8000 đã bị chiếm trên server (ví dụ máy chạy nhiều app sau cùng 1 reverse proxy), set `FRONTEND_PORT=`/`BACKEND_PORT=` trong `.env` — không cần sửa `docker-compose.yml`. Repo này **không** tự chạy reverse proxy/HTTPS nào — nếu server đã có sẵn nginx/Caddy riêng, chỉ cần trỏ nó vào đúng `FRONTEND_PORT`.
 
 **Chạy**: `docker compose up -d --build` dựng cả backend + frontend. Sau **mọi** lần `git pull` có đổi code, chạy lại đúng lệnh này (không chỉ `docker compose restart`) — đặc biệt bắt buộc nếu đổi bất kỳ biến `NEXT_PUBLIC_*` nào, vì nó bị bake cứng vào frontend lúc build.
 

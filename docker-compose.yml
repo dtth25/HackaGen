@@ -7,10 +7,12 @@ services:
     # Bound to localhost only — the backend is not meant to be reachable from the
     # internet directly. The frontend container proxies /api/* to it over the
     # internal Docker network (see BACKEND_INTERNAL_URL below); this host-side
-    # binding just lets you `curl localhost:8000/health` on the server itself
-    # for debugging.
+    # binding just lets you `curl localhost:$BACKEND_PORT/health` on the server
+    # itself for debugging. BACKEND_PORT only changes the host-side port (set it
+    # in .env if 8000 is already taken on the host) — containers still talk to
+    # each other on 8000 internally, unaffected by this.
     ports:
-      - "127.0.0.1:8000:8000"
+      - "127.0.0.1:${BACKEND_PORT:-8000}:8000"
     env_file:
       - ./.env
     environment:
@@ -28,9 +30,16 @@ services:
       context: ./src/frontend
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+        # Default blank (same-origin/proxy mode, the correct prod setting — see
+        # .env.example) whether the var is unset OR explicitly empty in .env, so
+        # a missing line in .env can't silently reintroduce the
+        # "frontend bakes in localhost:8000" bug. Only set NEXT_PUBLIC_API_BASE_URL
+        # in .env for the rare case the browser should call the backend directly.
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-}
     ports:
-      - "3000:3000"
+      # Host-side port only — set FRONTEND_PORT in .env if 3000 is already used
+      # on the host (e.g. by another app behind the same reverse proxy).
+      - "${FRONTEND_PORT:-3000}:3000"
     environment:
       # Runtime-only (not baked at build time like NEXT_PUBLIC_*) — next.config.ts's
       # rewrites() reads this to proxy /api/* server-side to the backend container,
