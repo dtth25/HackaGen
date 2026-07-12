@@ -14,8 +14,22 @@ RUN uv sync --frozen --no-dev
 WORKDIR /app
 COPY backend ./backend
 
-ENV PYTHONPATH=/app
+# The backend imports its own modules as top-level `app.*` (see main.py:
+# `from app.core.config import ...`). Because pyproject.toml has no [build-system],
+# `app` is NOT installed as a package — it only resolves when cwd/PYTHONPATH is the
+# backend dir itself. Running `backend.main:app` from /app crashes with
+# `ModuleNotFoundError: No module named 'app'` (Python looks for /app/app, but the
+# package lives at /app/backend/app). So run exactly like the documented local
+# command: cwd + PYTHONPATH at /app/backend, entrypoint `main:app`.
+ENV PYTHONPATH=/app/backend
+WORKDIR /app/backend
 
 EXPOSE 8000
 
-CMD ["uv", "run", "--project", "backend", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run DB migrations before starting the server. There is no create_all() anywhere and
+# the lifespan only seeds the admin — a fresh deploy has an EMPTY sqlite file, so without
+# `alembic upgrade head` every query fails with "no such table: users". alembic lives in
+# the main deps (installed even with --no-dev) and its script_location is %(here)s-relative,
+# so it resolves from this WORKDIR. `exec` hands PID 1 / signals to uvicorn. Everything runs
+# from /app/backend so alembic and the app agree on the same ./data/app.db (on the volume).
+CMD ["sh", "-c", "uv run --project . alembic upgrade head && exec uv run --project . uvicorn main:app --host 0.0.0.0 --port 8000"]
