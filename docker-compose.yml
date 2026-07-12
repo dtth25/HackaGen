@@ -12,13 +12,20 @@ services:
     # manual debugging if ever needed, curl just isn't installed in this image.
     env_file:
       - ./.env
-    environment:
-      - PYTHONPATH=/app
+    # NOTE: PYTHONPATH is set by the Dockerfile (ENV PYTHONPATH=/app/backend) — do NOT
+    # override it here. A stale `PYTHONPATH=/app` override reintroduces the
+    # `ModuleNotFoundError: No module named 'app'` crash because the backend resolves
+    # its own modules as top-level `app.*` only when /app/backend is on the path.
+    # Targets are under /app/backend because the app runs with cwd=/app/backend and
+    # settings use cwd-relative paths (DATABASE_URL=./data/app.db, UPLOAD_DIR=uploads,
+    # OUTPUT_DIR=outputs, CHROMA_PERSIST_DIR=./data/chroma, EMBEDDING_CACHE_DIR=cache/...).
+    # Mounting at /app/* (the old layout) would leave every data dir on the container's
+    # ephemeral layer — data lost on recreate.
     volumes:
-      - ./data/app-data:/app/data        # CHROMA_PERSIST_DIR=data/chroma + DATABASE_URL sqlite:///./data/app.db
-      - ./data/uploads:/app/uploads      # UPLOAD_DIR — file upload + mọi artifact Book/Slide/Quiz/Vid
-      - ./data/outputs:/app/outputs      # OUTPUT_DIR — hiện chưa có writer thật, mount để tương thích
-      - ./data/cache:/app/cache          # EMBEDDING_CACHE_DIR=cache/chunk_embeddings
+      - ./data/app-data:/app/backend/data       # DATABASE_URL sqlite ./data/app.db + CHROMA_PERSIST_DIR ./data/chroma
+      - ./data/uploads:/app/backend/uploads      # UPLOAD_DIR — file upload + mọi artifact Book/Slide/Quiz/Vid
+      - ./data/outputs:/app/backend/outputs      # OUTPUT_DIR — hiện chưa có writer thật, mount để tương thích
+      - ./data/cache:/app/backend/cache          # EMBEDDING_CACHE_DIR=cache/chunk_embeddings
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
       interval: 30s
@@ -41,15 +48,16 @@ services:
         # "frontend bakes in localhost:8000" bug. Only set NEXT_PUBLIC_API_BASE_URL
         # in .env for the rare case the browser should call the backend directly.
         NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-}
+        # MUST be a build arg, not a runtime env: next.config.ts's rewrites() is baked
+        # into the build (output:standalone), so the /api/* proxy destination is frozen
+        # at `next build` time. Passing it only at runtime leaves the localhost:8000
+        # fallback baked in and every proxied request ECONNREFUSEs. `backend` is this
+        # compose service name, resolved over hackagen-network.
+        BACKEND_INTERNAL_URL: ${BACKEND_INTERNAL_URL:-http://backend:8000}
     ports:
       # Host-side port only — set FRONTEND_PORT in .env if 3000 is already used
       # on the host (e.g. by another app behind the same reverse proxy).
       - "${FRONTEND_PORT:-3000}:3000"
-    environment:
-      # Runtime-only (not baked at build time like NEXT_PUBLIC_*) — next.config.ts's
-      # rewrites() reads this to proxy /api/* server-side to the backend container,
-      # over Docker Compose's internal network via the service name `backend`.
-      - BACKEND_INTERNAL_URL=http://backend:8000
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000', r => process.exit(r.statusCode < 500 ? 0 : 1)).on('error', () => process.exit(1))"]
       interval: 30s
