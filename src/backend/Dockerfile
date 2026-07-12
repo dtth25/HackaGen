@@ -26,4 +26,10 @@ WORKDIR /app/backend
 
 EXPOSE 8000
 
-CMD ["uv", "run", "--project", ".", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run DB migrations before starting the server. There is no create_all() anywhere and
+# the lifespan only seeds the admin — a fresh deploy has an EMPTY sqlite file, so without
+# `alembic upgrade head` every query fails with "no such table: users". alembic lives in
+# the main deps (installed even with --no-dev) and its script_location is %(here)s-relative,
+# so it resolves from this WORKDIR. `exec` hands PID 1 / signals to uvicorn. Everything runs
+# from /app/backend so alembic and the app agree on the same ./data/app.db (on the volume).
+CMD ["sh", "-c", "uv run --project . alembic upgrade head && exec uv run --project . uvicorn main:app --host 0.0.0.0 --port 8000"]
