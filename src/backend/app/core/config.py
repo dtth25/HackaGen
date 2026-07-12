@@ -54,7 +54,7 @@ class Settings(BaseSettings):
     # Model routing — mirrors the GEMINI_{FEATURE}_API_KEY pattern above. Each feature
     # falls back to GEMINI_DEFAULT_MODEL when left blank (see LLMService.__init__ and
     # generation.py::get_generator / document_processor.py::_generate_course_title).
-    GEMINI_DEFAULT_MODEL: str = Field(default="gemini-2.5-flash", description="Model used when a feature has no override")
+    GEMINI_DEFAULT_MODEL: str = Field(default="gemini-flash-latest", description="Model used when a feature has no override. Use a currently-supported alias — bare 'gemini-2.5-flash' now 404s 'no longer available to new users' on newer API projects/keys.")
     GEMINI_BOOK_MODEL: str = Field(default="", description="Model for Book generation (falls back to GEMINI_DEFAULT_MODEL)")
     GEMINI_SLIDE_MODEL: str = Field(default="", description="Model for Slide generation (falls back to GEMINI_DEFAULT_MODEL)")
     GEMINI_QUIZ_MODEL: str = Field(default="", description="Model for Quiz generation (falls back to GEMINI_DEFAULT_MODEL)")

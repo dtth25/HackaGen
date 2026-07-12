@@ -144,6 +144,21 @@ class Generator:
 
         return "\n\n".join(context_lines), valid_chunk_ids
 
+    _NO_CONTEXT_MSG = (
+        "Không tìm thấy nội dung nào từ tài liệu để tạo học liệu. Tài liệu có thể là bản "
+        "scan/ảnh chưa trích xuất được chữ, hoặc chưa lập chỉ mục thành công. Hãy thử xoá "
+        "và tải lại tài liệu (ưu tiên PDF có lớp văn bản thật, không phải ảnh chụp)."
+    )
+
+    def _require_context(self, context: str) -> None:
+        """Guard: refuse to run a generator on empty RAG context. Without this, the LLM
+        dutifully writes a 'no context was provided' apology that gets saved and marked
+        ready — the Study Guide shows an abstention essay, Quiz yields 0 questions (the
+        frontend then sticks at 100% because its data never passes isReady), and Video
+        narrates generic filler. Failing loud turns all of those into one clear error."""
+        if not context or not context.strip():
+            raise ValueError(self._NO_CONTEXT_MSG)
+
     def _get_artifact_dir(self, course_id: str) -> str:
         """Get or create local filesystem artifact storage directory."""
         dir_path = os.path.join(settings.UPLOAD_DIR, course_id, "artifacts")
@@ -693,6 +708,7 @@ class Generator:
 
             book_llm = self._llm_for("book")
             context, base_ids = self._retrieve_context(course_id, k=20)
+            self._require_context(context)
             doc_names = self._get_doc_names(course_id, db_session_factory)
             outline = book_llm.generate_book_outline(context, detail_level, user_prompt, doc_names)
             plans = outline.chapters[:8]
@@ -756,6 +772,7 @@ class Generator:
             self._set_artifact_status(course_id, "slides", "processing", progress=10, db_session_factory=db_session_factory)
             resolved_topic = self._resolve_topic(course_id, topic, db_session_factory=db_session_factory)
             context, valid_chunk_ids = self._retrieve_context(course_id, query=resolved_topic)
+            self._require_context(context)
             raw_output = self._llm_for("slides").generate_slides(context, resolved_topic, num_slides, valid_chunk_ids)
             validated_output, score, warnings = validate_and_score_output(raw_output, "slides", valid_chunk_ids)
             if warnings:
@@ -786,6 +803,7 @@ class Generator:
             self._set_artifact_status(course_id, "quiz", "processing", progress=10, db_session_factory=db_session_factory)
             resolved_topic = self._resolve_topic(course_id, topic, db_session_factory=db_session_factory)
             context, valid_chunk_ids = self._retrieve_context(course_id, query=resolved_topic)
+            self._require_context(context)
             raw_output = self._llm_for("quiz").generate_quiz(context, resolved_topic, quantity, valid_chunk_ids, difficulty=difficulty)
             validated_output, score, warnings = validate_and_score_output(raw_output, "quiz", valid_chunk_ids)
             if warnings:
@@ -825,6 +843,7 @@ class Generator:
             self._set_artifact_status(course_id, "vid", "processing", progress=10, db_session_factory=db_session_factory)
             resolved_topic = self._resolve_topic(course_id, topic, db_session_factory=db_session_factory)
             context, valid_chunk_ids = self._retrieve_context(course_id, query=resolved_topic)
+            self._require_context(context)
             raw_output = self._llm_for("vid").generate_vid(
                 context, resolved_topic, fmt, user_prompt, valid_chunk_ids
             )
