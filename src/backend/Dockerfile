@@ -14,8 +14,16 @@ RUN uv sync --frozen --no-dev
 WORKDIR /app
 COPY backend ./backend
 
-ENV PYTHONPATH=/app
+# The backend imports its own modules as top-level `app.*` (see main.py:
+# `from app.core.config import ...`). Because pyproject.toml has no [build-system],
+# `app` is NOT installed as a package — it only resolves when cwd/PYTHONPATH is the
+# backend dir itself. Running `backend.main:app` from /app crashes with
+# `ModuleNotFoundError: No module named 'app'` (Python looks for /app/app, but the
+# package lives at /app/backend/app). So run exactly like the documented local
+# command: cwd + PYTHONPATH at /app/backend, entrypoint `main:app`.
+ENV PYTHONPATH=/app/backend
+WORKDIR /app/backend
 
 EXPOSE 8000
 
-CMD ["uv", "run", "--project", "backend", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uv", "run", "--project", ".", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
