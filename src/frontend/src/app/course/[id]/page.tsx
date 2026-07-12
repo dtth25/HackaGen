@@ -253,16 +253,16 @@ function DashboardContent() {
 
         <div className="mt-6 rounded-xl border bg-card p-6 min-h-[400px]">
           <TabsContent value="book" className="mt-0">
-            <BookTab courseId={course.course_id} />
+            <BookTab courseId={course.course_id} documentProcessing={status === "processing"} />
           </TabsContent>
           <TabsContent value="slide" className="mt-0">
-            <SlideTab courseId={course.course_id} />
+            <SlideTab courseId={course.course_id} documentProcessing={status === "processing"} />
           </TabsContent>
           <TabsContent value="quiz" className="mt-0">
-            <QuizTab courseId={course.course_id} />
+            <QuizTab courseId={course.course_id} documentProcessing={status === "processing"} />
           </TabsContent>
           <TabsContent value="vid" className="mt-0">
-            <VidTab courseId={course.course_id} />
+            <VidTab courseId={course.course_id} documentProcessing={status === "processing"} />
           </TabsContent>
         </div>
       </Tabs>

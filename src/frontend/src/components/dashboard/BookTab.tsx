@@ -12,6 +12,7 @@ import {
   Target,
   Star,
   HelpCircle,
+  Loader2,
 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,11 +28,14 @@ import type { BookOutput } from "@/lib/types";
 
 interface BookTabProps {
   courseId: string;
+  /** True while the course's document is still being extracted/indexed — generating now
+   * would hit the backend's "still processing" guard, so the button is disabled instead. */
+  documentProcessing?: boolean;
 }
 
 const DETAIL_OPTIONS = ["Tóm tắt", "Tiêu chuẩn", "Chuyên sâu"];
 
-export function BookTab({ courseId }: BookTabProps) {
+export function BookTab({ courseId, documentProcessing = false }: BookTabProps) {
   const [isFetching, setIsFetching] = useState(false);
   const [activeIdx, setActiveIdx] = useState(-1); // -1 = "Giới thiệu" pane
   const [isExpanded, setIsExpanded] = useState(false);
@@ -209,6 +213,10 @@ export function BookTab({ courseId }: BookTabProps) {
               <Button disabled size="lg" className="w-full gap-2 font-semibold">
                 <RefreshCw className="h-5 w-5 animate-spin" /> Đang biên soạn sách ({progress}%)…
               </Button>
+            </div>
+          ) : documentProcessing ? (
+            <div className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-border/60 py-3 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Tài liệu đang được xử lý, vui lòng đợi...
             </div>
           ) : (
             <Button onClick={handleGenerate} size="lg" className="w-full gap-2 font-semibold">

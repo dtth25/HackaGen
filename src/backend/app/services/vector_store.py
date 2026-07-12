@@ -137,6 +137,48 @@ class GeminiEmbeddingFunction:
         return results  # type: ignore[return-value]
 
 
+class OpenRouterEmbeddingFunction:
+    """Chroma embedding function used ONLY as a silent last-resort fallback when Gemini's
+    embedding quota is exhausted mid-ingestion (see document_processor.process_course). Lives
+    in its own Chroma collection (VectorStore._collection_for) — never mixed with Gemini
+    vectors in the same collection, since embeddings from different models occupy different,
+    incomparable vector spaces; mixing them would silently corrupt similarity search.
+
+    No content-hash cache (unlike GeminiEmbeddingFunction): this path is rare enough that the
+    extra disk I/O isn't worth it, and OpenRouter is itself already the fallback of last resort."""
+
+    def __init__(self, api_key: str, model: str, max_retries: int = 3):
+        from openai import OpenAI
+
+        self._client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=api_key)
+        self._model = model
+        self._max_retries = max(1, max_retries)
+
+    def name(self) -> str:
+        return "openrouter"
+
+    def __call__(self, input: List[str]) -> List[List[float]]:
+        return self._embed(list(input))
+
+    def embed_query(self, input: List[str]) -> List[List[float]]:
+        return self._embed(list(input))
+
+    def _embed(self, texts: List[str]) -> List[List[float]]:
+        delay = 1.0
+        last_exc: Optional[Exception] = None
+        for attempt in range(1, self._max_retries + 1):
+            try:
+                response = self._client.embeddings.create(model=self._model, input=texts)
+                return [item.embedding for item in response.data]
+            except Exception as e:
+                last_exc = e
+                logger.warning(f"OpenRouter embedding batch attempt {attempt}/{self._max_retries} failed: {e}")
+                if attempt < self._max_retries:
+                    time.sleep(delay)
+                    delay *= 2
+        raise RuntimeError(f"OpenRouter embedding failed after {self._max_retries} attempts: {last_exc}")
+
+
 def _build_embedding_function() -> Optional[GeminiEmbeddingFunction]:
     """Build the configured embedding function, or None to let Chroma fall back to its
     bundled default (used in tests / when Gemini embedding isn't configured)."""
@@ -165,8 +207,32 @@ def _build_embedding_function() -> Optional[GeminiEmbeddingFunction]:
         return None
 
 
+def _build_openrouter_embedding_function() -> Optional[OpenRouterEmbeddingFunction]:
+    """Build the OpenRouter fallback embedding function, or None if unconfigured/in tests."""
+    if "PYTEST_CURRENT_TEST" in os.environ:
+        return None
+    from app.core.config import settings
+
+    api_key = getattr(settings, "OPENROUTER_API_KEY", "")
+    if not api_key:
+        return None
+    try:
+        return OpenRouterEmbeddingFunction(api_key=api_key, model=settings.OPENROUTER_EMBEDDING_MODEL)
+    except Exception as e:
+        logger.warning(f"Failed to initialize OpenRouter embedding function: {e}")
+        return None
+
+
 class VectorStore:
-    """Wrapper around ChromaDB for storing and retrieving course document chunks."""
+    """Wrapper around ChromaDB for storing and retrieving course document chunks.
+
+    Holds TWO Chroma collections: the primary one (Gemini-embedded, `collection_name`) and a
+    lazily-built fallback one (`{collection_name}_openrouter`) used only when Gemini's embedding
+    quota is exhausted mid-ingestion (see document_processor.process_course). Every method that
+    touches embedded content takes a `provider` argument to pick the right collection — vectors
+    from different embedding models are not comparable, so a course's chunks must always be
+    written AND queried through the same collection it was originally embedded into (tracked on
+    Course.embedding_provider)."""
 
     def __init__(self, collection_name: str, persist_directory: str, embedding_function: Optional[Any] = None):
         self.collection_name = collection_name
@@ -180,7 +246,28 @@ class VectorStore:
         else:
             self.collection = self.client.get_or_create_collection(name=collection_name)
 
-    def add_documents(self, documents: List[Document], course_id: str) -> None:
+        self._openrouter_collection_name = f"{collection_name}_openrouter"
+        self._openrouter_collection: Optional[Any] = None
+
+    def _collection_for(self, provider: str) -> Any:
+        """Route to the Gemini (default) or OpenRouter-fallback collection. Raises if
+        "openrouter" is requested but OPENROUTER_API_KEY isn't configured — silently falling
+        back to Chroma's bundled English-centric default embedder would corrupt Vietnamese
+        similarity search rather than fail loud."""
+        if provider != "openrouter":
+            return self.collection
+        if self._openrouter_collection is None:
+            or_ef = _build_openrouter_embedding_function()
+            if or_ef is None:
+                raise RuntimeError(
+                    "OpenRouter embedding fallback requested but OPENROUTER_API_KEY is not configured."
+                )
+            self._openrouter_collection = self.client.get_or_create_collection(
+                name=self._openrouter_collection_name, embedding_function=or_ef
+            )
+        return self._openrouter_collection
+
+    def add_documents(self, documents: List[Document], course_id: str, provider: str = "gemini") -> None:
         """Add document chunks to ChromaDB collection with course_id metadata."""
         if not documents:
             return
@@ -209,24 +296,29 @@ class VectorStore:
             metadatas.append(clean_meta)
 
         # Use upsert to prevent duplicate ID errors on re-processing
-        self.collection.upsert(
+        self._collection_for(provider).upsert(
             ids=ids,
             documents=contents,
             metadatas=metadatas
         )
         logger.info(
-            f"Added {len(documents)} chunks for course {course_id} to collection {self.collection_name}"
+            f"Added {len(documents)} chunks for course {course_id} to collection "
+            f"{self.collection_name if provider != 'openrouter' else self._openrouter_collection_name}"
         )
 
-    def search(self, query: str, course_id: str, k: int = 10, max_distance: Optional[float] = None) -> List[Document]:
+    def search(
+        self, query: str, course_id: str, k: int = 10, max_distance: Optional[float] = None, provider: str = "gemini"
+    ) -> List[Document]:
         """Search for top-k relevant chunks for a specific course. When max_distance is set,
         chunks beyond that Chroma distance (lower = more similar) are dropped even if it means
         returning fewer than k results, instead of padding with irrelevant tail matches."""
         if not query or not query.strip():
             return []
 
+        collection = self._collection_for(provider)
+
         # Check if course has any documents first
-        stats = self.get_course_stats(course_id)
+        stats = self.get_course_stats(course_id, provider=provider)
         if stats.get("chunk_count", 0) == 0:
             return []
 
@@ -235,7 +327,7 @@ class VectorStore:
         if n_results <= 0:
             return []
 
-        results = self.collection.query(
+        results = collection.query(
             query_texts=[query],
             n_results=n_results,
             where={"course_id": str(course_id)}
@@ -262,22 +354,31 @@ class VectorStore:
         return documents
 
     def delete_course(self, course_id: str) -> None:
-        """Delete all document chunks belonging to a course."""
+        """Delete all document chunks belonging to a course, from BOTH collections — the
+        caller may not know (or may no longer be able to determine, e.g. after an app
+        restart) which provider originally embedded this course, so try both defensively.
+        A course only ever has real chunks in one of the two; deleting from the other is a
+        harmless no-op."""
         try:
             self.collection.delete(where={"course_id": str(course_id)})
             logger.info(f"Deleted vector chunks for course {course_id}")
         except Exception as e:
             logger.warning(f"Error deleting chunks for course {course_id}: {e}")
+        try:
+            self._collection_for("openrouter").delete(where={"course_id": str(course_id)})
+        except Exception:
+            pass  # OpenRouter collection never used for this course, or not configured — fine.
 
-    def get_course_stats(self, course_id: str) -> dict:
+    def get_course_stats(self, course_id: str, provider: str = "gemini") -> dict:
         """Get statistics about stored chunks for a course."""
         try:
-            res = self.collection.get(where={"course_id": str(course_id)})
+            collection = self._collection_for(provider)
+            res = collection.get(where={"course_id": str(course_id)})
             count = len(res["ids"]) if res and "ids" in res else 0
             return {
                 "course_id": str(course_id),
                 "chunk_count": count,
-                "collection_name": self.collection_name,
+                "collection_name": collection.name,
             }
         except Exception as e:
             logger.warning(f"Error getting stats for course {course_id}: {e}")
@@ -287,10 +388,12 @@ class VectorStore:
                 "collection_name": self.collection_name,
             }
 
-    def get_course_chunks(self, course_id: str, chunk_ids: Optional[List[str]] = None) -> List[Document]:
+    def get_course_chunks(
+        self, course_id: str, chunk_ids: Optional[List[str]] = None, provider: str = "gemini"
+    ) -> List[Document]:
         """Get all stored chunks for a course, optionally filtered by chunk_ids."""
         try:
-            res = self.collection.get(where={"course_id": str(course_id)})
+            res = self._collection_for(provider).get(where={"course_id": str(course_id)})
             documents = []
             if res and "ids" in res and res["ids"]:
                 ids_list = res["ids"]
