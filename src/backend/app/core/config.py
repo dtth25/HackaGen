@@ -140,6 +140,13 @@ class Settings(BaseSettings):
     EMBEDDING_REQUESTS_PER_MINUTE: int = Field(default=72, description="Client-side rate limit for embedding API calls")
     EMBEDDING_CACHE_DIR: str = Field(default="cache/chunk_embeddings", description="Directory for content-hash embedding cache")
 
+    # Silent last-resort fallback when Gemini's embedding quota is exhausted mid-ingestion
+    # (mirrors the generation-time OPENROUTER_API_KEY fallback in LLMService._call_gemini_strict).
+    # Stored in a SEPARATE Chroma collection (see VectorStore._collection_for) since vectors from
+    # a different embedding model aren't comparable to Gemini's — mixing them in one collection
+    # would silently corrupt similarity search for every course, not just the exhausted one.
+    OPENROUTER_EMBEDDING_MODEL: str = Field(default="openai/text-embedding-3-small", description="OpenRouter embedding model slug, used only when Gemini embedding quota is exhausted")
+
     # Document chunking tuning
     DOCUMENT_CHUNK_SIZE: int = Field(default=1800, description="Target chunk size in characters")
     DOCUMENT_CHUNK_OVERLAP: int = Field(default=120, description="Overlap in characters between consecutive chunks")

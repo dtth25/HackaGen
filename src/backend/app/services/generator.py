@@ -100,13 +100,28 @@ class Generator:
             return SessionLocal()
         return db_session_factory()
 
-    def _retrieve_context(self, course_id: str, query: str = "", k: int = 20) -> Tuple[str, List[str]]:
+    def _get_embedding_provider(self, course_id: str, db_session_factory=None) -> str:
+        """Which Chroma collection this course's chunks actually live in — "gemini" (default)
+        or "openrouter" if document_processor fell back to it on Gemini quota exhaustion.
+        Retrieval must route to the same collection a course was embedded into, since vectors
+        from different embedding models aren't comparable (see VectorStore._collection_for)."""
+        db = self._get_db(db_session_factory)
+        try:
+            course = db.query(Course).filter(Course.id == course_id).first()
+            return (course.embedding_provider if course and course.embedding_provider else "gemini")
+        finally:
+            db.close()
+
+    def _retrieve_context(
+        self, course_id: str, query: str = "", k: int = 20, db_session_factory=None
+    ) -> Tuple[str, List[str]]:
         """Retrieve relevant chunks from Chroma vector store, drop near-duplicate chunks
         (retrieval overlap / re-retrieval across Book chapters), and order the survivors
         by (source_file, page) so the LLM sees document-coherent context instead of chunks
         shuffled by raw similarity rank."""
         search_query = query or "tổng quan kiến thức khóa học các chương quan trọng"
-        chunks = self.vector_store.search(query=search_query, course_id=course_id, k=k)
+        provider = self._get_embedding_provider(course_id, db_session_factory)
+        chunks = self.vector_store.search(query=search_query, course_id=course_id, k=k, provider=provider)
         if not chunks:
             logger.warning(f"No vector chunks found for course {course_id}. RAG context will be empty.")
             return "", []
@@ -149,6 +164,27 @@ class Generator:
         "scan/ảnh chưa trích xuất được chữ, hoặc chưa lập chỉ mục thành công. Hãy thử xoá "
         "và tải lại tài liệu (ưu tiên PDF có lớp văn bản thật, không phải ảnh chụp)."
     )
+    _PROCESSING_MSG = (
+        "Tài liệu vẫn đang được xử lý (trích xuất và lập chỉ mục nội dung). Việc này có thể "
+        "mất khoảng nửa phút với tài liệu dài. Vui lòng đợi giây lát rồi thử lại."
+    )
+
+    def _require_course_not_processing(self, course_id: str, db_session_factory=None) -> None:
+        """Guard: refuse to run a generator while the course's document ingestion is still
+        running. Without this, a generate call fired right after upload — before chunking/
+        embedding finishes writing chunk_count — hits the exact same "no chunks found" path
+        as a genuinely broken document, and `_require_context`'s scan/OCR-focused message is
+        actively misleading here since the document is fine, just not indexed yet. Ingestion
+        legitimately takes 10-30+s for large real documents (retries, OpenRouter fallback on
+        Gemini quota exhaustion — see document_processor.process_course), long enough for a
+        user clicking into a tab right after upload to reliably hit this race."""
+        db = self._get_db(db_session_factory)
+        try:
+            course = db.query(Course).filter(Course.id == course_id).first()
+            if course and course.status == "processing":
+                raise ValueError(self._PROCESSING_MSG)
+        finally:
+            db.close()
 
     def _require_context(self, context: str) -> None:
         """Guard: refuse to run a generator on empty RAG context. Without this, the LLM
@@ -705,9 +741,10 @@ class Generator:
         logger.info(f"Starting Book generation for course {course_id}")
         try:
             self._set_artifact_status(course_id, "book", "processing", progress=5, db_session_factory=db_session_factory)
+            self._require_course_not_processing(course_id, db_session_factory)
 
             book_llm = self._llm_for("book")
-            context, base_ids = self._retrieve_context(course_id, k=20)
+            context, base_ids = self._retrieve_context(course_id, k=20, db_session_factory=db_session_factory)
             self._require_context(context)
             doc_names = self._get_doc_names(course_id, db_session_factory)
             outline = book_llm.generate_book_outline(context, detail_level, user_prompt, doc_names)
@@ -721,7 +758,9 @@ class Generator:
             chapters: List[BookChapter] = []
             total = len(plans)
             for i, plan in enumerate(plans):
-                ch_context, ch_ids = self._retrieve_context(course_id, query=plan.retrieval_query, k=10)
+                ch_context, ch_ids = self._retrieve_context(
+                    course_id, query=plan.retrieval_query, k=10, db_session_factory=db_session_factory
+                )
                 if not ch_context:
                     ch_context, ch_ids = context, base_ids
                 all_ids.update(ch_ids)
@@ -770,8 +809,11 @@ class Generator:
         logger.info(f"Starting Slides generation for course {course_id}")
         try:
             self._set_artifact_status(course_id, "slides", "processing", progress=10, db_session_factory=db_session_factory)
+            self._require_course_not_processing(course_id, db_session_factory)
             resolved_topic = self._resolve_topic(course_id, topic, db_session_factory=db_session_factory)
-            context, valid_chunk_ids = self._retrieve_context(course_id, query=resolved_topic)
+            context, valid_chunk_ids = self._retrieve_context(
+                course_id, query=resolved_topic, db_session_factory=db_session_factory
+            )
             self._require_context(context)
             raw_output = self._llm_for("slides").generate_slides(context, resolved_topic, num_slides, valid_chunk_ids)
             validated_output, score, warnings = validate_and_score_output(raw_output, "slides", valid_chunk_ids)
@@ -801,8 +843,11 @@ class Generator:
         logger.info(f"Starting Quiz generation for course {course_id} (quantity={quantity}, difficulty={difficulty})")
         try:
             self._set_artifact_status(course_id, "quiz", "processing", progress=10, db_session_factory=db_session_factory)
+            self._require_course_not_processing(course_id, db_session_factory)
             resolved_topic = self._resolve_topic(course_id, topic, db_session_factory=db_session_factory)
-            context, valid_chunk_ids = self._retrieve_context(course_id, query=resolved_topic)
+            context, valid_chunk_ids = self._retrieve_context(
+                course_id, query=resolved_topic, db_session_factory=db_session_factory
+            )
             self._require_context(context)
             raw_output = self._llm_for("quiz").generate_quiz(context, resolved_topic, quantity, valid_chunk_ids, difficulty=difficulty)
             validated_output, score, warnings = validate_and_score_output(raw_output, "quiz", valid_chunk_ids)
@@ -841,8 +886,11 @@ class Generator:
         logger.info(f"Starting Video generation for course {course_id} (format={fmt}, voice={voice})")
         try:
             self._set_artifact_status(course_id, "vid", "processing", progress=10, db_session_factory=db_session_factory)
+            self._require_course_not_processing(course_id, db_session_factory)
             resolved_topic = self._resolve_topic(course_id, topic, db_session_factory=db_session_factory)
-            context, valid_chunk_ids = self._retrieve_context(course_id, query=resolved_topic)
+            context, valid_chunk_ids = self._retrieve_context(
+                course_id, query=resolved_topic, db_session_factory=db_session_factory
+            )
             self._require_context(context)
             raw_output = self._llm_for("vid").generate_vid(
                 context, resolved_topic, fmt, user_prompt, valid_chunk_ids

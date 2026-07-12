@@ -15,6 +15,7 @@ import {
   RotateCcw,
   ListChecks,
   Lightbulb,
+  Loader2,
 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +30,9 @@ import type { QuizQuestion } from "@/lib/types";
 
 interface QuizTabProps {
   courseId: string;
+  /** True while the course's document is still being extracted/indexed — generating now
+   * would hit the backend's "still processing" guard, so the button is disabled instead. */
+  documentProcessing?: boolean;
 }
 
 // --- Config options for the generation picker ---
@@ -74,7 +78,7 @@ function difficultyMeta(raw?: string): { label: string; variant: "secondary" | "
   return { label: raw || "Vừa", variant: "outline" };
 }
 
-export function QuizTab({ courseId }: QuizTabProps) {
+export function QuizTab({ courseId, documentProcessing = false }: QuizTabProps) {
   // Generation config
   const [quantity, setQuantity] = useState(5);
   const [difficulty, setDifficulty] = useState("mixed");
@@ -291,6 +295,10 @@ export function QuizTab({ courseId }: QuizTabProps) {
               <Button disabled size="lg" className="w-full gap-2 font-semibold">
                 <RefreshCw className="h-5 w-5 animate-spin" /> Đang tạo trắc nghiệm ({progress}%)…
               </Button>
+            </div>
+          ) : documentProcessing ? (
+            <div className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-border/60 py-3 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Tài liệu đang được xử lý, vui lòng đợi...
             </div>
           ) : (
             <Button

@@ -35,8 +35,6 @@ src/frontend/*.log
 .env
 .env.*
 !.env.example
-!.env.flash.example
-!.env.pro.example
 src/backend/.env.example
 src/frontend/.env.example
 api_key.env

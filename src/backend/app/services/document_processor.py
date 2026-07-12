@@ -40,6 +40,14 @@ def _find_split_position(text: str, start: int, end: int, chunk_size: int) -> in
     return -1
 
 
+def _is_quota_exhausted_error(exc: Exception) -> bool:
+    """Distinguish a Gemini embedding quota/rate-limit failure (safe to silently retry via
+    OpenRouter) from a genuine bug (bad input, misconfigured key, etc. — should still fail
+    loud). Matches the same signal GeminiEmbeddingFunction's own retry loop already logged."""
+    text = str(exc)
+    return "RESOURCE_EXHAUSTED" in text or "429" in text or "quota" in text.lower()
+
+
 class ProcessingResult(BaseModel):
     """Result of processing documents for a course."""
 
@@ -76,6 +84,7 @@ class DocumentProcessor:
         embedding_status: str = "pending",
         name: Optional[str] = None,
         error_message: Optional[str] = None,
+        embedding_provider: Optional[str] = None,
         db_session_factory=None,
     ):
         """Helper to update course status in database."""
@@ -100,6 +109,8 @@ class DocumentProcessor:
                         course.quality_score = quality_score
                     if name:
                         course.name = name
+                    if embedding_provider:
+                        course.embedding_provider = embedding_provider
                     course.embedding_status = embedding_status
                     # Clears any stale error from a prior attempt on success, persists the
                     # real reason on failure — always set explicitly, not just on failure.
@@ -497,8 +508,24 @@ class DocumentProcessor:
                 db_session_factory=db_session_factory,
             )
 
-            # 4. Generate embeddings & 5. Store in Chroma
-            self.vector_store.add_documents(all_documents, course_id=course_id)
+            # 4. Generate embeddings & 5. Store in Chroma. Gemini embedding is primary; if its
+            # own retries exhaust on a quota/rate-limit error (large documents like a 300-page
+            # book can need 8+ batch calls against a tight free-tier budget shared across every
+            # feature), silently redo the WHOLE course's embedding via OpenRouter instead — never
+            # split a single course across both collections (see VectorStore._collection_for).
+            # The user never sees which provider indexed their course, only that it worked.
+            embedding_provider = "gemini"
+            try:
+                self.vector_store.add_documents(all_documents, course_id=course_id, provider="gemini")
+            except Exception as e:
+                if not _is_quota_exhausted_error(e):
+                    raise
+                logger.warning(
+                    f"Gemini embedding quota exhausted for course {course_id}, "
+                    f"retrying full course via OpenRouter fallback: {e}"
+                )
+                self.vector_store.add_documents(all_documents, course_id=course_id, provider="openrouter")
+                embedding_provider = "openrouter"
 
             # Calculate quality score (e.g., based on average chunk length and total chunks)
             quality_score = min(100, max(50, len(all_documents) * 5 + 60))
@@ -520,6 +547,7 @@ class DocumentProcessor:
                 quality_score=quality_score,
                 embedding_status="completed",
                 name=course_title,
+                embedding_provider=embedding_provider,
                 db_session_factory=db_session_factory,
             )
 
