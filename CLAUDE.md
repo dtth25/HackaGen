@@ -9,7 +9,7 @@ NotebookLM-clone, **chỉ** nhận Docs (`.pdf/.docx/.txt`) → xuất **Study P
 - **FE**: Next.js App Router (⚠️ bản mới nhiều breaking change — đọc `node_modules/next/dist/docs/` trước khi code Next), React 19, Tailwind v4 (CSS-first, token trong `globals.css` qua `@theme inline`), shadcn/base-ui, lucide. Dev: `npm run dev` trong `src/frontend`.
 - **BE**: FastAPI, Python 3.11+, LangChain, deps bằng `uv`. Chạy từ `src/backend/`: `uv run --project . uvicorn main:app --reload --port 8000` (không cd lên `src` — `pyproject.toml` không có `[build-system]` nên `app.*` chỉ resolve đúng cwd).
 - **Vector DB**: Chroma local (`data/chroma/`, collection `ai_course_chunks`). FAISS chỉ là legacy.
-- **AI**: Gemini qua LangChain. **Flash mode** (`.env.flash.example`) = verify rẻ, tiết kiệm quota.
+- **AI**: Gemini qua LangChain, tự động fallback sang OpenRouter (âm thầm, không lộ cho user) khi Gemini hết quota/lỗi — xem `LLMService._call_gemini_strict`. Không còn preset Flash/Pro riêng, chỉ 1 `.env`.
 - **Auth**: JWT bearer + HttpOnly cookie `agy_session`; user ownership + admin routes.
 
 ## Product invariants — "done" = KHÔNG vi phạm mấy điều này

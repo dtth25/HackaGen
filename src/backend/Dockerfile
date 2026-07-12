@@ -3,6 +3,15 @@ FROM python:3.11-slim
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
+# python:3.11-slim ships with ZERO system fonts, so PDF export (ReportLab) and video
+# frame rendering (Pillow) both fell back to a non-Vietnamese font — diacritics rendered
+# as tofu boxes in the container (worked locally only because Windows has Arial). Install
+# DejaVu, which has full Vietnamese coverage and lands at exactly the path already listed
+# in pdf_utils._FONT_CANDIDATES (/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf).
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends fonts-dejavu-core \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # Compose builds with context ./src so backend remains importable as package `backend`.

@@ -15,6 +15,7 @@ import {
   Smartphone,
   Film,
   MonitorPlay,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +35,9 @@ import type { VidOutput } from "@/lib/types";
 
 interface VidTabProps {
   courseId: string;
+  /** True while the course's document is still being extracted/indexed — generating now
+   * would hit the backend's "still processing" guard, so the button is disabled instead. */
+  documentProcessing?: boolean;
 }
 
 const FORMAT_OPTIONS: { value: string; label: string; hint: string; icon: LucideIcon }[] = [
@@ -54,7 +58,7 @@ function formatDuration(totalSeconds?: number | null): string {
   return `${m}:${sec.toString().padStart(2, "0")}`;
 }
 
-export function VidTab({ courseId }: VidTabProps) {
+export function VidTab({ courseId, documentProcessing = false }: VidTabProps) {
   // Generation config
   const [format, setFormat] = useState("standard");
   const [voice, setVoice] = useState("female");
@@ -269,6 +273,10 @@ export function VidTab({ courseId }: VidTabProps) {
               <Button disabled size="lg" className="w-full gap-2 font-semibold">
                 <RefreshCw className="h-5 w-5 animate-spin" /> Đang dựng video ({progress}%)…
               </Button>
+            </div>
+          ) : documentProcessing ? (
+            <div className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-border/60 py-3 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Tài liệu đang được xử lý, vui lòng đợi...
             </div>
           ) : (
             <Button onClick={handleGenerate} size="lg" className="w-full gap-2 font-semibold">

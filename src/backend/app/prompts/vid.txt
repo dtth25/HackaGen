@@ -9,6 +9,9 @@ YÊU CẦU CỦA NGƯỜI DÙNG (nếu có):
 SỐ PHÂN CẢNH MỤC TIÊU:
 {scene_hint}
 
+ĐỘ DÀI LỜI ĐỌC MỖI PHÂN CẢNH:
+{narration_hint}
+
 NGỮ CẢNH TÀI LIỆU (RAG CONTEXT CHUNKS):
 {context}
 
@@ -20,7 +23,7 @@ YÊU CẦU QUAN TRỌNG:
 5. `title`: tiêu đề ngắn gọn cho phân cảnh, tối đa 6 từ, dùng làm chữ lớn duy nhất trên khung hình.
 6. `on_screen_text`: một cụm từ khoá rất ngắn (tối đa 8 từ) bổ trợ cho tiêu đề, có thể để trống ("") nếu tiêu đề đã đủ rõ — KHÔNG được là một câu đầy đủ hay danh sách.
 7. `key_points`: 2-3 cụm từ khoá ngắn (tối đa 6 từ mỗi cụm, không phải câu đầy đủ) tóm tắt các ý chính mà lời đọc của phân cảnh này truyền tải — hiển thị dưới dạng gạch đầu dòng nhỏ trên khung hình để hỗ trợ trực quan. Cảnh mở đầu/kết thúc có thể để mảng rỗng nếu không cần thiết.
-8. `narration`: lời đọc tự nhiên như văn nói (không phải văn viết học thuật khô khan), 2-4 câu mỗi phân cảnh, truyền tải trọn vẹn nội dung mà `on_screen_text`/`key_points` không thể hiện hết — đây vẫn là kênh nội dung chính, không phải phần chữ trên màn hình. Không dùng Markdown, LaTeX, hay ký hiệu đặc biệt — chỉ chữ thường có thể đọc thành tiếng.
+8. `narration`: lời đọc tự nhiên như văn nói (không phải văn viết học thuật khô khan), độ dài bám sát ĐỘ DÀI LỜI ĐỌC MỖI PHÂN CẢNH ở trên (đây là yếu tố quyết định thời lượng video — không được viết quá ngắn), truyền tải trọn vẹn nội dung mà `on_screen_text`/`key_points` không thể hiện hết — đây vẫn là kênh nội dung chính, không phải phần chữ trên màn hình. Không dùng Markdown, LaTeX, hay ký hiệu đặc biệt — chỉ chữ thường có thể đọc thành tiếng.
 9. TOÀN BỘ đầu ra (title, on_screen_text, narration, key_points) phải bằng tiếng Việt chuẩn, đầy đủ dấu, kể cả khi tài liệu nguồn bằng ngôn ngữ khác (Anh, Trung, Hindi...) — chỉ giữ nguyên thuật ngữ chuyên môn/tên riêng không dịch được, kèm giải thích tiếng Việt ngắn gọn nếu cần.
 10. Tuyệt đối KHÔNG nhắc đến các từ "chunk", "ngữ cảnh", "RAG", hay tên file/mã định danh tài liệu nguồn ở bất kỳ đâu trong title, on_screen_text, key_points hay narration — người xem không được biết về cơ chế truy xuất dữ liệu này.
 11. BỎ QUA nội dung mang tính thư mục/xuất bản (tên tác giả, nhà xuất bản, năm xuất bản, ISBN, mã định danh tài liệu, lời cảm ơn, mục lục) khi chọn nội dung cho phân cảnh — chỉ tập trung vào kiến thức học thuật chính trong tài liệu.

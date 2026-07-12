@@ -14,6 +14,7 @@ import {
   X,
   Images,
   ChevronDown,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -32,9 +33,12 @@ import type { SlidesOutput } from "@/lib/types";
 
 interface SlideTabProps {
   courseId: string;
+  /** True while the course's document is still being extracted/indexed — generating now
+   * would hit the backend's "still processing" guard, so the button is disabled instead. */
+  documentProcessing?: boolean;
 }
 
-export function SlideTab({ courseId }: SlideTabProps) {
+export function SlideTab({ courseId, documentProcessing = false }: SlideTabProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPresenterMode, setIsPresenterMode] = useState(false);
   const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
@@ -201,6 +205,10 @@ export function SlideTab({ courseId }: SlideTabProps) {
             <Button disabled size="lg" className="w-full gap-2 font-semibold">
               <RefreshCw className="h-5 w-5 animate-spin" /> Đang tạo slide ({progress}%)…
             </Button>
+          </div>
+        ) : documentProcessing ? (
+          <div className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-border/60 px-4 py-3 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" /> Tài liệu đang được xử lý, vui lòng đợi...
           </div>
         ) : (
           <Button onClick={handleGenerate} size="lg" className="gap-2 font-semibold">

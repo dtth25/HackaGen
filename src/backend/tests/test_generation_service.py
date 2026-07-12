@@ -301,6 +301,14 @@ def test_book_generator_error_propagation():
     gen = Generator(vs, llm)
     art_dir = gen._get_artifact_dir(course_id)
 
+    # This course has no real chunks; stub retrieval so the empty-context guard passes and
+    # we actually exercise the LLM-failure path this test is about (the empty-context guard
+    # itself is covered by test_generator_empty_context_guard below).
+    gen._retrieve_context = lambda *a, **k: (
+        "[Chunk ID: chunk_1] (Tài liệu: doc.pdf, Trang: 1):\nNội dung mẫu để kiểm thử.",
+        ["chunk_1"],
+    )
+
     def _raise(*args, **kwargs):
         raise LLMGenerationError("boom")
 
@@ -335,6 +343,50 @@ def test_book_generator_error_propagation():
     assert "boom" in status_info2["error"]
 
     vs.delete_course(course_id)
+
+
+def test_generator_empty_context_guard():
+    """A course with zero retrievable chunks (e.g. an image-only PDF whose text never got
+    extracted/indexed) must fail every generator with a clear error — NOT produce a
+    'no context provided' apology artifact marked ready (which is what left Study Guide
+    abstaining, Quiz stuck at 100%, and Video narrating filler)."""
+    db = SessionLocal()
+    try:
+        course_id = "test_empty_ctx"
+        db.add(
+            Course(
+                id=course_id,
+                user_id="user_empty_ctx",
+                filenames=["scan.pdf"],
+                status="ready",
+                stage="completed",
+                progress=100,
+                chunk_count=0,
+                embedding_status="completed",
+                quality_score=0,
+            )
+        )
+        db.commit()
+    finally:
+        db.close()
+
+    gen = Generator(get_vector_store(), LLMService())
+    art_dir = gen._get_artifact_dir(course_id)
+
+    for artifact, run in (
+        ("book", lambda: gen.generate_book(course_id=course_id)),
+        ("slides", lambda: gen.generate_slides(course_id=course_id)),
+        ("quiz", lambda: gen.generate_quiz(course_id=course_id)),
+        ("vid", lambda: gen.generate_vid(course_id=course_id)),
+    ):
+        assert run() is None, f"{artifact} should abort on empty context"
+        info = gen.get_artifact_status(course_id, artifact)
+        assert info["status"] == "error", f"{artifact} status should be error"
+        assert "Không tìm thấy nội dung" in (info.get("error") or ""), f"{artifact} error message"
+
+    # No placeholder artifacts were written despite the 'ready' course status.
+    for fname in ("book.json", "slides.json", "quiz.json", "vid.json"):
+        assert not os.path.exists(os.path.join(art_dir, fname)), f"{fname} must not exist"
 
 
 def test_book_api_error_status_envelope(client, monkeypatch):

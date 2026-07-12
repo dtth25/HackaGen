@@ -82,24 +82,21 @@ ADMIN_EMAIL=admin@example.com
 ADMIN_PASSWORD=change-this-password
 ```
 
-Preset model có sẵn dưới dạng file example. Copy preset rồi sửa key/secrets nếu cần:
+Copy file mẫu rồi điền key/secrets:
 
 macOS/Linux:
 
 ```bash
-cp .env.flash.example .env
-cp .env.pro.example .env
+cp .env.example .env
 ```
 
 Windows PowerShell:
 
 ```powershell
-# Flash mode: nhanh, tiết kiệm quota
-Copy-Item .env.flash.example .env -Force
-
-# Pro mode: chất lượng cao hơn cho một số tác vụ
-Copy-Item .env.pro.example .env -Force
+Copy-Item .env.example .env -Force
 ```
+
+Điền `GEMINI_API_KEY` (bắt buộc) và `OPENROUTER_API_KEY` (khuyến khích — mỗi lệnh gọi Gemini hết quota/lỗi sẽ tự động, âm thầm retry qua OpenRouter trước khi báo lỗi cho người dùng, xem `LLMService._call_gemini_strict`). Không còn preset Flash/Pro riêng — `GEMINI_DEFAULT_MODEL` một mức duy nhất, cùng cơ chế fallback đã đủ tiết kiệm quota.
 
 Backend tự load `.env` từ root repo, `src/`, hoặc `src/backend/`. Khởi động lại backend sau khi đổi env để log `[Startup Config]` hiển thị model đang active.
 

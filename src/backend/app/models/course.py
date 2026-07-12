@@ -35,3 +35,9 @@ class Course(Base):
     embedding_status = Column(String, default="pending", nullable=False)
     quality_score = Column(Integer, default=0, nullable=False)
     error_message = Column(Text, nullable=True)  # Real reason processing failed, shown to the user
+    # Which embedding backend actually indexed this course's chunks — "gemini" (default) or
+    # "openrouter" (silent fallback when Gemini's embedding quota is exhausted mid-ingestion,
+    # see document_processor.process_course). Retrieval must route to the matching Chroma
+    # collection (vector_store.VectorStore), since vectors from different embedding models
+    # are not comparable — see VectorStore._collection_for.
+    embedding_provider = Column(String, default="gemini", nullable=False)

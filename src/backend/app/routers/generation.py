@@ -544,13 +544,14 @@ def get_sources(
     db: Session = Depends(get_db),
 ) -> Any:
     """Stable source-grounding endpoint for UI panels."""
-    get_valid_course(document_id, current_user, db)
+    course = get_valid_course(document_id, current_user, db)
+    provider = course.embedding_provider or "gemini"
     vs = get_vector_store()
-    stats = vs.get_course_stats(document_id)
+    stats = vs.get_course_stats(document_id, provider=provider)
     total_chunks = stats.get("chunk_count", 0)
 
     target_ids = [cid.strip() for cid in ids.split(",") if cid.strip()] if ids else None
-    docs = vs.get_course_chunks(document_id, target_ids)
+    docs = vs.get_course_chunks(document_id, target_ids, provider=provider)
 
     sources = []
     for doc in docs:

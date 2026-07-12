@@ -39,10 +39,15 @@ SCENE_ACCENT_PALETTE = [
 def _scene_accent(idx: int) -> tuple:
     return SCENE_ACCENT_PALETTE[(idx - 1) % len(SCENE_ACCENT_PALETTE)]
 
+# `narration` = target words per scene. Real video length = TTS reading time of the
+# narration (on-screen text is minimal), so scene COUNT alone never controlled duration —
+# every format produced ~2-4 short sentences/scene (~50 words) and so landed at ~2 min
+# regardless of the picked mode. Vietnamese edge-tts reads ~140-150 wpm (~2.4 words/sec),
+# so these word targets are what actually hit each format's stated minutes.
 FORMAT_SPECS: Dict[str, Dict[str, Any]] = {
-    "standard": {"width": 1280, "height": 720, "scenes": (8, 10), "label": "Tiêu chuẩn", "target": "5-7 phút"},
-    "overview": {"width": 1280, "height": 720, "scenes": (5, 6), "label": "Tổng quan", "target": "2-3 phút"},
-    "shorts": {"width": 720, "height": 1280, "scenes": (4, 5), "label": "Shorts", "target": "30-60 giây"},
+    "standard": {"width": 1280, "height": 720, "scenes": (8, 10), "label": "Tiêu chuẩn", "target": "5-7 phút", "narration": (95, 130)},
+    "overview": {"width": 1280, "height": 720, "scenes": (5, 6), "label": "Tổng quan", "target": "2-3 phút", "narration": (65, 90)},
+    "shorts": {"width": 720, "height": 1280, "scenes": (4, 5), "label": "Shorts", "target": "30-60 giây", "narration": (20, 30)},
 }
 
 VOICE_MAP = {
@@ -66,6 +71,14 @@ def resolve_voice(voice: Optional[str]) -> str:
 def scene_count_hint(fmt: Optional[str]) -> str:
     lo, hi = resolve_format(fmt)["scenes"]
     return f"{lo}-{hi} phân cảnh"
+
+
+def narration_hint(fmt: Optional[str]) -> str:
+    """Per-scene narration length target for the vid prompt — this, not scene count, is what
+    makes the finished video actually hit the format's stated duration (see FORMAT_SPECS)."""
+    spec = resolve_format(fmt)
+    lo, hi = spec["narration"]
+    return f"khoảng {lo}-{hi} từ mỗi phân cảnh (để tổng thời lượng đạt mục tiêu {spec['target']})"
 
 
 def _get_ffmpeg() -> str:

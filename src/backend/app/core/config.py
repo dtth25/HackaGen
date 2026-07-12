@@ -54,7 +54,7 @@ class Settings(BaseSettings):
     # Model routing — mirrors the GEMINI_{FEATURE}_API_KEY pattern above. Each feature
     # falls back to GEMINI_DEFAULT_MODEL when left blank (see LLMService.__init__ and
     # generation.py::get_generator / document_processor.py::_generate_course_title).
-    GEMINI_DEFAULT_MODEL: str = Field(default="gemini-2.5-flash", description="Model used when a feature has no override")
+    GEMINI_DEFAULT_MODEL: str = Field(default="gemini-flash-latest", description="Model used when a feature has no override. Use a currently-supported alias — bare 'gemini-2.5-flash' now 404s 'no longer available to new users' on newer API projects/keys.")
     GEMINI_BOOK_MODEL: str = Field(default="", description="Model for Book generation (falls back to GEMINI_DEFAULT_MODEL)")
     GEMINI_SLIDE_MODEL: str = Field(default="", description="Model for Slide generation (falls back to GEMINI_DEFAULT_MODEL)")
     GEMINI_QUIZ_MODEL: str = Field(default="", description="Model for Quiz generation (falls back to GEMINI_DEFAULT_MODEL)")
@@ -139,6 +139,13 @@ class Settings(BaseSettings):
     EMBEDDING_MAX_RETRY_DELAY: float = Field(default=60, description="Max backoff delay (seconds) between embedding retries")
     EMBEDDING_REQUESTS_PER_MINUTE: int = Field(default=72, description="Client-side rate limit for embedding API calls")
     EMBEDDING_CACHE_DIR: str = Field(default="cache/chunk_embeddings", description="Directory for content-hash embedding cache")
+
+    # Silent last-resort fallback when Gemini's embedding quota is exhausted mid-ingestion
+    # (mirrors the generation-time OPENROUTER_API_KEY fallback in LLMService._call_gemini_strict).
+    # Stored in a SEPARATE Chroma collection (see VectorStore._collection_for) since vectors from
+    # a different embedding model aren't comparable to Gemini's — mixing them in one collection
+    # would silently corrupt similarity search for every course, not just the exhausted one.
+    OPENROUTER_EMBEDDING_MODEL: str = Field(default="openai/text-embedding-3-small", description="OpenRouter embedding model slug, used only when Gemini embedding quota is exhausted")
 
     # Document chunking tuning
     DOCUMENT_CHUNK_SIZE: int = Field(default=1800, description="Target chunk size in characters")
