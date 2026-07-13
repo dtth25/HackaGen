@@ -29,6 +29,7 @@ import {
 import { cn } from "@/lib/utils";
 import { SlideOptionsPanel } from "@/components/dashboard/SlideOptionsPanel";
 import { RegenerateButton } from "@/components/dashboard/RegenerateButton";
+import { VersionSwitcher } from "@/components/dashboard/VersionSwitcher";
 import {
   apiGetSlide,
   apiGenerateSlide,
@@ -63,11 +64,11 @@ export function SlideTab({ courseId, documentProcessing = false }: SlideTabProps
     setGenerating,
     progress,
     setProgress,
-    regenUsed,
-    setRegenUsed,
-    regenMax,
-    setRegenMax,
     startPolling,
+    versions,
+    activeVersion,
+    viewedVersion,
+    switchVersion,
   } = usePollingArtifact<SlidesOutput>({
     courseId,
     fetchFn: apiGetSlide,
@@ -131,36 +132,28 @@ export function SlideTab({ courseId, documentProcessing = false }: SlideTabProps
   // Regenerating from the ready view keeps the current deck visible (stale-while-revalidate)
   // instead of bouncing to the full-page ErrorState/EmptyState — a 429 (regen limit reached)
   // surfaces as a small inline banner instead of blowing away otherwise-valid content.
-  const handleRegenerate = async () => {
+  const handleCreateVersion = async (retry = false) => {
     setRegenError(null);
     setGenerating(true);
     setProgress(5);
     try {
-      const res = await apiGenerateSlide(courseId);
-      if (typeof res.regen_used === "number") setRegenUsed(res.regen_used);
-      if (typeof res.regen_max === "number") setRegenMax(res.regen_max);
+      const res = await apiGenerateSlide(courseId, retry && viewedVersion ? { retry_version_id: viewedVersion } : undefined);
       startPolling(Date.now(), res.version_id);
     } catch (err) {
-      setRegenError(err instanceof Error ? err.message : "Tạo lại thất bại.");
+      setRegenError(err instanceof Error ? err.message : "Tạo phiên bản mới thất bại.");
       setGenerating(false);
     }
   };
 
-  const regenMaxDisplay = regenMax ?? 3;
-  const regenRemainingDisplay = Math.max(0, regenMaxDisplay - (regenUsed ?? 0));
   const submitRegenerateFromDialog = () => {
     setRegenDialogOpen(false);
-    if (error) {
-      handleGenerate();
-    } else {
-      handleRegenerate();
-    }
+    void handleCreateVersion(Boolean(error));
   };
   const regenerateDialog = (
     <Dialog open={regenDialogOpen} onOpenChange={setRegenDialogOpen}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Tạo lại bộ slide</DialogTitle>
+          <DialogTitle>Tạo phiên bản slide mới</DialogTitle>
           <DialogDescription>
             Xác nhận để bắt đầu tạo bộ slide mới. Nội dung hiện tại vẫn được giữ cho đến khi bản mới sẵn sàng.
           </DialogDescription>
@@ -171,13 +164,10 @@ export function SlideTab({ courseId, documentProcessing = false }: SlideTabProps
           onSubmit={submitRegenerateFromDialog}
           busy={generating}
           progress={progress}
-          submitLabel="Tạo lại slide bài giảng"
+          submitLabel="Tạo phiên bản mới"
           documentProcessing={documentProcessing}
         />
-        <DialogFooter className="items-center sm:justify-between">
-          <span className="text-xs font-medium text-muted-foreground">
-            Còn {regenRemainingDisplay}/{regenMaxDisplay} lượt tạo
-          </span>
+        <DialogFooter>
           <Button variant="ghost" onClick={() => setRegenDialogOpen(false)}>
             Hủy
           </Button>
@@ -369,13 +359,11 @@ export function SlideTab({ courseId, documentProcessing = false }: SlideTabProps
 
           {generating ? (
             <Button disabled variant="outline" className="gap-1.5">
-              <RefreshCw className="h-4 w-4 animate-spin" /> Đang tạo lại ({progress}%)…
+              <RefreshCw className="h-4 w-4 animate-spin" /> Đang tạo ({progress}%)…
             </Button>
           ) : (
             <RegenerateButton
               label="bộ slide"
-              regenUsed={regenUsed}
-              regenMax={regenMax}
               onOpen={() => {
                 setRegenError(null);
                 setRegenDialogOpen(true);
@@ -384,6 +372,8 @@ export function SlideTab({ courseId, documentProcessing = false }: SlideTabProps
           )}
         </div>
       </div>
+
+      <VersionSwitcher versions={versions} activeVersion={activeVersion} viewedVersion={viewedVersion} onSwitch={switchVersion} onCreate={() => setRegenDialogOpen(true)} />
 
       {regenError && (
         <div className="flex items-center justify-between gap-3 rounded-xl border border-error/40 bg-error/5 px-4 py-3 text-sm text-error">

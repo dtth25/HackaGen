@@ -24,9 +24,7 @@ import { cn } from "@/lib/utils";
 import { VidOptionsPanel } from "@/components/dashboard/VidOptionsPanel";
 import { RegenerateButton } from "@/components/dashboard/RegenerateButton";
 import { VersionSwitcher } from "@/components/dashboard/VersionSwitcher";
-import { ReplaceVersionDialog } from "@/components/dashboard/ReplaceVersionDialog";
 import {
-  ApiRequestError,
   apiGetVid,
   apiGenerateVid,
   getDownloadVidMp4Url,
@@ -54,7 +52,6 @@ export function VidTab({ courseId, documentProcessing = false }: VidTabProps) {
   const [userPrompt, setUserPrompt] = useState("");
   const [regenError, setRegenError] = useState<string | null>(null);
   const [regenDialogOpen, setRegenDialogOpen] = useState(false);
-  const [replaceDialogOpen, setReplaceDialogOpen] = useState(false);
 
 
   const {
@@ -66,10 +63,6 @@ export function VidTab({ courseId, documentProcessing = false }: VidTabProps) {
     setGenerating,
     progress,
     setProgress,
-    regenUsed,
-    setRegenUsed,
-    regenMax,
-    setRegenMax,
     startPolling,
     versions,
     activeVersion,
@@ -110,18 +103,15 @@ export function VidTab({ courseId, documentProcessing = false }: VidTabProps) {
   // Regenerating from the ready view keeps the current video visible (stale-while-revalidate)
   // instead of bouncing to the full-page ErrorState/EmptyState — a 429 (regen limit reached)
   // surfaces as a small inline banner instead of blowing away otherwise-valid content.
-  const handleRegenerate = async (replaceVersionId?: string) => {
+  const handleCreateVersion = async (retry = false) => {
     setRegenError(null);
     setGenerating(true);
     setProgress(5);
     try {
-      const res = await apiGenerateVid(courseId, { format, voice, user_prompt: userPrompt, replace_version_id: replaceVersionId });
-      if (typeof res.regen_used === "number") setRegenUsed(res.regen_used);
-      if (typeof res.regen_max === "number") setRegenMax(res.regen_max);
+      const res = await apiGenerateVid(courseId, { format, voice, user_prompt: userPrompt, ...(retry && viewedVersion ? { retry_version_id: viewedVersion } : {}) });
       startPolling(Date.now(), res.version_id);
     } catch (err) {
-      if (err instanceof ApiRequestError && err.status === 409 && (err.detail as { code?: string })?.code === "version_cap_reached") setReplaceDialogOpen(true);
-      setRegenError(err instanceof Error ? err.message : "Tạo lại thất bại.");
+      setRegenError(err instanceof Error ? err.message : "Tạo phiên bản mới thất bại.");
       setGenerating(false);
     }
   };
@@ -132,21 +122,15 @@ export function VidTab({ courseId, documentProcessing = false }: VidTabProps) {
     setVoice(value.voice);
     setUserPrompt(value.userPrompt);
   };
-  const regenMaxDisplay = regenMax ?? 3;
-  const regenRemainingDisplay = Math.max(0, regenMaxDisplay - (regenUsed ?? 0));
   const submitRegenerateFromDialog = () => {
     setRegenDialogOpen(false);
-    if (error) {
-      handleGenerate();
-    } else {
-      handleRegenerate();
-    }
+    void handleCreateVersion(Boolean(error));
   };
   const regenerateDialog = (
     <Dialog open={regenDialogOpen} onOpenChange={setRegenDialogOpen}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Tạo lại video</DialogTitle>
+          <DialogTitle>Tạo phiên bản video mới</DialogTitle>
           <DialogDescription>
             Chọn cấu hình mới rồi xác nhận để bắt đầu tạo. Nội dung hiện tại vẫn được giữ cho đến khi bản mới sẵn sàng.
           </DialogDescription>
@@ -157,13 +141,10 @@ export function VidTab({ courseId, documentProcessing = false }: VidTabProps) {
           onSubmit={submitRegenerateFromDialog}
           busy={generating}
           progress={progress}
-          submitLabel="Tạo lại video"
+          submitLabel="Tạo phiên bản mới"
           documentProcessing={documentProcessing}
         />
-        <DialogFooter className="items-center sm:justify-between">
-          <span className="text-xs font-medium text-muted-foreground">
-            Còn {regenRemainingDisplay}/{regenMaxDisplay} lượt tạo
-          </span>
+        <DialogFooter>
           <Button variant="ghost" onClick={() => setRegenDialogOpen(false)}>
             Hủy
           </Button>
@@ -251,13 +232,11 @@ export function VidTab({ courseId, documentProcessing = false }: VidTabProps) {
 
           {generating ? (
             <Button disabled variant="outline" className="gap-1.5">
-              <RefreshCw className="h-4 w-4 animate-spin" /> Đang tạo lại ({progress}%)…
+              <RefreshCw className="h-4 w-4 animate-spin" /> Đang tạo ({progress}%)…
             </Button>
           ) : (
             <RegenerateButton
               label="video"
-              regenUsed={regenUsed}
-              regenMax={regenMax}
               onOpen={() => {
                 setRegenError(null);
                 setRegenDialogOpen(true);
@@ -267,7 +246,7 @@ export function VidTab({ courseId, documentProcessing = false }: VidTabProps) {
         </div>
       </div>
 
-      <VersionSwitcher versions={versions} activeVersion={activeVersion} viewedVersion={viewedVersion} onSwitch={switchVersion} />
+      <VersionSwitcher versions={versions} activeVersion={activeVersion} viewedVersion={viewedVersion} onSwitch={switchVersion} onCreate={() => setRegenDialogOpen(true)} />
 
       {regenError && (
         <div className="flex items-center justify-between gap-3 rounded-xl border border-error/40 bg-error/5 px-4 py-3 text-sm text-error">
@@ -279,7 +258,6 @@ export function VidTab({ courseId, documentProcessing = false }: VidTabProps) {
       )}
 
       {regenerateDialog}
-      <ReplaceVersionDialog open={replaceDialogOpen} versions={versions} onOpenChange={setReplaceDialogOpen} onConfirm={(versionId) => { setReplaceDialogOpen(false); handleRegenerate(versionId); }} />
 
       {/* Player stage */}
       <div

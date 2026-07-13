@@ -30,8 +30,7 @@ import { Markdown } from "@/components/ui/markdown";
 import { BookOptionsPanel, BOOK_DETAIL_OPTIONS } from "@/components/dashboard/BookOptionsPanel";
 import { RegenerateButton } from "@/components/dashboard/RegenerateButton";
 import { VersionSwitcher } from "@/components/dashboard/VersionSwitcher";
-import { ReplaceVersionDialog } from "@/components/dashboard/ReplaceVersionDialog";
-import { ApiRequestError, apiGetBook, apiGenerateBook, getDownloadBookUrl } from "@/lib/api";
+import { apiGetBook, apiGenerateBook, getDownloadBookUrl } from "@/lib/api";
 import { usePollingArtifact } from "@/hooks/usePollingArtifact";
 import type { BookOutput } from "@/lib/types";
 
@@ -48,7 +47,6 @@ export function BookTab({ courseId, documentProcessing = false }: BookTabProps) 
   const [isExpanded, setIsExpanded] = useState(false);
   const [regenError, setRegenError] = useState<string | null>(null);
   const [regenDialogOpen, setRegenDialogOpen] = useState(false);
-  const [replaceDialogOpen, setReplaceDialogOpen] = useState(false);
 
   // Generation config
   const [detailLevel, setDetailLevel] = useState(BOOK_DETAIL_OPTIONS[1]);
@@ -64,10 +62,6 @@ export function BookTab({ courseId, documentProcessing = false }: BookTabProps) 
     setGenerating,
     progress,
     setProgress,
-    regenUsed,
-    setRegenUsed,
-    regenMax,
-    setRegenMax,
     startPolling,
     versions,
     activeVersion,
@@ -127,18 +121,19 @@ export function BookTab({ courseId, documentProcessing = false }: BookTabProps) 
   // Regenerating from the ready view keeps the current book visible (stale-while-revalidate)
   // instead of bouncing to the full-page ErrorState/EmptyState — a 429 (regen limit reached)
   // surfaces as a small inline banner instead of blowing away otherwise-valid content.
-  const handleRegenerate = async (replaceVersionId?: string) => {
+  const handleCreateVersion = async (retry = false) => {
     setRegenError(null);
     setGenerating(true);
     setProgress(5);
     try {
-      const res = await apiGenerateBook(courseId, { detail_level: detailLevel, user_prompt: userPrompt, replace_version_id: replaceVersionId });
-      if (typeof res.regen_used === "number") setRegenUsed(res.regen_used);
-      if (typeof res.regen_max === "number") setRegenMax(res.regen_max);
+      const res = await apiGenerateBook(courseId, {
+        detail_level: detailLevel,
+        user_prompt: userPrompt,
+        ...(retry && viewedVersion ? { retry_version_id: viewedVersion } : {}),
+      });
       startPolling(Date.now(), res.version_id);
     } catch (err) {
-      if (err instanceof ApiRequestError && err.status === 409 && (err.detail as { code?: string })?.code === "version_cap_reached") setReplaceDialogOpen(true);
-      setRegenError(err instanceof Error ? err.message : "Tạo lại thất bại.");
+      setRegenError(err instanceof Error ? err.message : "Tạo phiên bản mới thất bại.");
       setGenerating(false);
     }
   };
@@ -148,21 +143,15 @@ export function BookTab({ courseId, documentProcessing = false }: BookTabProps) 
     setDetailLevel(value.detailLevel);
     setUserPrompt(value.userPrompt);
   };
-  const regenMaxDisplay = regenMax ?? 3;
-  const regenRemainingDisplay = Math.max(0, regenMaxDisplay - (regenUsed ?? 0));
   const submitRegenerateFromDialog = () => {
     setRegenDialogOpen(false);
-    if (error) {
-      handleGenerate();
-    } else {
-      handleRegenerate();
-    }
+    void handleCreateVersion(Boolean(error));
   };
   const regenerateDialog = (
     <Dialog open={regenDialogOpen} onOpenChange={setRegenDialogOpen}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Tạo lại sách ôn tập</DialogTitle>
+          <DialogTitle>Tạo phiên bản sách mới</DialogTitle>
           <DialogDescription>
             Chọn cấu hình mới rồi xác nhận để bắt đầu tạo. Nội dung hiện tại vẫn được giữ cho đến khi bản mới sẵn sàng.
           </DialogDescription>
@@ -173,13 +162,10 @@ export function BookTab({ courseId, documentProcessing = false }: BookTabProps) 
           onSubmit={submitRegenerateFromDialog}
           busy={generating}
           progress={progress}
-          submitLabel="Tạo lại sách ôn tập"
+          submitLabel="Tạo phiên bản mới"
           documentProcessing={documentProcessing}
         />
-        <DialogFooter className="items-center sm:justify-between">
-          <span className="text-xs font-medium text-muted-foreground">
-            Còn {regenRemainingDisplay}/{regenMaxDisplay} lượt tạo
-          </span>
+        <DialogFooter>
           <Button variant="ghost" onClick={() => setRegenDialogOpen(false)}>
             Hủy
           </Button>
@@ -277,13 +263,11 @@ export function BookTab({ courseId, documentProcessing = false }: BookTabProps) 
           </a>
           {generating ? (
             <Button disabled variant="outline" className="gap-1.5">
-              <RefreshCw className="h-4 w-4 animate-spin" /> Đang tạo lại ({progress}%)…
+              <RefreshCw className="h-4 w-4 animate-spin" /> Đang tạo ({progress}%)…
             </Button>
           ) : (
             <RegenerateButton
               label="sách ôn tập"
-              regenUsed={regenUsed}
-              regenMax={regenMax}
               onOpen={() => {
                 setRegenError(null);
                 setRegenDialogOpen(true);
@@ -296,7 +280,7 @@ export function BookTab({ courseId, documentProcessing = false }: BookTabProps) 
         </div>
       </div>
 
-      <VersionSwitcher versions={versions} activeVersion={activeVersion} viewedVersion={viewedVersion} onSwitch={switchVersion} />
+      <VersionSwitcher versions={versions} activeVersion={activeVersion} viewedVersion={viewedVersion} onSwitch={switchVersion} onCreate={() => setRegenDialogOpen(true)} />
 
       {regenError && (
         <div className="flex items-center justify-between gap-3 rounded-xl border border-error/40 bg-error/5 px-4 py-3 text-sm text-error">
@@ -308,7 +292,6 @@ export function BookTab({ courseId, documentProcessing = false }: BookTabProps) 
       )}
 
       {regenerateDialog}
-      <ReplaceVersionDialog open={replaceDialogOpen} versions={versions} onOpenChange={setReplaceDialogOpen} onConfirm={(versionId) => { setReplaceDialogOpen(false); handleRegenerate(versionId); }} />
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Chapter rail */}
