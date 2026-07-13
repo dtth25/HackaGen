@@ -14,6 +14,31 @@ from app.services.vector_store import Document, VectorStore
 logger = logging.getLogger(__name__)
 
 _SENTENCE_BOUNDARY_RE = re.compile(r"[.?!][ \n]")
+_FRONT_MATTER_MARKERS = (
+    "isbn", "nhà xuất bản", "nxb", "bản quyền", "tái bản", "ấn bản", "thẩm định",
+    "được thẩm định", "approval", "approved by", "publisher", "copyright", "all rights reserved",
+    "edition", "出版社", "出版", "审定", "批准", "版权", "isbn",
+)
+
+
+def _is_front_matter(text: str) -> bool:
+    """Identify colophon/publishing pages so they cannot dominate RAG on thin scans."""
+    normalized = " ".join(text.lower().split())
+    matches = sum(marker in normalized for marker in _FRONT_MATTER_MARKERS)
+    # A strong colophon marker is enough; a generic edition/publisher hint needs a second
+    # signal to avoid discarding an academic discussion that happens to mention publishing.
+    return matches >= 2 or any(marker in normalized for marker in ("isbn", "thẩm định", "审定", "出版社", "版权"))
+
+
+def _evenly_spaced_indices(indices: List[int], limit: int) -> List[int]:
+    """Choose up to ``limit`` source-page indices across the entire document."""
+    if limit <= 0 or not indices:
+        return []
+    if len(indices) <= limit:
+        return indices
+    if limit == 1:
+        return [indices[len(indices) // 2]]
+    return [indices[round(i * (len(indices) - 1) / (limit - 1))] for i in range(limit)]
 
 
 def _find_split_position(text: str, start: int, end: int, chunk_size: int) -> int:
@@ -177,15 +202,22 @@ class DocumentProcessor:
                     scan_mode = False
                     if settings.PDF_ENABLE_OCR and page_texts:
                         sample_n = min(settings.PDF_SCAN_SAMPLE_PAGES, len(page_texts))
+                        sample_indices = _evenly_spaced_indices(list(range(len(page_texts))), sample_n)
                         low_text_count = sum(
-                            1 for t in page_texts[:sample_n] if len(t) < settings.PDF_TEXT_MIN_CHARS_PER_PAGE
+                            1 for idx in sample_indices if len(page_texts[idx]) < settings.PDF_TEXT_MIN_CHARS_PER_PAGE
                         )
                         scan_mode = low_text_count >= max(1, sample_n // 2)
 
-                    ocr_budget = settings.PDF_OCR_MAX_PAGES if scan_mode else 0
+                    ocr_candidates = [
+                        idx for idx, text in enumerate(page_texts)
+                        if len(text) < settings.PDF_TEXT_MIN_CHARS_PER_PAGE
+                    ]
+                    ocr_page_indices = set(
+                        _evenly_spaced_indices(ocr_candidates, settings.PDF_OCR_MAX_PAGES)
+                        if scan_mode else []
+                    )
                     for idx, text in enumerate(page_texts):
-                        if scan_mode and ocr_budget > 0 and len(text) < settings.PDF_TEXT_MIN_CHARS_PER_PAGE:
-                            ocr_budget -= 1
+                        if idx in ocr_page_indices:
                             ocr_text = self._ocr_page(doc, idx, settings.PDF_OCR_DPI)
                             if ocr_text and len(ocr_text) > len(text):
                                 text = ocr_text
@@ -447,6 +479,11 @@ class DocumentProcessor:
         combined_text = "".join(combined_parts)
         page_meta = {"page": page_offsets[0][2], "source_file": source_file}
         doc_chunks = self.chunk_text(combined_text, page_meta, course_id, page_offsets=page_offsets)
+        front_matter_pages = {
+            page_data["page"] for page_data in cleaned_pages if _is_front_matter(page_data["content"])
+        }
+        for chunk in doc_chunks:
+            chunk.metadata["is_front_matter"] = chunk.metadata.get("page") in front_matter_pages
         filtered_chunks = [c for c in doc_chunks if not self._is_low_information(c.content)]
         # Pruning noise should never zero out a whole document's contribution —
         # a genuinely tiny document (or a chunk_size small enough to slice below

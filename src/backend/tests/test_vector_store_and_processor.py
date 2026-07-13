@@ -5,7 +5,7 @@ import shutil
 import tempfile
 import docx
 import fitz  # PyMuPDF
-from app.services.document_processor import DocumentProcessor
+from app.services.document_processor import DocumentProcessor, _evenly_spaced_indices, _is_front_matter
 from app.services.vector_store import Document, VectorStore, get_vector_store
 
 
@@ -258,3 +258,10 @@ def test_strip_repeated_headers_footers_leaves_short_page_lists_alone():
     ]
     result = processor._strip_repeated_headers_footers(pages)
     assert result == pages
+
+
+def test_front_matter_classifier_and_ocr_sampling_preserve_later_lesson_pages():
+    assert _is_front_matter("Nhà xuất bản Giáo dục. ISBN 978-0-00. Được thẩm định năm 2026.")
+    assert _is_front_matter("出版社 审定 版权")
+    assert not _is_front_matter("Bài học giải thích cách cộng và trừ các số tự nhiên.")
+    assert _evenly_spaced_indices(list(range(30)), 12) == [0, 3, 5, 8, 11, 13, 16, 18, 21, 24, 26, 29]

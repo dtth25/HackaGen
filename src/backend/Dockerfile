@@ -9,7 +9,7 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 # DejaVu, which has full Vietnamese coverage and lands at exactly the path already listed
 # in pdf_utils._FONT_CANDIDATES (/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf).
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends fonts-dejavu-core \
+    && apt-get install -y --no-install-recommends fonts-dejavu-core fonts-noto-cjk fonts-wqy-zenhei \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

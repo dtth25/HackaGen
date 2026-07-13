@@ -8,10 +8,12 @@ from app.schemas.generator_output import (
     QuizOption,
     QuizOutput,
     QuizQuestion,
+    SlideItem,
+    SlidesOutput,
     validate_and_score_output,
 )
 from app.services.database import SessionLocal
-from app.services.generator import Generator, _strip_leading_id_token
+from app.services.generator import Generator, _repair_flattened_array_indices, _strip_leading_id_token
 from app.services.vector_store import get_vector_store
 
 
@@ -86,6 +88,31 @@ def test_strip_chunk_mentions_noop_when_clean():
     validated, _score, warnings = validate_and_score_output(quiz, "quiz", valid_chunk_ids=["chunk_1"])
     assert validated.questions[0].explanation == "Day la dap an dung vi ly do ro rang."
     assert not any("rò rỉ tham chiếu chunk nội bộ" in w for w in warnings)
+
+
+def test_array_index_repair_only_uses_patterns_present_in_retrieved_context():
+    context = "[Chunk ID: source_1]: P[i] = T[i] + ceil(C[i]/A[i]); DP[i][j] la bang quy hoach dong."
+    quiz = QuizOutput(
+        title="Quiz Pi",
+        questions=[QuizQuestion(
+            question_number=1,
+            question_text="Gia tri Pi duoc tinh the nao?",
+            options=[QuizOption(key=k, text=f"Phuong an {k}: Ti") for k in ["A", "B", "C", "D"]],
+            correct_answer="A",
+            explanation="Dung cong thuc Pi va DPij.",
+        )],
+    )
+    repaired = _repair_flattened_array_indices(quiz, context, "quiz")
+    assert repaired.title == "Quiz P[i]"
+    assert "P[i]" in repaired.questions[0].question_text
+    assert all("T[i]" in option.text for option in repaired.questions[0].options)
+    assert "DP[i][j]" in repaired.questions[0].explanation
+
+    slides = SlidesOutput(title="Pi", slides=[SlideItem(slide_number=1, title="DPij", bullet_points=["Ti"])])
+    repaired_slides = _repair_flattened_array_indices(slides, context, "slides")
+    assert repaired_slides.title == "P[i]"
+    assert repaired_slides.slides[0].title == "DP[i][j]"
+    assert repaired_slides.slides[0].bullet_points == ["T[i]"]
 
 
 def test_quiz_key_pdf_has_no_bloom_jargon(test_upload_dir):
