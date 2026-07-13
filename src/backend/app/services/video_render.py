@@ -332,6 +332,55 @@ def _render_scene_diagram(
         _draw_diagram_card(draw, (left, top, left + card_w, top + card_h), label, detail, label_font, detail_font, accent)
 
 
+def _render_document_card(
+    base: Any,
+    pdf_path: str,
+    page_number: int,
+    bounds: tuple[int, int, int, int],
+    accent: tuple,
+    rotation: float,
+) -> bool:
+    """Composite one PDF page as a soft physical card. Failures intentionally stay silent."""
+    if not pdf_path or not pdf_path.lower().endswith(".pdf") or not os.path.isfile(pdf_path):
+        return False
+    try:
+        import fitz
+        from PIL import Image, ImageDraw, ImageFilter
+
+        with fitz.open(pdf_path) as document:
+            page_index = page_number - 1
+            if page_index < 0 or page_index >= document.page_count:
+                return False
+            pixmap = document.load_page(page_index).get_pixmap(matrix=fitz.Matrix(2, 2), alpha=False)
+        page_image = Image.frombytes("RGB", (pixmap.width, pixmap.height), pixmap.samples)
+
+        x0, y0, x1, y1 = bounds
+        max_width, max_height = max(1, x1 - x0), max(1, y1 - y0)
+        page_image.thumbnail((max_width - 24, max_height - 24), Image.Resampling.LANCZOS)
+        card_width, card_height = page_image.width + 24, page_image.height + 24
+        card = Image.new("RGBA", (card_width, card_height), (245, 247, 250, 255))
+        mask = Image.new("L", (card_width, card_height), 0)
+        mask_draw = ImageDraw.Draw(mask)
+        radius = max(10, min(card_width, card_height) // 18)
+        mask_draw.rounded_rectangle((0, 0, card_width - 1, card_height - 1), radius=radius, fill=255)
+        card.putalpha(mask)
+        card.paste(page_image, (12, 12))
+        card_draw = ImageDraw.Draw(card)
+        card_draw.rounded_rectangle((0, 0, card_width - 1, card_height - 1), radius=radius, outline=accent, width=4)
+
+        rotated = card.rotate(rotation, resample=Image.Resampling.BICUBIC, expand=True)
+        center_x, center_y = (x0 + x1) // 2, (y0 + y1) // 2
+        position = (center_x - rotated.width // 2, center_y - rotated.height // 2)
+        shadow = Image.new("RGBA", rotated.size, (0, 0, 0, 0))
+        shadow.putalpha(rotated.getchannel("A").filter(ImageFilter.GaussianBlur(radius=12)))
+        base.paste(shadow, (position[0] + 10, position[1] + 12), shadow)
+        base.paste(rotated, position, rotated)
+        return True
+    except Exception as exc:
+        logger.debug("Skipping document visual %s page %s: %s", pdf_path, page_number, exc)
+        return False
+
+
 def render_scene_layers(
     scene: VidScene,
     idx: int,
@@ -340,6 +389,7 @@ def render_scene_layers(
     height: int,
     base_path: str,
     fmt: str = "standard",
+    document_visual: Optional[Dict[str, Any]] = None,
 ) -> List[tuple[str, float]]:
     """Render a permanent stage and transparent text overlays for one animated scene."""
     from PIL import Image, ImageDraw, ImageFont
@@ -349,6 +399,7 @@ def render_scene_layers(
     subtext = prepare_pdf_plain_text(scene.on_screen_text or "")
     bullets = [prepare_pdf_plain_text(kp) for kp in (scene.key_points or []) if kp and kp.strip()]
     diagram = _valid_diagram(scene)
+    document_visual = document_visual if not diagram else None
     accent = _scene_accent(idx)
     left_aligned = idx % 2 == 0
 
@@ -358,6 +409,23 @@ def render_scene_layers(
     bar_w = max(6, width // 160)
     base_draw.rectangle([0, 0, bar_w, height], fill=accent)
 
+    has_document_card = False
+    if document_visual:
+        if fmt == "shorts":
+            card_bounds = (int(width * 0.10), int(height * 0.18), int(width * 0.90), int(height * 0.57))
+        elif document_visual.get("side") == "right":
+            card_bounds = (int(width * 0.50), int(height * 0.15), int(width * 0.94), int(height * 0.85))
+        else:
+            card_bounds = (int(width * 0.06), int(height * 0.15), int(width * 0.50), int(height * 0.85))
+        has_document_card = _render_document_card(
+            base,
+            str(document_visual.get("pdf_path", "")),
+            document_visual.get("page", 1),
+            card_bounds,
+            accent,
+            -3.0 if idx % 2 else 3.0,
+        )
+
     heading_size = max(36, width // 16)
     sub_size = max(20, width // 32)
     bullet_size = max(18, width // 38)
@@ -365,13 +433,18 @@ def render_scene_layers(
     sub_font = ImageFont.truetype(ttf_path, sub_size) if ttf_path else ImageFont.load_default()
     bullet_font = ImageFont.truetype(ttf_path, bullet_size) if ttf_path else ImageFont.load_default()
 
-    max_text_width = int(width * (0.62 if left_aligned else 0.78))
-    left_margin = int(width * 0.12)
+    if has_document_card and fmt != "shorts":
+        text_x0, text_x1 = (int(width * 0.56), int(width * 0.94)) if document_visual.get("side") == "left" else (int(width * 0.06), int(width * 0.44))
+        left_aligned = document_visual.get("side") == "right"
+    else:
+        text_x0, text_x1 = 0, width
+    max_text_width = int((text_x1 - text_x0) * (0.88 if has_document_card else (0.62 if left_aligned else 0.78)))
+    left_margin = text_x0 + int((text_x1 - text_x0) * 0.08)
 
     heading_lines = _wrap_text(base_draw, heading, heading_font, max_text_width)
     sub_lines = _wrap_text(base_draw, subtext, sub_font, max_text_width) if subtext else []
     bullet_groups: List[List[str]] = []
-    if not diagram:
+    if not diagram and not has_document_card:
         for bp in bullets[:3]:
             bullet_groups.append(_wrap_text(base_draw, f"• {bp}", bullet_font, max_text_width))
 
@@ -382,6 +455,8 @@ def render_scene_layers(
 
     if diagram:
         y = int(height * 0.10)
+    elif has_document_card and fmt == "shorts":
+        y = int(height * 0.64)
     else:
         total_h = len(heading_lines) * heading_line_h
         if sub_lines:
@@ -394,7 +469,7 @@ def render_scene_layers(
         draw = ImageDraw.Draw(layer)
         for line in lines:
             text_width = draw.textlength(line, font=font)
-            x = left_margin if left_aligned else (width - text_width) / 2
+            x = left_margin if left_aligned else text_x0 + (text_x1 - text_x0 - text_width) / 2
             draw.text((x, y_pos), line, font=font, fill=fill)
             y_pos += line_height
 
@@ -669,6 +744,7 @@ def assemble_video(
     voice: str,
     artifact_dir: str,
     progress_cb: Optional[Callable[[float], None]] = None,
+    scene_visual_map: Optional[Dict[int, Dict[str, Any]]] = None,
 ) -> str:
     """Render every scene (TTS narration + still frame -> clip), concatenate into vid.mp4, and
     write the accompanying transcript.txt / vid.srt. Fills in each scene's real
@@ -701,7 +777,14 @@ def assemble_video(
 
             base_png_path = os.path.join(scene_dir, f"scene_{i + 1}_base.png")
             layer_paths = render_scene_layers(
-                scene, i + 1, total_scenes, width, height, base_png_path, fmt
+                scene,
+                i + 1,
+                total_scenes,
+                width,
+                height,
+                base_png_path,
+                fmt,
+                (scene_visual_map or {}).get(scene.scene_number),
             )
 
             clip_path = os.path.join(scene_dir, f"scene_{i + 1}.mp4")

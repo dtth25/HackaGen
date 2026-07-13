@@ -519,7 +519,14 @@ class Generator:
             return file_path
 
     def _generate_video_mp4(
-        self, course_id: str, vid_data: VidOutput, fmt: str, voice: str, progress_cb=None, artifact_dir: Optional[str] = None
+        self,
+        course_id: str,
+        vid_data: VidOutput,
+        fmt: str,
+        voice: str,
+        progress_cb=None,
+        artifact_dir: Optional[str] = None,
+        scene_visual_map: Optional[Dict[int, Dict[str, Any]]] = None,
     ) -> str:
         """Render the narrated MP4 (TTS + still frames + ffmpeg concat) plus transcript.txt /
         vid.srt. Raises on failure — callers must treat that as a hard generation error, not
@@ -527,7 +534,69 @@ class Generator:
         from app.services.video_render import assemble_video
 
         artifact_dir = artifact_dir or self._get_artifact_dir(course_id)
-        return assemble_video(vid_data, fmt, voice, artifact_dir, progress_cb=progress_cb)
+        return assemble_video(
+            vid_data,
+            fmt,
+            voice,
+            artifact_dir,
+            progress_cb=progress_cb,
+            scene_visual_map=scene_visual_map,
+        )
+
+    def _resolve_course_pdf_path(self, course_id: str, source_file: str) -> Optional[str]:
+        """Resolve a chunk's original filename to its timestamp-prefixed uploaded PDF."""
+        safe_name = os.path.basename(source_file or "")
+        if not safe_name.lower().endswith(".pdf"):
+            return None
+        course_dir = os.path.join(settings.UPLOAD_DIR, course_id)
+        direct_path = os.path.join(course_dir, safe_name)
+        if os.path.isfile(direct_path):
+            return direct_path
+        try:
+            for name in os.listdir(course_dir):
+                prefix, separator, original_name = name.partition("_")
+                if separator and prefix.isdigit() and original_name == safe_name:
+                    path = os.path.join(course_dir, name)
+                    if os.path.isfile(path):
+                        return path
+        except OSError:
+            return None
+        return None
+
+    def _build_scene_visual_map(self, course_id: str, vid_data: VidOutput) -> Dict[int, Dict[str, Any]]:
+        """Select grounded PDF-page visuals for every other eligible middle video scene."""
+        chunk_ids = [chunk_id for scene in vid_data.scenes for chunk_id in scene.source_chunk_ids]
+        if not chunk_ids:
+            return {}
+        chunks = self.vector_store.get_course_chunks(course_id, list(dict.fromkeys(chunk_ids)))
+        chunks_by_id = {str(chunk.metadata.get("chunk_id", "")): chunk for chunk in chunks}
+        candidates: List[Dict[str, Any]] = []
+        total_scenes = len(vid_data.scenes)
+        for index, scene in enumerate(vid_data.scenes):
+            if index == 0 or index == total_scenes - 1 or scene.diagram:
+                continue
+            for chunk_id in scene.source_chunk_ids:
+                chunk = chunks_by_id.get(chunk_id)
+                if not chunk:
+                    continue
+                pdf_path = self._resolve_course_pdf_path(course_id, str(chunk.metadata.get("source_file", "")))
+                if not pdf_path:
+                    continue
+                try:
+                    page = max(1, int(chunk.metadata.get("page", 1)))
+                except (TypeError, ValueError):
+                    page = 1
+                candidates.append({"scene_number": scene.scene_number, "pdf_path": pdf_path, "page": page})
+                break
+
+        visual_map: Dict[int, Dict[str, Any]] = {}
+        for visual_index, candidate in enumerate(candidates[::2]):
+            visual_map[candidate["scene_number"]] = {
+                "pdf_path": candidate["pdf_path"],
+                "page": candidate["page"],
+                "side": "left" if visual_index % 2 == 0 else "right",
+            }
+        return visual_map
 
     def _update_course_metadata(self, course_id: str, artifact_type: str, score: int, db_session_factory=None):
         """Update course metadata_json and readiness flags in database."""
@@ -1053,6 +1122,7 @@ class Generator:
             if warnings:
                 logger.warning(f"Vid generation warnings for {course_id}: {warnings}")
             validated_output = _clean_vid_output(validated_output)
+            scene_visual_map = self._build_scene_visual_map(course_id, validated_output)
 
             self._set_artifact_status(course_id, "vid", "processing", progress=25, db_session_factory=db_session_factory)
 
@@ -1062,7 +1132,15 @@ class Generator:
                     db_session_factory=db_session_factory,
                 )
 
-            self._generate_video_mp4(course_id, validated_output, fmt, voice, progress_cb=_progress_cb, artifact_dir=artifact_dir)
+            self._generate_video_mp4(
+                course_id,
+                validated_output,
+                fmt,
+                voice,
+                progress_cb=_progress_cb,
+                artifact_dir=artifact_dir,
+                scene_visual_map=scene_visual_map,
+            )
 
             self._set_artifact_status(course_id, "vid", "processing", progress=90, db_session_factory=db_session_factory)
             self._save_artifact_json(course_id, "vid.json", validated_output, artifact_dir)
