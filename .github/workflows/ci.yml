@@ -20,6 +20,7 @@ jobs:
       DATABASE_URL: "sqlite:///./data/app.db"
       JWT_SECRET: "ci-test-secret-not-for-production"
       OPENROUTER_API_KEY: "test_openrouter_key"
+      OPENROUTER_MODEL: "google/gemini-2.5-pro"
     steps:
       - uses: actions/checkout@v4
 

@@ -74,7 +74,7 @@ Response:
 Possible statuses: `pending`, `processing`, `ready`, `completed_limited`, `failed`, `paused_due_to_quota`, `unknown`.
 Possible preprocessing stages: `uploading`, `extracting_text`, `cleaning_text`, `chunking`, `embedding`, `storing_vectors`, `completed`, `completed_limited`, `failed`, `paused_due_to_quota`, `analysis_failed`, `extraction_failed`, `embedding_failed`, `vector_index_failed`, `insufficient_context`.
 When available, response may include `preprocess_profile` with file size, page count, extracted character count, chunk count, embedding request count, cache hits/misses, retry count, throttle sleep time, and per-step timings.
-If preprocessing fails after OpenRouter routing and retry are exhausted, the response has a public error message suitable for retrying later. Provider credentials and routing details are never exposed to the client.
+If preprocessing fails after the configured OpenRouter embedding retries are exhausted, the response has a public error message suitable for retrying later. Provider credentials and model details are never exposed to the client.
 
 ### `GET /documents/{document_id}/status`
 

@@ -45,6 +45,7 @@ from app.services.versioning import (
 logger = logging.getLogger(__name__)
 
 _LEADING_ID_TOKEN_RE = re.compile(r"^([A-Za-z0-9-]+)[_\s]+")
+_ARRAY_INDEX_RE = re.compile(r"\b([A-Za-z][A-Za-z0-9]*)(\[[A-Za-z0-9, ]+\](?:\[[A-Za-z0-9, ]+\])*)")
 
 
 def _strip_leading_id_token(text: str) -> str:
@@ -72,6 +73,40 @@ def _clean_slides_output(deck: SlidesOutput) -> SlidesOutput:
         sl.title = clean_text(sl.title)
         sl.bullet_points = [clean_text(b) for b in sl.bullet_points]
     return deck
+
+
+def _repair_flattened_array_indices(data: Any, source_context: str, artifact_type: str) -> Any:
+    """Restore bracketed array indices that Flash occasionally flattens (``P[i]`` ->
+    ``Pi``). Replacements are deliberately limited to canonical forms observed in the
+    retrieved source context, so prose from an unrelated document is never guessed at."""
+    replacements = {}
+    for match in _ARRAY_INDEX_RE.finditer(source_context):
+        canonical = match.group(0)
+        flattened = match.group(1) + re.sub(r"[\[\], ]", "", match.group(2))
+        if flattened != canonical:
+            replacements[flattened] = canonical
+
+    def repair(text: str) -> str:
+        for flattened, canonical in replacements.items():
+            text = re.sub(
+                rf"(?<![A-Za-z0-9]){re.escape(flattened)}(?![A-Za-z0-9])",
+                canonical,
+                text,
+            )
+        return text
+
+    if artifact_type == "slides":
+        data.title = repair(data.title)
+        for slide in data.slides:
+            slide.title = repair(slide.title)
+            slide.bullet_points = [repair(point) for point in slide.bullet_points]
+    elif artifact_type == "quiz":
+        data.title = repair(data.title)
+        for question in data.questions:
+            question.question_text = repair(question.question_text)
+            question.options = [option.model_copy(update={"text": repair(option.text)}) for option in question.options]
+            question.explanation = repair(question.explanation)
+    return data
 
 
 def _clean_vid_output(vid: VidOutput) -> VidOutput:
@@ -167,7 +202,14 @@ class Generator:
         shuffled by raw similarity rank."""
         search_query = query or "tổng quan kiến thức khóa học các chương quan trọng"
         provider = self._get_embedding_provider(course_id, db_session_factory)
-        chunks = self.vector_store.search(query=search_query, course_id=course_id, k=k, provider=provider)
+        # Ask for a small buffer so front-matter chunks can be excluded without starving a
+        # short course. If every chunk is front matter we retain it as a last resort.
+        chunks = self.vector_store.search(query=search_query, course_id=course_id, k=k + 5, provider=provider)
+        content_chunks = [doc for doc in chunks if not doc.metadata.get("is_front_matter", False)]
+        if content_chunks:
+            chunks = content_chunks[:k]
+        else:
+            chunks = chunks[:k]
         if not chunks:
             logger.warning(f"No vector chunks found for course {course_id}. RAG context will be empty.")
             return "", []
@@ -1071,6 +1113,7 @@ class Generator:
             validated_output, score, warnings = validate_and_score_output(raw_output, "slides", valid_chunk_ids)
             if warnings:
                 logger.warning(f"Slides generation warnings for {course_id}: {warnings}")
+            validated_output = _repair_flattened_array_indices(validated_output, context, "slides")
             validated_output = _clean_slides_output(validated_output)
 
             self._set_artifact_status(course_id, "slides", "processing", progress=70, db_session_factory=db_session_factory)
@@ -1107,6 +1150,7 @@ class Generator:
             raw_output = self._llm_for("quiz").generate_quiz(context, resolved_topic, quantity, valid_chunk_ids, difficulty=difficulty)
             validated_output, score, warnings = validate_and_score_output(raw_output, "quiz", valid_chunk_ids)
             validated_output = _balance_quiz_answers(validated_output, kwargs.get("version_id", "legacy"))
+            validated_output = _repair_flattened_array_indices(validated_output, context, "quiz")
             if warnings:
                 logger.warning(f"Quiz generation warnings for {course_id}: {warnings}")
 

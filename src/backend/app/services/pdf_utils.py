@@ -64,6 +64,12 @@ def register_vietnamese_fonts() -> Tuple[str, str]:
 _FALLBACK_FONT_CANDIDATES: List[Tuple[str, str, int]] = [
     ("C:/Windows/Fonts/Nirmala.ttc", "NirmalaUI", 0),  # Devanagari + other Indic scripts
     ("C:/Windows/Fonts/msyh.ttc", "MicrosoftYaHei", 0),  # CJK (Chinese)
+    # Installed by fonts-noto-cjk in the production Debian image. Keep the Windows
+    # candidates above so local development continues to use the OS fonts unchanged.
+    ("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc", "NotoSansCJK", 0),
+    # ReportLab cannot embed Noto's CFF outlines from its TTC, so use the TrueType
+    # WenQuanYi face installed alongside Noto for actual ReportLab paragraph runs.
+    ("/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc", "WenQuanYiZenHei", 0),
 ]
 
 _fallback_font_names: Optional[List[str]] = None

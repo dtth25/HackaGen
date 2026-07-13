@@ -38,11 +38,28 @@ _generator_instance = None
 
 
 def get_generator() -> Generator:
-    """Singleton helper using the shared OpenRouter LLM service."""
+    """Singleton helper wiring per-feature OpenRouter models.
+
+    Book/Vid use the default (Pro, long-form quality); Slide/Quiz default to the cheaper/
+    faster Flash model — see OPENROUTER_{BOOK,SLIDE,QUIZ,VID}_MODEL in config.py. Each
+    override gets its own LLMService (own OpenAI client), features left blank share the
+    single default instance rather than each opening a redundant client.
+    """
     global _generator_instance
     if _generator_instance is None:
         vs = get_vector_store()
-        _generator_instance = Generator(vs, LLMService())
+        default_llm = LLMService()
+        overrides = {
+            "book": settings.OPENROUTER_BOOK_MODEL,
+            "slides": settings.OPENROUTER_SLIDE_MODEL,
+            "quiz": settings.OPENROUTER_QUIZ_MODEL,
+            "vid": settings.OPENROUTER_VID_MODEL,
+        }
+        feature_llms = {
+            feature: LLMService(model=model) if model else default_llm
+            for feature, model in overrides.items()
+        }
+        _generator_instance = Generator(vs, default_llm, feature_llms)
     return _generator_instance
 
 
