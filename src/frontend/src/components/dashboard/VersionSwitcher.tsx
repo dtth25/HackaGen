@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, Loader2 } from "lucide-react";
+import { AlertCircle, Loader2, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ArtifactVersion } from "@/lib/types";
 
@@ -9,13 +9,14 @@ interface VersionSwitcherProps {
   activeVersion: string | null;
   viewedVersion: string | null;
   onSwitch: (versionId: string) => void;
+  onCreate?: () => void;
 }
 
-export function VersionSwitcher({ versions, activeVersion, viewedVersion, onSwitch }: VersionSwitcherProps) {
-  if (versions.length < 2) return null;
+export function VersionSwitcher({ versions, activeVersion, viewedVersion, onSwitch, onCreate }: VersionSwitcherProps) {
 
   return (
-    <div className="flex max-w-full items-center gap-1 overflow-x-auto rounded-lg border border-border/60 bg-muted/40 p-1" role="tablist" aria-label="Phiên bản học liệu">
+    <div className="flex max-w-full items-center gap-1 border-b border-border/60" role="tablist" aria-label="Phiên bản học liệu">
+      <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
       {versions.map((version) => {
         const selected = version.version_id === viewedVersion;
         return (
@@ -27,8 +28,8 @@ export function VersionSwitcher({ versions, activeVersion, viewedVersion, onSwit
             title={version.created_at ? `Tạo lúc ${new Date(version.created_at).toLocaleString("vi-VN")}` : version.label}
             onClick={() => onSwitch(version.version_id)}
             className={cn(
-              "flex shrink-0 items-center gap-1 rounded-md px-2 py-1.5 text-xs font-semibold transition-colors",
-              selected ? "bg-card text-foreground shadow-[var(--shadow-xs)]" : "text-muted-foreground hover:text-foreground"
+              "flex shrink-0 items-center gap-1 border border-transparent px-3 py-2 text-xs font-semibold transition-colors",
+              selected ? "-mb-px border-border/60 border-b-card bg-card text-foreground" : "text-muted-foreground hover:text-foreground"
             )}
           >
             <span>{version.label}</span>
@@ -38,6 +39,8 @@ export function VersionSwitcher({ versions, activeVersion, viewedVersion, onSwit
           </button>
         );
       })}
+      </div>
+      {onCreate && <button type="button" onClick={onCreate} className="grid h-8 w-8 shrink-0 place-items-center text-muted-foreground hover:text-foreground" title="Tạo phiên bản mới"><Plus className="h-4 w-4" /></button>}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { usePollingArtifact } from "@/hooks/usePollingArtifact";
 import {
   Video,
@@ -61,11 +61,9 @@ export function VidTab({ courseId, documentProcessing = false }: VidTabProps) {
   const [regenError, setRegenError] = useState<string | null>(null);
   const [regenDialogOpen, setRegenDialogOpen] = useState(false);
   const [replaceDialogOpen, setReplaceDialogOpen] = useState(false);
-
   const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const stageRef = useRef<HTMLDivElement>(null);
-  const downloadMenuRef = useRef<HTMLDivElement>(null);
+
 
   const {
     data: video,
@@ -96,24 +94,8 @@ export function VidTab({ courseId, documentProcessing = false }: VidTabProps) {
 
   const loading = !hasFetched && !error;
 
-  // Close download menu on outside click
-  useEffect(() => {
-    if (!downloadMenuOpen) return;
-    const handleClick = (e: MouseEvent) => {
-      if (downloadMenuRef.current && !downloadMenuRef.current.contains(e.target as Node)) {
-        setDownloadMenuOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [downloadMenuOpen]);
+  const toggleFullScreen = () => setIsFullscreen(false);
 
-  // Keep isFullscreen in sync with the browser (Escape / back-gesture exits without our button).
-  useEffect(() => {
-    const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
-    document.addEventListener("fullscreenchange", onFsChange);
-    return () => document.removeEventListener("fullscreenchange", onFsChange);
-  }, []);
 
   const handleGenerate = async () => {
     setGenerating(true);
@@ -199,15 +181,6 @@ export function VidTab({ courseId, documentProcessing = false }: VidTabProps) {
     </Dialog>
   );
 
-  const toggleFullScreen = () => {
-    if (!document.fullscreenElement) {
-      stageRef.current?.requestFullscreen().catch((err) => {
-        console.error("Error attempting to enable full-screen mode:", err);
-      });
-    } else {
-      document.exitFullscreen();
-    }
-  };
 
   if (loading) {
     return (
@@ -281,7 +254,10 @@ export function VidTab({ courseId, documentProcessing = false }: VidTabProps) {
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          <div className="relative" ref={downloadMenuRef}>
+          <a href={getDownloadVidMp4Url(courseId, viewedVersion)} target="_blank" rel="noopener noreferrer" download className="inline-flex h-10 items-center gap-1.5 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+            <Download className="h-4 w-4" /> Tải MP4
+          </a>
+          {false && <div className="relative" ref={undefined}>
             <Button
               onClick={() => setDownloadMenuOpen((v) => !v)}
               variant="default"
@@ -325,12 +301,7 @@ export function VidTab({ courseId, documentProcessing = false }: VidTabProps) {
                 </a>
               </div>
             )}
-          </div>
-
-          <Button onClick={toggleFullScreen} variant="outline" className="gap-1.5">
-            <Maximize2 className="h-4 w-4" />
-            <span className="hidden sm:inline">Toàn màn hình</span>
-          </Button>
+          </div>}
 
           {generating ? (
             <Button disabled variant="outline" className="gap-1.5">
@@ -366,10 +337,9 @@ export function VidTab({ courseId, documentProcessing = false }: VidTabProps) {
 
       {/* Player stage */}
       <div
-        ref={stageRef}
         className="w-full bg-stage border border-stage-border rounded-2xl shadow-2xl relative overflow-hidden text-stage-foreground flex items-center justify-center p-2 sm:p-4"
       >
-        {isFullscreen && (
+        {false && (
           <button
             onClick={toggleFullScreen}
             className="absolute top-4 right-4 z-10 p-2 rounded-lg bg-stage-muted hover:bg-stage-border text-stage-foreground transition-colors"
@@ -382,8 +352,7 @@ export function VidTab({ courseId, documentProcessing = false }: VidTabProps) {
           key={courseId}
           controls
           className={cn(
-            "max-w-full rounded-lg",
-            isFullscreen ? "max-h-screen" : "max-h-[70vh]"
+            "max-w-full rounded-lg max-h-[70vh]"
           )}
           src={getDownloadVidMp4Url(courseId, viewedVersion)}
         />
