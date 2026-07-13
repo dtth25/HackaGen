@@ -36,8 +36,10 @@ class Settings(BaseSettings):
         ..., description="Secret key for JWT encoding and decoding"
     )
     OPENROUTER_API_KEY: str = Field(..., description="OpenRouter API key")
-    OPENROUTER_FREE_MODEL: str = Field(default="openrouter/free", description="OpenRouter free-model router")
-    OPENROUTER_PAID_MODEL: str = Field(default="google/gemini-2.5-flash", description="OpenRouter paid fallback model")
+    OPENROUTER_MODEL: str = Field(
+        default="google/gemini-2.5-pro",
+        description="Paid OpenRouter model used for content generation and OCR",
+    )
 
     # Optional variables
     ALLOWED_ORIGINS: Union[List[str], str] = Field(
@@ -137,6 +139,17 @@ class Settings(BaseSettings):
             )
         return str(value).strip()
 
+    @field_validator("OPENROUTER_MODEL", mode="before")
+    @classmethod
+    def validate_paid_openrouter_model(cls, value: str) -> str:
+        model = str(value or "").strip()
+        normalized = model.casefold()
+        if not model:
+            raise ValueError("OPENROUTER_MODEL cannot be missing or empty")
+        if normalized.endswith(":free") or normalized.split("/")[-1] == "free":
+            raise ValueError("OPENROUTER_MODEL must reference a paid model")
+        return model
+
     @field_validator("ALLOWED_ORIGINS", mode="before")
     @classmethod
     def parse_allowed_origins(cls, value: Union[List[str], str]) -> List[str]:
@@ -162,7 +175,11 @@ class Settings(BaseSettings):
 
 try:
     settings = Settings()
-    logger.info("Configuration loaded successfully.")
+    logger.info(
+        "Configuration loaded successfully (content_model=%s, embedding_model=%s).",
+        settings.OPENROUTER_MODEL,
+        settings.OPENROUTER_EMBEDDING_MODEL,
+    )
 except Exception as e:
     logger.critical(
         "FATAL: Configuration validation failed at startup! Missing or invalid required environment variables."

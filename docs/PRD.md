@@ -11,7 +11,7 @@ Code hiện tại là source of truth cho project. Các tài liệu phải bám 
 - **Backend:** FastAPI, Python 3.11+, LangChain, dependency management bằng `uv`.
 - **Vector DB:** Chroma local persistent DB là provider bắt buộc cho local/dev hackathon demo. FAISS chỉ còn là legacy reference/test path, không phải provider chính.
 - **Persistence:** Local filesystem JSON/generated files: `books/`, `slides/`, `questions/`, `videos/`, cùng Chroma data trong `data/chroma/`.
-- **AI:** OpenRouter-only. Runtime ưu tiên `openrouter/free`, sau đó fallback sang model paid cho quota, provider hoặc schema failure; embedding dùng model OpenRouter đã cấu hình.
+- **AI:** OpenRouter-only, paid-only. Runtime gọi trực tiếp `google/gemini-2.5-pro` và retry đúng model này một lần khi provider/schema lỗi; embedding dùng model OpenRouter đã cấu hình.
 - **Auth:** Auth v2 đã có trong code: Bearer JWT + HttpOnly cookie (`agy_session`), user ownership cho upload/generation/output, admin endpoints cho quản trị user.
 
 ## 3. Core User Flow

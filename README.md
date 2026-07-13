@@ -14,7 +14,7 @@ Code hiện tại là source of truth. README này mô tả đúng flow đang ch
 | Vector DB | Chroma local persistent DB, bắt buộc cho local/dev demo |
 | Persistence | Local filesystem JSON/generated files |
 | Auth | JWT bearer token + HttpOnly cookie, user ownership, admin routes |
-| AI Model | OpenRouter free router, fallback paid `google/gemini-2.5-flash` |
+| AI Model | OpenRouter paid-only `google/gemini-2.5-pro` |
 | Embedding | OpenRouter `openai/text-embedding-3-small` |
 
 ## Product Surface
@@ -67,6 +67,7 @@ Sửa `.env` và điền ít nhất:
 
 ```bash
 OPENROUTER_API_KEY=your_openrouter_api_key_here
+OPENROUTER_MODEL=google/gemini-2.5-pro
 JWT_SECRET=change-this-dev-secret
 VECTOR_DB_PROVIDER=chroma
 CHROMA_PERSIST_DIR=./data/chroma
@@ -96,9 +97,9 @@ Windows PowerShell:
 Copy-Item .env.example .env -Force
 ```
 
-Điền `OPENROUTER_API_KEY` (bắt buộc). Mỗi AI call thử `openrouter/free` một lần, sau đó âm thầm retry qua `google/gemini-2.5-flash` khi free router hết quota, lỗi provider, hoặc trả về JSON không đúng schema.
+Điền `OPENROUTER_API_KEY` (bắt buộc) và giữ `OPENROUTER_MODEL=google/gemini-2.5-pro` để ưu tiên chất lượng. Mỗi content/OCR call dùng trực tiếp model này và retry đúng model một lần nếu provider lỗi hoặc JSON không đúng schema; không chuyển sang model khác.
 
-Backend tự load `.env` từ root repo, `src/`, hoặc `src/backend/`. Khởi động lại backend sau khi đổi env để log `[Startup Config]` hiển thị model đang active.
+Backend chỉ load `.env` ở root repo bằng đường dẫn tuyệt đối. Khởi động lại backend sau khi đổi env để startup log hiển thị content model và embedding model đang active.
 
 ## Backend Runbook
 
