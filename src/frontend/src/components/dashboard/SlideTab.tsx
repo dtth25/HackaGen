@@ -9,18 +9,25 @@ import {
   Maximize2,
   ChevronLeft,
   ChevronRight,
-  Sparkles,
   RefreshCw,
   X,
   Images,
   ChevronDown,
-  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { SlideOptionsPanel } from "@/components/dashboard/SlideOptionsPanel";
 import { RegenerateButton } from "@/components/dashboard/RegenerateButton";
 import {
   apiGetSlide,
@@ -43,6 +50,7 @@ export function SlideTab({ courseId, documentProcessing = false }: SlideTabProps
   const [isPresenterMode, setIsPresenterMode] = useState(false);
   const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
   const [regenError, setRegenError] = useState<string | null>(null);
+  const [regenDialogOpen, setRegenDialogOpen] = useState(false);
   const stageRef = useRef<HTMLDivElement>(null);
   const downloadMenuRef = useRef<HTMLDivElement>(null);
 
@@ -115,10 +123,9 @@ export function SlideTab({ courseId, documentProcessing = false }: SlideTabProps
   };
 
   // The backend persists a hard "error" status from the last generation attempt, so a plain
-  // refetch would just surface the same error forever — retrying must kick off a new job.
+  // refetch would just surface the same error forever — retry opens the picker before a new job.
   const handleRetryAfterError = () => {
-    setError(null);
-    handleGenerate();
+    setRegenDialogOpen(true);
   };
 
   // Regenerating from the ready view keeps the current deck visible (stale-while-revalidate)
@@ -138,6 +145,46 @@ export function SlideTab({ courseId, documentProcessing = false }: SlideTabProps
       setGenerating(false);
     }
   };
+
+  const regenMaxDisplay = regenMax ?? 3;
+  const regenRemainingDisplay = Math.max(0, regenMaxDisplay - (regenUsed ?? 0));
+  const submitRegenerateFromDialog = () => {
+    setRegenDialogOpen(false);
+    if (error) {
+      handleGenerate();
+    } else {
+      handleRegenerate();
+    }
+  };
+  const regenerateDialog = (
+    <Dialog open={regenDialogOpen} onOpenChange={setRegenDialogOpen}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Tạo lại bộ slide</DialogTitle>
+          <DialogDescription>
+            Xác nhận để bắt đầu tạo bộ slide mới. Nội dung hiện tại vẫn được giữ cho đến khi bản mới sẵn sàng.
+          </DialogDescription>
+        </DialogHeader>
+        <SlideOptionsPanel
+          value={{}}
+          onChange={() => undefined}
+          onSubmit={submitRegenerateFromDialog}
+          busy={generating}
+          progress={progress}
+          submitLabel="Tạo lại slide bài giảng"
+          documentProcessing={documentProcessing}
+        />
+        <DialogFooter className="items-center sm:justify-between">
+          <span className="text-xs font-medium text-muted-foreground">
+            Còn {regenRemainingDisplay}/{regenMaxDisplay} lượt tạo
+          </span>
+          <Button variant="ghost" onClick={() => setRegenDialogOpen(false)}>
+            Hủy
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 
   const toggleFullScreen = () => {
     if (!document.fullscreenElement) {
@@ -177,12 +224,15 @@ export function SlideTab({ courseId, documentProcessing = false }: SlideTabProps
 
   if (error) {
     return (
-      <ErrorState
-        title="Lỗi tạo bài giảng"
-        description={error}
-        onRetry={handleRetryAfterError}
-        retryLabel="Thử tạo lại"
-      />
+      <>
+        <ErrorState
+          title="Lỗi tạo bài giảng"
+          description={error}
+          onRetry={handleRetryAfterError}
+          retryLabel="Thử tạo lại"
+        />
+        {regenerateDialog}
+      </>
     );
   }
 
@@ -194,27 +244,15 @@ export function SlideTab({ courseId, documentProcessing = false }: SlideTabProps
         description="Hệ thống sẽ phân tích tài liệu của bạn và tạo bộ slide trình chiếu chuẩn 16:9 (khoảng 15 trang) bám sát nội dung."
         badge=""
       >
-        {generating ? (
-          <div className="w-full max-w-sm space-y-2">
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-              <div
-                className="h-full rounded-full bg-primary transition-all"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-            <Button disabled size="lg" className="w-full gap-2 font-semibold">
-              <RefreshCw className="h-5 w-5 animate-spin" /> Đang tạo slide ({progress}%)…
-            </Button>
-          </div>
-        ) : documentProcessing ? (
-          <div className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-border/60 px-4 py-3 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" /> Tài liệu đang được xử lý, vui lòng đợi...
-          </div>
-        ) : (
-          <Button onClick={handleGenerate} size="lg" className="gap-2 font-semibold">
-            <Sparkles className="h-5 w-5" /> Tạo slide bài giảng
-          </Button>
-        )}
+        <SlideOptionsPanel
+          value={{}}
+          onChange={() => undefined}
+          onSubmit={handleGenerate}
+          busy={generating}
+          progress={progress}
+          submitLabel="Tạo slide bài giảng"
+          documentProcessing={documentProcessing}
+        />
       </EmptyState>
     );
   }
@@ -338,7 +376,10 @@ export function SlideTab({ courseId, documentProcessing = false }: SlideTabProps
               label="bộ slide"
               regenUsed={regenUsed}
               regenMax={regenMax}
-              onConfirm={handleRegenerate}
+              onOpen={() => {
+                setRegenError(null);
+                setRegenDialogOpen(true);
+              }}
             />
           )}
         </div>
@@ -352,6 +393,8 @@ export function SlideTab({ courseId, documentProcessing = false }: SlideTabProps
           </button>
         </div>
       )}
+
+      {regenerateDialog}
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Left Sidebar: Thumbnails List */}

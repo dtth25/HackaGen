@@ -3,7 +3,6 @@
 import { useState } from "react";
 import {
   BookOpen,
-  Sparkles,
   RefreshCw,
   Download,
   ChevronLeft,
@@ -12,15 +11,23 @@ import {
   Target,
   Star,
   HelpCircle,
-  Loader2,
 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { Markdown } from "@/components/ui/markdown";
+import { BookOptionsPanel, BOOK_DETAIL_OPTIONS } from "@/components/dashboard/BookOptionsPanel";
 import { RegenerateButton } from "@/components/dashboard/RegenerateButton";
 import { apiGetBook, apiGenerateBook, getDownloadBookUrl } from "@/lib/api";
 import { usePollingArtifact } from "@/hooks/usePollingArtifact";
@@ -33,16 +40,15 @@ interface BookTabProps {
   documentProcessing?: boolean;
 }
 
-const DETAIL_OPTIONS = ["Tóm tắt", "Tiêu chuẩn", "Chuyên sâu"];
-
 export function BookTab({ courseId, documentProcessing = false }: BookTabProps) {
   const [isFetching, setIsFetching] = useState(false);
   const [activeIdx, setActiveIdx] = useState(-1); // -1 = "Giới thiệu" pane
   const [isExpanded, setIsExpanded] = useState(false);
   const [regenError, setRegenError] = useState<string | null>(null);
+  const [regenDialogOpen, setRegenDialogOpen] = useState(false);
 
   // Generation config
-  const [detailLevel, setDetailLevel] = useState(DETAIL_OPTIONS[1]);
+  const [detailLevel, setDetailLevel] = useState(BOOK_DETAIL_OPTIONS[1]);
   const [userPrompt, setUserPrompt] = useState("");
 
   const {
@@ -106,10 +112,9 @@ export function BookTab({ courseId, documentProcessing = false }: BookTabProps) 
   };
 
   // The backend persists a hard "error" status from the last generation attempt, so a plain
-  // refetch would just surface the same error forever — retrying must kick off a new job.
+  // refetch would just surface the same error forever — retry opens the picker before a new job.
   const handleRetryAfterError = () => {
-    setError(null);
-    handleGenerate();
+    setRegenDialogOpen(true);
   };
 
   // Regenerating from the ready view keeps the current book visible (stale-while-revalidate)
@@ -129,6 +134,51 @@ export function BookTab({ courseId, documentProcessing = false }: BookTabProps) 
       setGenerating(false);
     }
   };
+
+  const optionValue = { detailLevel, userPrompt };
+  const updateOptions = (value: typeof optionValue) => {
+    setDetailLevel(value.detailLevel);
+    setUserPrompt(value.userPrompt);
+  };
+  const regenMaxDisplay = regenMax ?? 3;
+  const regenRemainingDisplay = Math.max(0, regenMaxDisplay - (regenUsed ?? 0));
+  const submitRegenerateFromDialog = () => {
+    setRegenDialogOpen(false);
+    if (error) {
+      handleGenerate();
+    } else {
+      handleRegenerate();
+    }
+  };
+  const regenerateDialog = (
+    <Dialog open={regenDialogOpen} onOpenChange={setRegenDialogOpen}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Tạo lại sách ôn tập</DialogTitle>
+          <DialogDescription>
+            Chọn cấu hình mới rồi xác nhận để bắt đầu tạo. Nội dung hiện tại vẫn được giữ cho đến khi bản mới sẵn sàng.
+          </DialogDescription>
+        </DialogHeader>
+        <BookOptionsPanel
+          value={optionValue}
+          onChange={updateOptions}
+          onSubmit={submitRegenerateFromDialog}
+          busy={generating}
+          progress={progress}
+          submitLabel="Tạo lại sách ôn tập"
+          documentProcessing={documentProcessing}
+        />
+        <DialogFooter className="items-center sm:justify-between">
+          <span className="text-xs font-medium text-muted-foreground">
+            Còn {regenRemainingDisplay}/{regenMaxDisplay} lượt tạo
+          </span>
+          <Button variant="ghost" onClick={() => setRegenDialogOpen(false)}>
+            Hủy
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 
   // ---------- Loading ----------
   if (loading) {
@@ -152,7 +202,12 @@ export function BookTab({ courseId, documentProcessing = false }: BookTabProps) 
 
   // ---------- Error ----------
   if (error) {
-    return <ErrorState title="Lỗi tạo sách ôn tập" description={error} onRetry={handleRetryAfterError} retryLabel="Thử tạo lại" />;
+    return (
+      <>
+        <ErrorState title="Lỗi tạo sách ôn tập" description={error} onRetry={handleRetryAfterError} retryLabel="Thử tạo lại" />
+        {regenerateDialog}
+      </>
+    );
   }
 
   // ---------- Empty: config + generate ----------
@@ -164,66 +219,15 @@ export function BookTab({ courseId, documentProcessing = false }: BookTabProps) 
         description="Hệ thống sẽ tổng hợp tài liệu của bạn thành một cuốn sách ôn tập ngắn gọn, có mục lục và các chương rõ ràng để tự học hoặc giảng dạy."
         badge=""
       >
-        <div className="w-full max-w-md space-y-5 rounded-2xl border bg-card/40 p-5 text-left shadow-[var(--shadow-xs)]">
-          <div className="space-y-2">
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Mức độ chi tiết
-            </span>
-            <div className="grid grid-cols-1 gap-2">
-              {DETAIL_OPTIONS.map((opt) => (
-                <button
-                  key={opt}
-                  onClick={() => setDetailLevel(opt)}
-                  disabled={generating}
-                  className={cn(
-                    "rounded-lg border py-2 text-sm font-semibold transition-colors",
-                    detailLevel === opt
-                      ? "border-primary bg-primary/10 text-primary shadow-[var(--shadow-xs)]"
-                      : "border-border/60 text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                  )}
-                >
-                  {opt}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Yêu cầu bổ sung (tuỳ chọn)
-            </span>
-            <textarea
-              value={userPrompt}
-              onChange={(e) => setUserPrompt(e.target.value)}
-              disabled={generating}
-              placeholder="Ví dụ: tập trung vào chương 2-4, thêm nhiều ví dụ thực tế…"
-              rows={3}
-              className="w-full resize-none rounded-lg border border-border/60 bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none"
-            />
-          </div>
-
-          {generating ? (
-            <div className="space-y-2">
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                <div
-                  className="h-full rounded-full bg-primary transition-all"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-              <Button disabled size="lg" className="w-full gap-2 font-semibold">
-                <RefreshCw className="h-5 w-5 animate-spin" /> Đang biên soạn sách ({progress}%)…
-              </Button>
-            </div>
-          ) : documentProcessing ? (
-            <div className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-border/60 py-3 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" /> Tài liệu đang được xử lý, vui lòng đợi...
-            </div>
-          ) : (
-            <Button onClick={handleGenerate} size="lg" className="w-full gap-2 font-semibold">
-              <Sparkles className="h-5 w-5" /> Tạo sách ôn tập
-            </Button>
-          )}
-        </div>
+        <BookOptionsPanel
+          value={optionValue}
+          onChange={updateOptions}
+          onSubmit={handleGenerate}
+          busy={generating}
+          progress={progress}
+          submitLabel="Tạo sách ôn tập"
+          documentProcessing={documentProcessing}
+        />
       </EmptyState>
     );
   }
@@ -272,7 +276,10 @@ export function BookTab({ courseId, documentProcessing = false }: BookTabProps) 
               label="sách ôn tập"
               regenUsed={regenUsed}
               regenMax={regenMax}
-              onConfirm={handleRegenerate}
+              onOpen={() => {
+                setRegenError(null);
+                setRegenDialogOpen(true);
+              }}
             />
           )}
           <Button variant="outline" size="icon" onClick={handleRefresh} title="Tải lại sách" disabled={generating}>
@@ -289,6 +296,8 @@ export function BookTab({ courseId, documentProcessing = false }: BookTabProps) 
           </button>
         </div>
       )}
+
+      {regenerateDialog}
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Chapter rail */}
