@@ -8,14 +8,31 @@ from app.services.llm import LLMService
 from app.services.vector_store import Document, get_vector_store
 
 
-def test_get_generator_uses_shared_openrouter_service(monkeypatch):
-    """All features share one OpenRouter service; feature-specific provider keys are gone."""
+def test_get_generator_wires_per_feature_openrouter_models(monkeypatch):
+    """Book/Vid share the default (Pro) model; Slide/Quiz get their own Flash-model
+    LLMService instance — see OPENROUTER_{BOOK,SLIDE,QUIZ,VID}_MODEL in config.py."""
+    from app.core.config import settings
     from app.routers import generation as generation_router
+
+    monkeypatch.setattr(settings, "OPENROUTER_MODEL", "google/gemini-2.5-pro")
+    monkeypatch.setattr(settings, "OPENROUTER_BOOK_MODEL", "")
+    monkeypatch.setattr(settings, "OPENROUTER_SLIDE_MODEL", "google/gemini-2.5-flash")
+    monkeypatch.setattr(settings, "OPENROUTER_QUIZ_MODEL", "google/gemini-2.5-flash")
+    monkeypatch.setattr(settings, "OPENROUTER_VID_MODEL", "")
 
     generation_router._generator_instance = None
     gen = generation_router.get_generator()
     try:
-        assert gen.feature_llms == {}
+        assert set(gen.feature_llms.keys()) == {"book", "slides", "quiz", "vid"}
+        # Book/Vid have no override -> share the same default LLMService instance.
+        assert gen.feature_llms["book"] is gen.llm
+        assert gen.feature_llms["vid"] is gen.llm
+        assert gen.llm.model == "google/gemini-2.5-pro"
+        # Slide/Quiz get their own instance running the Flash model.
+        assert gen.feature_llms["slides"] is not gen.llm
+        assert gen.feature_llms["slides"].model == "google/gemini-2.5-flash"
+        assert gen.feature_llms["quiz"] is not gen.llm
+        assert gen.feature_llms["quiz"].model == "google/gemini-2.5-flash"
     finally:
         generation_router._generator_instance = None
 

@@ -68,8 +68,9 @@ def _friendly_openrouter_error(exc: Exception) -> str:
 class LLMService:
     """Service wrapper for one paid OpenRouter model with one same-model retry."""
 
-    def __init__(self):
+    def __init__(self, model: Optional[str] = None):
         self.client = None
+        self.model = model or settings.OPENROUTER_MODEL
         self._test_mode = "PYTEST_CURRENT_TEST" in os.environ
         self._init_client()
         self.prompts_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "prompts")
@@ -87,7 +88,7 @@ class LLMService:
                 api_key=settings.OPENROUTER_API_KEY,
                 max_retries=0,
             )
-            logger.info("Initialized OpenRouter client with model %s", settings.OPENROUTER_MODEL)
+            logger.info("Initialized OpenRouter client with model %s", self.model)
         except Exception as exc:
             logger.exception("Failed to initialize OpenRouter client")
             raise LLMGenerationError("Không thể khởi tạo dịch vụ AI OpenRouter.") from exc
@@ -121,7 +122,7 @@ class LLMService:
             raise LLMGenerationError("Dịch vụ AI OpenRouter chưa được khởi tạo.")
 
         last_error: Optional[Exception] = None
-        model = settings.OPENROUTER_MODEL
+        model = self.model
         for attempt in range(1, 3):
             try:
                 response = self.client.chat.completions.create(
@@ -171,7 +172,7 @@ class LLMService:
         if not self.client:
             return ""
         content = [{"type": "text", "text": "Trích xuất toàn bộ văn bản có thể đọc được trong ảnh này, giữ nguyên thứ tự đọc tự nhiên. Chỉ trả về văn bản thuần, không thêm giải thích hay định dạng markdown."}, {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{base64.b64encode(image_bytes).decode('ascii')}"}}]
-        model = settings.OPENROUTER_MODEL
+        model = self.model
         for attempt in range(1, 3):
             try:
                 response = self.client.chat.completions.create(

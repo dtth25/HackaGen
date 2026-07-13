@@ -38,8 +38,17 @@ class Settings(BaseSettings):
     OPENROUTER_API_KEY: str = Field(..., description="OpenRouter API key")
     OPENROUTER_MODEL: str = Field(
         default="google/gemini-2.5-pro",
-        description="Paid OpenRouter model used for content generation and OCR",
+        description="Default paid OpenRouter model — used directly by Book/Vid, and as the fallback for any feature without its own override",
     )
+
+    # Per-feature model overrides — mirrors the old GEMINI_{FEATURE}_MODEL pattern. Blank
+    # falls back to OPENROUTER_MODEL. Slide/Quiz default to the cheaper/faster flash model
+    # (short, structurally simple output where Pro's extra quality isn't worth the latency/
+    # cost); Book/Vid stay on OPENROUTER_MODEL (Pro) for long-form generation quality.
+    OPENROUTER_BOOK_MODEL: str = Field(default="", description="OpenRouter model override for Book generation (falls back to OPENROUTER_MODEL)")
+    OPENROUTER_SLIDE_MODEL: str = Field(default="google/gemini-2.5-flash", description="OpenRouter model override for Slide generation (falls back to OPENROUTER_MODEL)")
+    OPENROUTER_QUIZ_MODEL: str = Field(default="google/gemini-2.5-flash", description="OpenRouter model override for Quiz generation (falls back to OPENROUTER_MODEL)")
+    OPENROUTER_VID_MODEL: str = Field(default="", description="OpenRouter model override for Vid generation (falls back to OPENROUTER_MODEL)")
 
     # Optional variables
     ALLOWED_ORIGINS: Union[List[str], str] = Field(
@@ -139,15 +148,32 @@ class Settings(BaseSettings):
             )
         return str(value).strip()
 
+    @staticmethod
+    def _is_free_model_slug(model: str) -> bool:
+        normalized = model.casefold()
+        return normalized.endswith(":free") or normalized.split("/")[-1] == "free"
+
     @field_validator("OPENROUTER_MODEL", mode="before")
     @classmethod
     def validate_paid_openrouter_model(cls, value: str) -> str:
         model = str(value or "").strip()
-        normalized = model.casefold()
         if not model:
             raise ValueError("OPENROUTER_MODEL cannot be missing or empty")
-        if normalized.endswith(":free") or normalized.split("/")[-1] == "free":
+        if cls._is_free_model_slug(model):
             raise ValueError("OPENROUTER_MODEL must reference a paid model")
+        return model
+
+    @field_validator(
+        "OPENROUTER_BOOK_MODEL", "OPENROUTER_SLIDE_MODEL", "OPENROUTER_QUIZ_MODEL", "OPENROUTER_VID_MODEL",
+        mode="before",
+    )
+    @classmethod
+    def validate_paid_feature_model_override(cls, value: str, info) -> str:
+        model = str(value or "").strip()
+        if not model:
+            return ""  # blank = no override, falls back to OPENROUTER_MODEL
+        if cls._is_free_model_slug(model):
+            raise ValueError(f"{info.field_name} must reference a paid model")
         return model
 
     @field_validator("ALLOWED_ORIGINS", mode="before")

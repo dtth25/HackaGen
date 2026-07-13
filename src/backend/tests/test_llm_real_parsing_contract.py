@@ -30,8 +30,8 @@ class _FakeCompletions:
         return _FakeCompletion(response)
 
 
-def _llm_with_fake_client(responses):
-    llm = LLMService()
+def _llm_with_fake_client(responses, model=None):
+    llm = LLMService(model=model)
     completions = _FakeCompletions(responses)
     llm.client = type(
         "Client",
@@ -67,6 +67,22 @@ def test_paid_model_succeeds_with_strict_schema(monkeypatch):
         "provider": {"require_parameters": True}
     }
     assert completions.calls[0]["response_format"]["json_schema"]["strict"] is True
+
+
+def test_instance_model_override_takes_precedence_over_default(monkeypatch):
+    """LLMService(model=...) (used for per-feature routing — see
+    routers/generation.py::get_generator) must win over settings.OPENROUTER_MODEL, not just
+    be stored and ignored."""
+    monkeypatch.setattr(settings, "OPENROUTER_MODEL", "google/gemini-2.5-pro")
+    llm, completions = _llm_with_fake_client(
+        ['{"title": "Kinh tế vi mô"}'], model="google/gemini-2.5-flash"
+    )
+
+    result = llm.generate_course_title("mẫu nội dung tài liệu")
+
+    assert result.title == "Kinh tế vi mô"
+    assert llm.model == "google/gemini-2.5-flash"
+    assert [call["model"] for call in completions.calls] == ["google/gemini-2.5-flash"]
 
 
 def test_invalid_schema_retries_the_same_paid_model(monkeypatch):
@@ -176,3 +192,37 @@ def test_legacy_model_environment_variables_are_ignored(monkeypatch):
     configured = _settings()
 
     assert configured.OPENROUTER_MODEL == "google/gemini-2.5-pro"
+
+
+def test_per_feature_model_overrides_default_correctly(monkeypatch):
+    """Slide/Quiz default to Flash (cheap/fast, short structured output); Book/Vid default
+    blank so they fall back to OPENROUTER_MODEL (Pro, long-form quality) — see
+    routers/generation.py::get_generator for how blank maps to the shared instance."""
+    for var in ("OPENROUTER_BOOK_MODEL", "OPENROUTER_SLIDE_MODEL", "OPENROUTER_QUIZ_MODEL", "OPENROUTER_VID_MODEL"):
+        monkeypatch.delenv(var, raising=False)
+
+    configured = _settings()
+
+    assert configured.OPENROUTER_BOOK_MODEL == ""
+    assert configured.OPENROUTER_SLIDE_MODEL == "google/gemini-2.5-flash"
+    assert configured.OPENROUTER_QUIZ_MODEL == "google/gemini-2.5-flash"
+    assert configured.OPENROUTER_VID_MODEL == ""
+
+
+@pytest.mark.parametrize(
+    "field", ["OPENROUTER_BOOK_MODEL", "OPENROUTER_SLIDE_MODEL", "OPENROUTER_QUIZ_MODEL", "OPENROUTER_VID_MODEL"]
+)
+def test_per_feature_model_override_allows_blank(field):
+    """Blank is a valid, meaningful value for these (no override) — unlike OPENROUTER_MODEL,
+    it must NOT raise."""
+    configured = _settings(**{field: ""})
+    assert getattr(configured, field) == ""
+
+
+@pytest.mark.parametrize(
+    "field", ["OPENROUTER_BOOK_MODEL", "OPENROUTER_SLIDE_MODEL", "OPENROUTER_QUIZ_MODEL", "OPENROUTER_VID_MODEL"]
+)
+@pytest.mark.parametrize("model", ["openrouter/" + "free", "vendor/model" + ":free"])
+def test_per_feature_model_override_rejects_free_values(field, model):
+    with pytest.raises(ValueError):
+        _settings(**{field: model})
