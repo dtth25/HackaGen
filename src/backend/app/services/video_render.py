@@ -200,6 +200,138 @@ def _wrap_text(draw: Any, text: str, font: Any, max_width: int) -> List[str]:
     return lines
 
 
+def _valid_diagram(scene: VidScene) -> Optional[Any]:
+    """Keep renderer input defensive even when loading a hand-edited legacy vid.json."""
+    diagram = scene.diagram
+    if not diagram or diagram.type not in {"comparison", "flow", "timeline"}:
+        return None
+    if not 2 <= len(diagram.items) <= 4:
+        return None
+    if any(not item.label.strip() for item in diagram.items):
+        return None
+    return diagram
+
+
+def _draw_centered_text(draw: Any, text: str, font: Any, fill: tuple, center_x: int, y: int) -> None:
+    width = draw.textlength(text, font=font)
+    draw.text((center_x - width / 2, y), text, font=font, fill=fill)
+
+
+def _draw_diagram_card(
+    draw: Any,
+    bounds: tuple[int, int, int, int],
+    label: str,
+    detail: str,
+    label_font: Any,
+    detail_font: Any,
+    accent: tuple,
+) -> None:
+    x0, y0, x1, y1 = bounds
+    draw.rounded_rectangle(bounds, radius=max(8, (x1 - x0) // 24), fill=(20, 28, 43), outline=accent, width=2)
+    max_width = max(20, int((x1 - x0) * 0.82))
+    label_lines = _wrap_text(draw, label, label_font, max_width)
+    detail_lines = _wrap_text(draw, detail, detail_font, max_width) if detail else []
+    label_height = max(1, label_font.size + label_font.size // 5)
+    detail_height = max(1, detail_font.size + detail_font.size // 5)
+    content_height = len(label_lines) * label_height + (len(detail_lines) * detail_height if detail_lines else 0)
+    y = y0 + max(8, (y1 - y0 - content_height) // 2)
+    for line in label_lines:
+        _draw_centered_text(draw, line, label_font, STAGE_FOREGROUND, (x0 + x1) // 2, y)
+        y += label_height
+    for line in detail_lines:
+        _draw_centered_text(draw, line, detail_font, STAGE_MUTED, (x0 + x1) // 2, y)
+        y += detail_height
+
+
+def _draw_arrow(draw: Any, start: tuple[int, int], end: tuple[int, int], accent: tuple, size: int) -> None:
+    draw.line([start, end], fill=accent, width=max(2, size // 5))
+    x0, y0 = start
+    x1, y1 = end
+    if abs(x1 - x0) >= abs(y1 - y0):
+        direction = 1 if x1 >= x0 else -1
+        points = [(x1, y1), (x1 - direction * size, y1 - size // 2), (x1 - direction * size, y1 + size // 2)]
+    else:
+        direction = 1 if y1 >= y0 else -1
+        points = [(x1, y1), (x1 - size // 2, y1 - direction * size), (x1 + size // 2, y1 - direction * size)]
+    draw.polygon(points, fill=accent)
+
+
+def _render_scene_diagram(
+    draw: Any,
+    diagram: Any,
+    bounds: tuple[int, int, int, int],
+    accent: tuple,
+    ttf_path: Optional[str],
+    fmt: str,
+) -> None:
+    """Draw one compact diagram with no dependency on external image generation."""
+    from PIL import ImageFont
+
+    x0, y0, x1, y1 = bounds
+    width, height = x1 - x0, y1 - y0
+    label_font = ImageFont.truetype(ttf_path, max(18, width // 24)) if ttf_path else ImageFont.load_default()
+    detail_font = ImageFont.truetype(ttf_path, max(14, width // 32)) if ttf_path else ImageFont.load_default()
+    title_font = ImageFont.truetype(ttf_path, max(15, width // 34)) if ttf_path else ImageFont.load_default()
+    items = [(prepare_pdf_plain_text(item.label), prepare_pdf_plain_text(item.detail or "")) for item in diagram.items]
+
+    if diagram.title:
+        _draw_centered_text(draw, prepare_pdf_plain_text(diagram.title), title_font, accent, (x0 + x1) // 2, y0)
+        y0 += title_font.size + max(10, height // 18)
+        height = y1 - y0
+
+    if diagram.type == "comparison":
+        columns = 2
+        rows = math.ceil(len(items) / columns)
+        gap = max(12, width // 35)
+        card_w = (width - gap) // columns
+        card_h = max(50, (height - gap * (rows - 1)) // rows)
+        for idx, (label, detail) in enumerate(items):
+            row, col = divmod(idx, columns)
+            left = x0 + col * (card_w + gap)
+            top = y0 + row * (card_h + gap)
+            _draw_diagram_card(draw, (left, top, left + card_w, top + card_h), label, detail, label_font, detail_font, accent)
+        return
+
+    if diagram.type == "flow":
+        vertical = fmt == "shorts"
+        gap = max(20, (height if vertical else width) // 24)
+        if vertical:
+            card_h = max(42, (height - gap * (len(items) - 1)) // len(items))
+            card_w = int(width * 0.74)
+            left = x0 + (width - card_w) // 2
+            for idx, (label, detail) in enumerate(items):
+                top = y0 + idx * (card_h + gap)
+                _draw_diagram_card(draw, (left, top, left + card_w, top + card_h), label, detail, label_font, detail_font, accent)
+                if idx < len(items) - 1:
+                    _draw_arrow(draw, (left + card_w // 2, top + card_h), (left + card_w // 2, top + card_h + gap - 4), accent, max(8, gap // 3))
+        else:
+            card_w = max(70, (width - gap * (len(items) - 1)) // len(items))
+            card_h = int(height * 0.62)
+            top = y0 + (height - card_h) // 2
+            for idx, (label, detail) in enumerate(items):
+                left = x0 + idx * (card_w + gap)
+                _draw_diagram_card(draw, (left, top, left + card_w, top + card_h), label, detail, label_font, detail_font, accent)
+                if idx < len(items) - 1:
+                    _draw_arrow(draw, (left + card_w, top + card_h // 2), (left + card_w + gap - 4, top + card_h // 2), accent, max(8, gap // 3))
+        return
+
+    # Timeline: a shared line and alternating cards make the temporal order scan quickly.
+    line_y = y0 + height // 2
+    padding = max(24, width // 16)
+    draw.line([(x0 + padding, line_y), (x1 - padding, line_y)], fill=accent, width=max(2, width // 180))
+    positions = [x0 + padding + round((width - 2 * padding) * idx / (len(items) - 1)) for idx in range(len(items))]
+    card_w = max(70, min(width // 3, int(width / len(items) * 0.82)))
+    card_h = max(48, int(height * 0.30))
+    for idx, ((label, detail), center_x) in enumerate(zip(items, positions)):
+        draw.ellipse(
+            (center_x - max(5, width // 110), line_y - max(5, width // 110), center_x + max(5, width // 110), line_y + max(5, width // 110)),
+            fill=accent,
+        )
+        top = y0 + max(4, height // 20) if idx % 2 == 0 else y1 - card_h - max(4, height // 20)
+        left = max(x0, min(x1 - card_w, center_x - card_w // 2))
+        _draw_diagram_card(draw, (left, top, left + card_w, top + card_h), label, detail, label_font, detail_font, accent)
+
+
 def render_scene_layers(
     scene: VidScene,
     idx: int,
@@ -207,6 +339,7 @@ def render_scene_layers(
     width: int,
     height: int,
     base_path: str,
+    fmt: str = "standard",
 ) -> List[tuple[str, float]]:
     """Render a permanent stage and transparent text overlays for one animated scene."""
     from PIL import Image, ImageDraw, ImageFont
@@ -215,6 +348,7 @@ def render_scene_layers(
     heading = prepare_pdf_plain_text(scene.title) or f"Phần {idx}"
     subtext = prepare_pdf_plain_text(scene.on_screen_text or "")
     bullets = [prepare_pdf_plain_text(kp) for kp in (scene.key_points or []) if kp and kp.strip()]
+    diagram = _valid_diagram(scene)
     accent = _scene_accent(idx)
     left_aligned = idx % 2 == 0
 
@@ -237,20 +371,24 @@ def render_scene_layers(
     heading_lines = _wrap_text(base_draw, heading, heading_font, max_text_width)
     sub_lines = _wrap_text(base_draw, subtext, sub_font, max_text_width) if subtext else []
     bullet_groups: List[List[str]] = []
-    for bp in bullets[:3]:
-        bullet_groups.append(_wrap_text(base_draw, f"• {bp}", bullet_font, max_text_width))
+    if not diagram:
+        for bp in bullets[:3]:
+            bullet_groups.append(_wrap_text(base_draw, f"• {bp}", bullet_font, max_text_width))
 
     line_gap = int(heading_size * 0.25)
     heading_line_h = heading_size + line_gap
     sub_line_h = sub_size + line_gap // 2
     bullet_line_h = bullet_size + line_gap // 2
 
-    total_h = len(heading_lines) * heading_line_h
-    if sub_lines:
-        total_h += sub_line_h // 2 + len(sub_lines) * sub_line_h
-    if bullet_groups:
-        total_h += int(bullet_line_h * 0.9) + sum(len(lines) * bullet_line_h for lines in bullet_groups)
-    y = (height - total_h) // 2
+    if diagram:
+        y = int(height * 0.10)
+    else:
+        total_h = len(heading_lines) * heading_line_h
+        if sub_lines:
+            total_h += sub_line_h // 2 + len(sub_lines) * sub_line_h
+        if bullet_groups:
+            total_h += int(bullet_line_h * 0.9) + sum(len(lines) * bullet_line_h for lines in bullet_groups)
+        y = (height - total_h) // 2
 
     def _draw_lines(layer: Any, lines: List[str], font: Any, fill: tuple, y_pos: int, line_height: int) -> None:
         draw = ImageDraw.Draw(layer)
@@ -290,6 +428,20 @@ def render_scene_layers(
             bullet_layer.save(bullet_path, "PNG")
             layers.append((bullet_path, 1.5 + 0.9 * (bullet_idx - 1)))
             y += len(bullet_lines) * bullet_line_h
+
+    if diagram:
+        margin = int(width * 0.10)
+        diagram_top = max(int(height * 0.32), y + int(height * 0.06))
+        diagram_bottom = int(height * 0.84)
+        if diagram_bottom - diagram_top >= max(80, height // 6):
+            _render_scene_diagram(
+                base_draw,
+                diagram,
+                (margin, diagram_top, width - margin, diagram_bottom),
+                accent,
+                ttf_path,
+                fmt,
+            )
 
     counter_font = ImageFont.truetype(ttf_path, max(16, width // 48)) if ttf_path else ImageFont.load_default()
     counter_text = f"{idx} / {total}"
@@ -549,7 +701,7 @@ def assemble_video(
 
             base_png_path = os.path.join(scene_dir, f"scene_{i + 1}_base.png")
             layer_paths = render_scene_layers(
-                scene, i + 1, total_scenes, width, height, base_png_path
+                scene, i + 1, total_scenes, width, height, base_png_path, fmt
             )
 
             clip_path = os.path.join(scene_dir, f"scene_{i + 1}.mp4")

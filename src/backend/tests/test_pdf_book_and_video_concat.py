@@ -5,8 +5,17 @@ guards against "the exact failure mode that broke the earlier Vid attempt")."""
 import os
 
 import pytest
+from pydantic import ValidationError
 
-from app.schemas.generator_output import BookChapter, BookOutput, BookSection, VidOutput, VidScene
+from app.schemas.generator_output import (
+    BookChapter,
+    BookOutput,
+    BookSection,
+    VidDiagram,
+    VidDiagramItem,
+    VidOutput,
+    VidScene,
+)
 from app.services import video_render
 from app.services.pdf_book import build_book_pdf
 from app.services.video_render import (
@@ -147,10 +156,52 @@ def _sample_vid() -> VidOutput:
                 title="Lời giải thích",
                 on_screen_text="Kết nối ý chính",
                 key_points=["Kết luận rõ ràng"],
+                diagram=VidDiagram(
+                    type="flow",
+                    items=[
+                        VidDiagramItem(label="Dữ liệu", detail="Đầu vào"),
+                        VidDiagramItem(label="Phân tích", detail="Xử lý"),
+                        VidDiagramItem(label="Kết quả", detail="Ứng dụng"),
+                    ],
+                ),
                 narration="Cảnh thứ hai khép lại mạch giải thích một cách ngắn gọn.",
             ),
         ],
     )
+
+
+@pytest.mark.parametrize("diagram_type", ["comparison", "flow", "timeline"])
+def test_pillow_renders_each_supported_video_diagram(diagram_type, tmp_path):
+    scene = VidScene(
+        scene_number=1,
+        title="Sơ đồ trọng tâm",
+        on_screen_text="Nhìn mối liên hệ",
+        key_points=["Bullet này phải ẩn"],
+        diagram=VidDiagram(
+            type=diagram_type,
+            title="Mạch kiến thức",
+            items=[
+                VidDiagramItem(label="Bước một", detail="Khởi đầu"),
+                VidDiagramItem(label="Bước hai", detail="Phát triển"),
+                VidDiagramItem(label="Bước ba", detail="Kết quả"),
+            ],
+        ),
+        narration="Lời đọc giải thích ba bước của mạch kiến thức này.",
+    )
+    base_path = str(tmp_path / f"{diagram_type}.png")
+    layers = render_scene_layers(scene, 1, 1, 720, 1280, base_path, fmt="shorts")
+
+    from PIL import Image
+
+    assert not any("bullet" in path for path, _ in layers)
+    image = Image.open(base_path)
+    diagram_region = image.crop((72, 410, 648, 1075))
+    assert len(diagram_region.getcolors(maxcolors=1_000_000)) > 4
+
+
+def test_video_diagram_schema_rejects_unknown_layout():
+    with pytest.raises(ValidationError):
+        VidDiagram.model_validate({"type": "pyramid", "items": [{"label": "A"}, {"label": "B"}]})
 
 
 def test_motion_layers_and_xfade_render_with_silence(tmp_path):

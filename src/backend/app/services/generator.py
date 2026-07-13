@@ -87,6 +87,11 @@ def _clean_vid_output(vid: VidOutput) -> VidOutput:
         sc.title = clean_text(sc.title)
         sc.on_screen_text = clean_text(sc.on_screen_text or "")
         sc.key_points = [clean_text(kp) for kp in sc.key_points]
+        if sc.diagram:
+            sc.diagram.title = clean_text(sc.diagram.title or "") or None
+            for item in sc.diagram.items:
+                item.label = clean_text(item.label)
+                item.detail = clean_text(item.detail or "") or None
         sc.narration = clean_text(sc.narration)
     return vid
 

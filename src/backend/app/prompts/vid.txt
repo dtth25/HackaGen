@@ -30,9 +30,11 @@ YÊU CẦU QUAN TRỌNG:
 9. `on_screen_text`: một cụm từ khoá rất ngắn (tối đa 8 từ) bổ trợ cho tiêu đề, có thể để trống ("") nếu tiêu đề đã đủ rõ — KHÔNG được là một câu đầy đủ hay danh sách.
 10. `key_points`: 2-3 cụm từ khoá ngắn (tối đa 6 từ mỗi cụm, không phải câu đầy đủ) tóm tắt các ý chính mà lời đọc của phân cảnh này truyền tải — hiển thị dưới dạng gạch đầu dòng nhỏ trên khung hình để hỗ trợ trực quan. Cảnh mở đầu/kết thúc có thể để mảng rỗng nếu không cần thiết.
 11. `narration`: lời đọc tự nhiên như văn nói, mang nhịp kể của định dạng ở trên; độ dài bám sát ĐỘ DÀI LỜI ĐỌC MỖI PHÂN CẢNH (không được viết quá ngắn). Không dùng Markdown, LaTeX, hay ký hiệu đặc biệt — chỉ chữ thường có thể đọc thành tiếng.
-9. TOÀN BỘ đầu ra (title, on_screen_text, narration, key_points) phải bằng tiếng Việt chuẩn, đầy đủ dấu, kể cả khi tài liệu nguồn bằng ngôn ngữ khác (Anh, Trung, Hindi...) — chỉ giữ nguyên thuật ngữ chuyên môn/tên riêng không dịch được, kèm giải thích tiếng Việt ngắn gọn nếu cần.
-10. Tuyệt đối KHÔNG nhắc đến các từ "chunk", "ngữ cảnh", "RAG", hay tên file/mã định danh tài liệu nguồn ở bất kỳ đâu trong title, on_screen_text, key_points hay narration — người xem không được biết về cơ chế truy xuất dữ liệu này.
-11. BỎ QUA nội dung mang tính thư mục/xuất bản (tên tác giả, nhà xuất bản, năm xuất bản, ISBN, mã định danh tài liệu, lời cảm ơn, mục lục) khi chọn nội dung cho phân cảnh — chỉ tập trung vào kiến thức học thuật chính trong tài liệu.
+12. `diagram` là tuỳ chọn, chỉ dùng cho tối đa 2-3 phân cảnh trong cả video khi nó thực sự giúp người xem hiểu nhanh hơn bullets. Dùng `comparison` để đối chiếu các khái niệm cùng cấp, `flow` cho chuỗi bước/nguyên nhân-kết quả, `timeline` cho diễn biến theo thời gian. Nếu không có cấu trúc phù hợp, bỏ hẳn trường `diagram`, đừng ép.
+13. Mỗi diagram chỉ có 2-4 `items`; mỗi item có `label` tối đa 6 từ và `detail` tuỳ chọn tối đa 8 từ. Diagram chỉ tổ chức lại thông tin đã có trong ngữ cảnh, không thêm sự thật mới. Khi có diagram, để `key_points` trống hoặc tối thiểu để tránh lặp chữ trên khung hình.
+14. TOÀN BỘ đầu ra (title, on_screen_text, narration, key_points, diagram) phải bằng tiếng Việt chuẩn, đầy đủ dấu, kể cả khi tài liệu nguồn bằng ngôn ngữ khác (Anh, Trung, Hindi...) — chỉ giữ nguyên thuật ngữ chuyên môn/tên riêng không dịch được, kèm giải thích tiếng Việt ngắn gọn nếu cần.
+15. Tuyệt đối KHÔNG nhắc đến các từ "chunk", "ngữ cảnh", "RAG", hay tên file/mã định danh tài liệu nguồn ở bất kỳ đâu trong title, on_screen_text, key_points, diagram hay narration — người xem không được biết về cơ chế truy xuất dữ liệu này.
+16. BỎ QUA nội dung mang tính thư mục/xuất bản (tên tác giả, nhà xuất bản, năm xuất bản, ISBN, mã định danh tài liệu, lời cảm ơn, mục lục) khi chọn nội dung cho phân cảnh — chỉ tập trung vào kiến thức học thuật chính trong tài liệu.
 
 Hãy trả về kết quả dưới dạng JSON hợp lệ tuân thủ đúng schema:
 - title: Tiêu đề tổng của video.
@@ -42,6 +44,7 @@ Hãy trả về kết quả dưới dạng JSON hợp lệ tuân thủ đúng sc
   + title: Tiêu đề ngắn trên màn hình (<=6 từ).
   + on_screen_text: Cụm từ khoá ngắn bổ trợ (<=8 từ), có thể để trống.
   + key_points: 2-3 cụm từ khoá ngắn (<=6 từ mỗi cụm) tóm tắt ý chính của phân cảnh, có thể để mảng rỗng.
+  + diagram: Tuỳ chọn. Nếu dùng gồm `type` là `comparison`, `flow`, hoặc `timeline`; `title` tuỳ chọn; và `items` gồm 2-4 object `{{label, detail}}`. Bỏ trường này nếu không thật sự phù hợp.
   + narration: Lời đọc off-screen đầy đủ cho phân cảnh.
   + duration_seconds: để giá trị 0.
   + source_chunk_ids: Danh sách ID các đoạn ngữ cảnh tham chiếu (ví dụ: ["chunk_1"]).

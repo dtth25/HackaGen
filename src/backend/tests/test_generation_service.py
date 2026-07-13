@@ -94,6 +94,8 @@ def test_llm_service_and_prompts():
     )
     assert "Nhịp nhanh, dứt khoát" in prompt
     assert "Cấm mở bằng" in prompt
+    assert "comparison" in prompt
+    assert "tối đa 2-3 phân cảnh" in prompt
     assert "{format_guidance}" not in prompt
 
 
