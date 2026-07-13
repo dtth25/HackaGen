@@ -108,8 +108,23 @@ export interface GenerateResponse {
   status?: string;
   message?: string;
   estimated_time?: string;
-  regen_used?: number;
-  regen_max?: number;
+  version_id?: string | null;
+}
+
+export interface ArtifactVersion {
+  version_id: string;
+  label: string;
+  options: Record<string, unknown>;
+  status: "empty" | "processing" | "ready" | "error";
+  error?: string | null;
+  progress?: number | null;
+  created_at?: string | null;
+}
+
+interface VersionedArtifactStatus {
+  version_id?: string | null;
+  active_version?: string | null;
+  versions?: ArtifactVersion[];
 }
 
 export interface BookSection {
@@ -136,13 +151,11 @@ export interface BookOutput {
   estimated_duration?: string;
 }
 
-export interface BookArtifactStatus {
+export interface BookArtifactStatus extends VersionedArtifactStatus {
   status: "empty" | "processing" | "ready" | "error";
   error?: string | null;
   progress?: number | null;
   data: BookOutput | null;
-  regen_used?: number;
-  regen_max?: number;
 }
 
 export interface SlideItem {
@@ -163,13 +176,11 @@ export interface SlidesOutput {
   total_slides?: number;
 }
 
-export interface SlideArtifactStatus {
+export interface SlideArtifactStatus extends VersionedArtifactStatus {
   status: "empty" | "processing" | "ready" | "error";
   error?: string | null;
   progress?: number | null;
   data: SlidesOutput | null;
-  regen_used?: number;
-  regen_max?: number;
 }
 
 export interface QuizOption {
@@ -196,13 +207,11 @@ export interface QuizOutput {
   total_questions?: number;
 }
 
-export interface QuizArtifactStatus {
+export interface QuizArtifactStatus extends VersionedArtifactStatus {
   status: "empty" | "processing" | "ready" | "error";
   error?: string | null;
   progress?: number | null;
   data: QuizQuestion[] | null;
-  regen_used?: number;
-  regen_max?: number;
 }
 
 export interface VidScene {
@@ -219,13 +228,11 @@ export interface VidOutput {
   scenes: VidScene[];
 }
 
-export interface VidArtifactStatus {
+export interface VidArtifactStatus extends VersionedArtifactStatus {
   status: "empty" | "processing" | "ready" | "error";
   error?: string | null;
   progress?: number | null;
   data: VidOutput | null;
-  regen_used?: number;
-  regen_max?: number;
 }
 
 // ============================================================

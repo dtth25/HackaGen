@@ -1,90 +1,63 @@
-"""Contract tests for LLMService._call_gemini_strict's REAL parsing/retry path.
+"""Contract tests for OpenRouter free-first structured output routing."""
 
-Every other test in this suite runs with PYTEST_CURRENT_TEST set, which makes
-LLMService._init_client() leave self.client as None — so _call_gemini_strict always
-takes the `fallback_fn()` branch and the actual google-genai response parsing
-(response.text -> schema_model.model_validate_json), the 2-attempt retry loop, and the
-per-attempt exception handling are never exercised by anything else in the suite. A
-future google-genai upgrade that changes response shape or GenerateContentConfig
-behavior would not be caught by any existing test.
-
-These tests bypass that short-circuit deliberately by setting `.client` on an already-
-constructed LLMService to a fake object shaped like the real SDK client, so the real
-code path in _call_gemini_strict runs end to end against a controlled fake response.
-"""
+import pytest
 
 from app.core.config import settings
 from app.services.llm import LLMGenerationError, LLMService
-from app.schemas.generator_output import CourseTitleOutput
 
 
-class _FakeResponse:
-    def __init__(self, text):
-        self.text = text
+class _FakeCompletion:
+    def __init__(self, content):
+        self.choices = [type("Choice", (), {"message": type("Message", (), {"content": content})()})()]
 
 
-class _FakeModels:
+class _FakeCompletions:
     def __init__(self, responses):
-        self._responses = list(responses)
+        self.responses = list(responses)
         self.calls = []
 
-    def generate_content(self, model, contents, config):
-        self.calls.append({"model": model, "contents": contents, "config": config})
-        item = self._responses.pop(0)
-        if isinstance(item, Exception):
-            raise item
-        return _FakeResponse(item)
+    def create(self, **kwargs):
+        self.calls.append(kwargs)
+        response = self.responses.pop(0)
+        if isinstance(response, Exception):
+            raise response
+        return _FakeCompletion(response)
 
 
-class _FakeClient:
-    def __init__(self, responses):
-        self.models = _FakeModels(responses)
+def _llm_with_fake_client(responses):
+    llm = LLMService()
+    completions = _FakeCompletions(responses)
+    llm.client = type("Client", (), {"chat": type("Chat", (), {"completions": completions})()})()
+    return llm, completions
 
 
-def _llm_with_fake_client(responses) -> LLMService:
-    llm = LLMService()  # PYTEST_CURRENT_TEST keeps this offline (self.client stays None)
-    llm.client = _FakeClient(responses)  # bypass the short-circuit for this one instance
-    return llm
-
-
-def test_real_parsing_path_succeeds_on_first_attempt(monkeypatch):
-    monkeypatch.setattr(settings, "OPENROUTER_API_KEY", "")
-    llm = _llm_with_fake_client(['{"title": "Nhập môn Trí tuệ nhân tạo"}'])
+def test_free_router_succeeds_with_strict_schema(monkeypatch):
+    monkeypatch.setattr(settings, "OPENROUTER_FREE_MODEL", "free-test")
+    llm, completions = _llm_with_fake_client(['{"title": "Nhập môn Trí tuệ nhân tạo"}'])
 
     result = llm.generate_course_title("mẫu nội dung tài liệu")
 
-    assert isinstance(result, CourseTitleOutput)
     assert result.title == "Nhập môn Trí tuệ nhân tạo"
-    assert len(llm.client.models.calls) == 1
-    assert llm.client.models.calls[0]["model"] == llm.model_name
+    assert [call["model"] for call in completions.calls] == ["free-test"]
+    assert completions.calls[0]["extra_body"] == {"provider": {"require_parameters": True}}
+    assert completions.calls[0]["response_format"]["json_schema"]["strict"] is True
 
 
-def test_real_parsing_path_retries_on_invalid_json_then_succeeds(monkeypatch):
-    """First response is malformed JSON — must retry once (attempts=2 default) and
-    succeed with the second, real response rather than falling back or raising."""
-    monkeypatch.setattr(settings, "OPENROUTER_API_KEY", "")
-    monkeypatch.setattr("app.services.llm.time.sleep", lambda *_: None)
-    llm = _llm_with_fake_client(
-        ["{not valid json", '{"title": "Kinh tế học đại cương"}']
-    )
+def test_invalid_free_schema_retries_paid_model(monkeypatch):
+    monkeypatch.setattr(settings, "OPENROUTER_FREE_MODEL", "free-test")
+    monkeypatch.setattr(settings, "OPENROUTER_PAID_MODEL", "paid-test")
+    llm, completions = _llm_with_fake_client(["{not valid json", '{"title": "Kinh tế học"}'])
 
     result = llm.generate_course_title("mẫu nội dung tài liệu")
 
-    assert result.title == "Kinh tế học đại cương"
-    assert len(llm.client.models.calls) == 2
+    assert result.title == "Kinh tế học"
+    assert [call["model"] for call in completions.calls] == ["free-test", "paid-test"]
 
 
-def test_real_parsing_path_exhausts_retries_and_raises(monkeypatch):
-    """Both attempts return malformed JSON and OpenRouter isn't configured — must raise
-    LLMGenerationError, not silently fall back to a fake/empty title."""
-    monkeypatch.setattr(settings, "OPENROUTER_API_KEY", "")
-    monkeypatch.setattr("app.services.llm.time.sleep", lambda *_: None)
-    llm = _llm_with_fake_client(["{not valid json", "{also not valid"])
+def test_both_models_fail_raises_generation_error():
+    llm, completions = _llm_with_fake_client(["{bad", "{still bad"])
 
-    try:
+    with pytest.raises(LLMGenerationError):
         llm.generate_course_title("mẫu nội dung tài liệu")
-        assert False, "expected LLMGenerationError"
-    except LLMGenerationError:
-        pass
 
-    assert len(llm.client.models.calls) == 2
+    assert len(completions.calls) == 2

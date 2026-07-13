@@ -24,7 +24,7 @@ Public product surface là **Document-to-Study-Pack** với Study Pack Dashboard
 3. Backend validate extension, empty file và size <= 50MB mỗi file.
 4. Backend lưu files vào `uploads/{course_id}/`, tạo `course_id`, ghi metadata vào `questions/course_{course_id}_meta.json`.
 5. Background thread parse text từng tài liệu bằng document processor.
-6. Text được chunk, embed bằng Gemini embeddings và lưu vào Chroma collection `ai_course_chunks` theo `course_id`.
+6. Text được chunk, embed qua OpenRouter và lưu vào Chroma collection theo `course_id`.
 7. Khi index sẵn sàng, status chuyển thành `ready`.
 
 ## 3. Generation Flow
@@ -34,8 +34,8 @@ course_id
   -> load configured vectorstore
   -> retrieve top-k chunks from the full corpus
   -> clean internal extraction markers
-  -> prompt Gemini
-  -> normalize/fallback
+  -> prompt OpenRouter free router
+  -> validate / fallback sang model paid khi cần
   -> save artifact
   -> return public response
 ```

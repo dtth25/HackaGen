@@ -3,7 +3,7 @@ embedding function (and the reworked chunking) — needed after switching CHROMA
 to a new value or wiping data/chroma/, since Chroma binds an embedding function to a collection
 at creation time and old chunks embedded with the previous function are not compatible.
 
-Skips AI course-title regeneration on purpose (a real Gemini call) — courses already have a
+Skips AI course-title regeneration on purpose (a real provider call) — courses already have a
 name, so re-running it here would just burn quota for no visible change.
 
 Usage (from src/backend):

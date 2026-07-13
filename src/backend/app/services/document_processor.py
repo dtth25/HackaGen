@@ -40,14 +40,6 @@ def _find_split_position(text: str, start: int, end: int, chunk_size: int) -> in
     return -1
 
 
-def _is_quota_exhausted_error(exc: Exception) -> bool:
-    """Distinguish a Gemini embedding quota/rate-limit failure (safe to silently retry via
-    OpenRouter) from a genuine bug (bad input, misconfigured key, etc. — should still fail
-    loud). Matches the same signal GeminiEmbeddingFunction's own retry loop already logged."""
-    text = str(exc)
-    return "RESOURCE_EXHAUSTED" in text or "429" in text or "quota" in text.lower()
-
-
 class ProcessingResult(BaseModel):
     """Result of processing documents for a course."""
 
@@ -125,13 +117,12 @@ class DocumentProcessor:
         falls back to the document's own filename, like how chat UIs name a conversation
         once and leave the rest to manual rename."""
         try:
-            from app.core.config import settings
             from app.services.llm import LLMService
 
             sample = "\n\n".join(doc.content for doc in all_documents[:5])[:4000]
             if not sample.strip():
                 return None
-            result = LLMService(model=settings.GEMINI_COURSE_MODEL or None).generate_course_title(sample)
+            result = LLMService().generate_course_title(sample)
             title = (result.title or "").strip()
             return title or None
         except Exception as e:
@@ -287,7 +278,7 @@ class DocumentProcessor:
         return pages
 
     def _ocr_page(self, doc: "fitz.Document", page_index: int, dpi: int) -> Optional[str]:
-        """Render a PDF page to an image and ask Gemini vision to transcribe its text.
+        """Render a PDF page to an image and ask OpenRouter vision to transcribe its text.
         Best-effort: returns None on any failure so the caller keeps whatever text
         extraction already produced (possibly empty/short)."""
         try:
@@ -508,24 +499,9 @@ class DocumentProcessor:
                 db_session_factory=db_session_factory,
             )
 
-            # 4. Generate embeddings & 5. Store in Chroma. Gemini embedding is primary; if its
-            # own retries exhaust on a quota/rate-limit error (large documents like a 300-page
-            # book can need 8+ batch calls against a tight free-tier budget shared across every
-            # feature), silently redo the WHOLE course's embedding via OpenRouter instead — never
-            # split a single course across both collections (see VectorStore._collection_for).
-            # The user never sees which provider indexed their course, only that it worked.
-            embedding_provider = "gemini"
-            try:
-                self.vector_store.add_documents(all_documents, course_id=course_id, provider="gemini")
-            except Exception as e:
-                if not _is_quota_exhausted_error(e):
-                    raise
-                logger.warning(
-                    f"Gemini embedding quota exhausted for course {course_id}, "
-                    f"retrying full course via OpenRouter fallback: {e}"
-                )
-                self.vector_store.add_documents(all_documents, course_id=course_id, provider="openrouter")
-                embedding_provider = "openrouter"
+            # All newly indexed chunks use the single OpenRouter embedding space.
+            embedding_provider = "openrouter"
+            self.vector_store.add_documents(all_documents, course_id=course_id, provider=embedding_provider)
 
             # Calculate quality score (e.g., based on average chunk length and total chunks)
             quality_score = min(100, max(50, len(all_documents) * 5 + 60))
