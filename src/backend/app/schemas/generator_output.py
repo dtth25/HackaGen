@@ -1,8 +1,8 @@
 """Pydantic schemas and quality scoring for HackaGen outputs."""
 
 import re
-from typing import Any, List, Optional, Tuple
-from pydantic import BaseModel, Field
+from typing import Any, List, Literal, Optional, Tuple
+from pydantic import BaseModel, Field, field_validator
 
 
 # =====================================================================
@@ -151,6 +151,35 @@ class QuizOutput(BaseModel):
 # =====================================================================
 
 
+class VidDiagramItem(BaseModel):
+    """A compact label/detail pair rendered inside a video diagram."""
+
+    label: str = Field(..., min_length=1, max_length=80, description="Short diagram label (<=6 words)")
+    detail: Optional[str] = Field(None, max_length=120, description="Optional supporting detail (<=8 words)")
+
+    @field_validator("label")
+    @classmethod
+    def label_word_limit(cls, value: str) -> str:
+        if len(value.split()) > 6:
+            raise ValueError("Diagram label must contain at most 6 words")
+        return value
+
+    @field_validator("detail")
+    @classmethod
+    def detail_word_limit(cls, value: Optional[str]) -> Optional[str]:
+        if value and len(value.split()) > 8:
+            raise ValueError("Diagram detail must contain at most 8 words")
+        return value
+
+
+class VidDiagram(BaseModel):
+    """Flat diagram schema keeps structured output portable across routed models."""
+
+    type: Literal["comparison", "flow", "timeline"] = Field(..., description="Diagram layout")
+    title: Optional[str] = Field(None, max_length=80, description="Optional short diagram title")
+    items: List[VidDiagramItem] = Field(..., min_length=2, max_length=4, description="2-4 diagram items")
+
+
 class VidScene(BaseModel):
     """Single video scene. Frames stay text-light (heading + a few short keyword bullets) —
     the narration (spoken by TTS) still carries the actual content, matching the NotebookLM-
@@ -165,6 +194,10 @@ class VidScene(BaseModel):
         default_factory=list,
         description="2-3 short keyword bullets (<=6 words each) shown beneath the heading, "
         "reinforcing what the narration covers; empty list is fine for intro/outro scenes",
+    )
+    diagram: Optional[VidDiagram] = Field(
+        None,
+        description="Optional visual diagram; use only when comparison, sequence, or timeline clarifies the scene",
     )
     narration: str = Field(..., description="Voice-over script / narration text, spoken naturally")
     duration_seconds: int = Field(0, description="Actual scene duration in seconds, filled in from TTS audio length")

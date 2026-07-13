@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { ArtifactVersion } from "@/lib/types";
 
 /** Shared poll cadence — was a `3000` literal duplicated independently across 6 call
  * sites (the 4 tabs below, plus the simpler list/status pollers in courses/page.tsx and
@@ -14,13 +15,14 @@ export interface ArtifactStatusLike<T> {
   data?: T | null;
   progress?: number | null;
   error?: string | null;
-  regen_used?: number;
-  regen_max?: number;
+  version_id?: string | null;
+  active_version?: string | null;
+  versions?: ArtifactVersion[];
 }
 
 interface UsePollingArtifactOptions<T> {
   courseId: string;
-  fetchFn: (courseId: string) => Promise<ArtifactStatusLike<T>>;
+  fetchFn: (courseId: string, version?: string | null) => Promise<ArtifactStatusLike<T>>;
   /** True once `data` actually has renderable content (e.g. chapters.length > 0) — a
    * "ready" status with an empty payload is treated as not-ready-yet. */
   isReady: (data: T) => boolean;
@@ -53,10 +55,14 @@ export function usePollingArtifact<T>({
   const [error, setError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [regenUsed, setRegenUsed] = useState<number | null>(null);
-  const [regenMax, setRegenMax] = useState<number | null>(null);
+  const [dataByVersion, setDataByVersion] = useState<Record<string, T>>({});
+  const [versions, setVersions] = useState<ArtifactVersion[]>([]);
+  const [activeVersion, setActiveVersion] = useState<string | null>(null);
+  const [viewedVersion, setViewedVersion] = useState<string | null>(null);
 
   const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pollingVersionRef = useRef<string | null>(null);
+  const viewedVersionRef = useRef<string | null>(null);
 
   // Keep the latest callbacks in refs so `startPolling`'s recursive closure always calls
   // the current version without needing to be recreated (and without going in the
@@ -69,58 +75,94 @@ export function usePollingArtifact<T>({
     fetchFnRef.current = fetchFn;
     isReadyRef.current = isReady;
     onReadyRef.current = onReady;
+    viewedVersionRef.current = viewedVersion;
   });
 
   const startPolling = useCallback(
-    (startedAt: number) => {
+    (startedAt: number, versionId?: string | null) => {
+      if (pollTimer.current) clearTimeout(pollTimer.current);
+      pollingVersionRef.current = versionId ?? viewedVersion;
+      if (pollingVersionRef.current) {
+        const invalidated = pollingVersionRef.current;
+        setDataByVersion((cache) => {
+          const next = { ...cache };
+          delete next[invalidated];
+          return next;
+        });
+      }
       const poll = async () => {
+        const pollingVersion = pollingVersionRef.current;
         try {
-          const res = await fetchFnRef.current(courseId);
-          if (typeof res.regen_used === "number") setRegenUsed(res.regen_used);
-          if (typeof res.regen_max === "number") setRegenMax(res.regen_max);
+          const res = await fetchFnRef.current(courseId, pollingVersion);
+          if (res.versions) setVersions(res.versions);
+          if (res.active_version !== undefined) setActiveVersion(res.active_version ?? null);
           if (res.status === "ready" && res.data && isReadyRef.current(res.data)) {
+            const completedVersion = res.version_id ?? pollingVersion;
+            if (completedVersion) setDataByVersion((cache) => ({ ...cache, [completedVersion]: res.data as T }));
+            // A generation the user kicked off always surfaces when it finishes, even if
+            // they switched to look at a different existing version meanwhile — like
+            // NotebookLM notifying "your new version is ready" instead of silently caching
+            // it until the user happens to click back.
+            if (completedVersion) setViewedVersion(completedVersion);
             setData(res.data);
             setHasFetched(true);
+            onReadyRef.current?.(res.data);
             setGenerating(false);
             setProgress(100);
-            onReadyRef.current?.(res.data);
+            pollingVersionRef.current = null;
             return;
           }
           if (res.status === "error") {
-            setError(res.error || defaultErrorMessage);
+            if (!viewedVersionRef.current || viewedVersionRef.current === pollingVersion) {
+              setError(res.error || defaultErrorMessage);
+            }
             setGenerating(false);
+            pollingVersionRef.current = null;
             return;
           }
           if (typeof res.progress === "number") setProgress(res.progress);
         } catch {
           // Ignore transient errors while the background job is still running.
         }
+        if (pollingVersionRef.current !== pollingVersion) return;
         if (Date.now() - startedAt > timeoutMs) {
-          setError(timeoutMessage);
+          if (!viewedVersionRef.current || viewedVersionRef.current === pollingVersion) {
+            setError(timeoutMessage);
+          }
           setGenerating(false);
+          pollingVersionRef.current = null;
           return;
         }
         pollTimer.current = setTimeout(poll, pollMs);
       };
       pollTimer.current = setTimeout(poll, pollMs);
     },
-    [courseId, timeoutMs, timeoutMessage, defaultErrorMessage, pollMs]
+    [courseId, timeoutMs, timeoutMessage, defaultErrorMessage, pollMs, viewedVersion]
   );
+
+  useEffect(() => {
+    return () => {
+      if (pollTimer.current) clearTimeout(pollTimer.current);
+      pollingVersionRef.current = null;
+    };
+  }, [courseId]);
 
   useEffect(() => {
     if (hasFetched) return;
     fetchFnRef
-      .current(courseId)
+      .current(courseId, viewedVersion)
       .then((res) => {
-        if (typeof res.regen_used === "number") setRegenUsed(res.regen_used);
-        if (typeof res.regen_max === "number") setRegenMax(res.regen_max);
+        if (res.versions) setVersions(res.versions);
+        if (res.active_version !== undefined) setActiveVersion(res.active_version ?? null);
+        if (res.version_id && !viewedVersion) setViewedVersion(res.version_id);
         if (res.status === "ready" && res.data && isReadyRef.current(res.data)) {
           setData(res.data);
+          if (res.version_id) setDataByVersion((cache) => ({ ...cache, [res.version_id as string]: res.data as T }));
           onReadyRef.current?.(res.data);
         } else if (res.status === "processing") {
           setGenerating(true);
           setProgress(res.progress ?? 5);
-          startPolling(Date.now());
+          startPolling(Date.now(), res.version_id ?? viewedVersion);
         } else if (res.status === "error") {
           setError(res.error || defaultErrorMessage);
         }
@@ -128,11 +170,22 @@ export function usePollingArtifact<T>({
       .catch((err) => setError(err instanceof Error ? err.message : defaultErrorMessage))
       .finally(() => setHasFetched(true));
 
-    return () => {
-      if (pollTimer.current) clearTimeout(pollTimer.current);
-    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [courseId, hasFetched]);
+  }, [courseId, hasFetched, viewedVersion]);
+
+  const switchVersion = useCallback((versionId: string) => {
+    if (versionId === viewedVersion) return;
+    setViewedVersion(versionId);
+    const cached = dataByVersion[versionId];
+    setData(cached ?? null);
+    setError(null);
+    setHasFetched(Boolean(cached));
+  }, [dataByVersion, viewedVersion]);
+
+  const refresh = useCallback(() => {
+    setHasFetched(false);
+    setError(null);
+  }, []);
 
   return {
     data,
@@ -144,10 +197,12 @@ export function usePollingArtifact<T>({
     setGenerating,
     progress,
     setProgress,
-    regenUsed,
-    setRegenUsed,
-    regenMax,
-    setRegenMax,
+    dataByVersion,
     startPolling,
+    versions,
+    activeVersion,
+    viewedVersion,
+    switchVersion,
+    refresh,
   };
 }

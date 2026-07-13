@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { toast } from "sonner";
 import { usePollingArtifact } from "@/hooks/usePollingArtifact";
 import {
   Presentation,
@@ -9,22 +10,33 @@ import {
   Maximize2,
   ChevronLeft,
   ChevronRight,
-  Sparkles,
   RefreshCw,
   X,
   Images,
   ChevronDown,
-  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
-import { cn } from "@/lib/utils";
-import { RegenerateButton } from "@/components/dashboard/RegenerateButton";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
+import { SlideOptionsPanel } from "@/components/dashboard/SlideOptionsPanel";
+import { CreateVersionButton } from "@/components/dashboard/CreateVersionButton";
+import { VersionSwitcher } from "@/components/dashboard/VersionSwitcher";
+import {
+  ApiRequestError,
+  apiDeleteArtifactVersion,
   apiGetSlide,
   apiGenerateSlide,
+  apiRenameArtifactVersion,
   getDownloadSlideUrl,
   getDownloadSlidePdfUrl,
   getSlideImageUrl,
@@ -43,6 +55,9 @@ export function SlideTab({ courseId, documentProcessing = false }: SlideTabProps
   const [isPresenterMode, setIsPresenterMode] = useState(false);
   const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
   const [regenError, setRegenError] = useState<string | null>(null);
+  const [regenDialogOpen, setRegenDialogOpen] = useState(false);
+  const [mode, setMode] = useState<"summary" | "lesson" | "deep_dive">("lesson");
+  const [focusPrompt, setFocusPrompt] = useState("");
   const stageRef = useRef<HTMLDivElement>(null);
   const downloadMenuRef = useRef<HTMLDivElement>(null);
 
@@ -55,11 +70,12 @@ export function SlideTab({ courseId, documentProcessing = false }: SlideTabProps
     setGenerating,
     progress,
     setProgress,
-    regenUsed,
-    setRegenUsed,
-    regenMax,
-    setRegenMax,
     startPolling,
+    versions,
+    activeVersion,
+    viewedVersion,
+    switchVersion,
+    refresh,
   } = usePollingArtifact<SlidesOutput>({
     courseId,
     fetchFn: apiGetSlide,
@@ -106,8 +122,8 @@ export function SlideTab({ courseId, documentProcessing = false }: SlideTabProps
     setError(null);
     setProgress(5);
     try {
-      await apiGenerateSlide(courseId);
-      startPolling(Date.now());
+      const res = await apiGenerateSlide(courseId, { mode, focus_prompt: focusPrompt });
+      startPolling(Date.now(), res.version_id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Bắt đầu tạo slide thất bại.");
       setGenerating(false);
@@ -115,29 +131,80 @@ export function SlideTab({ courseId, documentProcessing = false }: SlideTabProps
   };
 
   // The backend persists a hard "error" status from the last generation attempt, so a plain
-  // refetch would just surface the same error forever — retrying must kick off a new job.
+  // refetch would just surface the same error forever — retry opens the picker before a new job.
   const handleRetryAfterError = () => {
-    setError(null);
-    handleGenerate();
+    setRegenDialogOpen(true);
+  };
+  const handleRenameVersion = async (versionId: string, label: string) => {
+    try { await apiRenameArtifactVersion(courseId, "slides", versionId, label); refresh(); }
+    catch (err) { setRegenError(err instanceof Error ? err.message : "Không thể đổi tên phiên bản."); }
+  };
+  const handleDeleteVersion = async (versionId: string) => {
+    if (!window.confirm("Xóa phiên bản này? Thao tác không thể hoàn tác.")) return;
+    try { await apiDeleteArtifactVersion(courseId, "slides", versionId); refresh(); }
+    catch (err) { setRegenError(err instanceof Error ? err.message : "Không thể xóa phiên bản."); }
   };
 
   // Regenerating from the ready view keeps the current deck visible (stale-while-revalidate)
   // instead of bouncing to the full-page ErrorState/EmptyState — a 429 (regen limit reached)
   // surfaces as a small inline banner instead of blowing away otherwise-valid content.
-  const handleRegenerate = async () => {
+  const handleCreateVersion = async (retry = false) => {
     setRegenError(null);
     setGenerating(true);
     setProgress(5);
     try {
-      const res = await apiGenerateSlide(courseId);
-      if (typeof res.regen_used === "number") setRegenUsed(res.regen_used);
-      if (typeof res.regen_max === "number") setRegenMax(res.regen_max);
-      startPolling(Date.now());
+      const res = await apiGenerateSlide(courseId, {
+        mode,
+        focus_prompt: focusPrompt,
+        ...(retry && viewedVersion ? { retry_version_id: viewedVersion } : {}),
+      });
+      startPolling(Date.now(), res.version_id);
     } catch (err) {
-      setRegenError(err instanceof Error ? err.message : "Tạo lại thất bại.");
+      if (err instanceof ApiRequestError && err.status === 409 && (err.detail as { code?: string })?.code === "version_cap_reached") {
+        toast.error("Tối đa 3 phiên bản. Hãy xóa một phiên bản để tạo bản mới.");
+        setGenerating(false);
+        return;
+      }
+      setRegenError(err instanceof Error ? err.message : "Tạo phiên bản mới thất bại.");
       setGenerating(false);
     }
   };
+
+  const optionValue = { mode, focusPrompt };
+  const updateOptions = (value: typeof optionValue) => {
+    setMode(value.mode);
+    setFocusPrompt(value.focusPrompt);
+  };
+  const submitRegenerateFromDialog = () => {
+    setRegenDialogOpen(false);
+    void handleCreateVersion(Boolean(error));
+  };
+  const regenerateDialog = (
+    <Dialog open={regenDialogOpen} onOpenChange={setRegenDialogOpen}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Tạo phiên bản slide mới</DialogTitle>
+          <DialogDescription>
+            Xác nhận để bắt đầu tạo bộ slide mới. Nội dung hiện tại vẫn được giữ cho đến khi bản mới sẵn sàng.
+          </DialogDescription>
+        </DialogHeader>
+        <SlideOptionsPanel
+          value={optionValue}
+          onChange={updateOptions}
+          onSubmit={submitRegenerateFromDialog}
+          busy={generating}
+          progress={progress}
+          submitLabel="Tạo phiên bản mới"
+          documentProcessing={documentProcessing}
+        />
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => setRegenDialogOpen(false)}>
+            Hủy
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 
   const toggleFullScreen = () => {
     if (!document.fullscreenElement) {
@@ -177,12 +244,15 @@ export function SlideTab({ courseId, documentProcessing = false }: SlideTabProps
 
   if (error) {
     return (
-      <ErrorState
-        title="Lỗi tạo bài giảng"
-        description={error}
-        onRetry={handleRetryAfterError}
-        retryLabel="Thử tạo lại"
-      />
+      <>
+        <ErrorState
+          title="Lỗi tạo bài giảng"
+          description={error}
+          onRetry={handleRetryAfterError}
+          retryLabel="Mở tùy chọn tạo mới"
+        />
+        {regenerateDialog}
+      </>
     );
   }
 
@@ -194,27 +264,15 @@ export function SlideTab({ courseId, documentProcessing = false }: SlideTabProps
         description="Hệ thống sẽ phân tích tài liệu của bạn và tạo bộ slide trình chiếu chuẩn 16:9 (khoảng 15 trang) bám sát nội dung."
         badge=""
       >
-        {generating ? (
-          <div className="w-full max-w-sm space-y-2">
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-              <div
-                className="h-full rounded-full bg-primary transition-all"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-            <Button disabled size="lg" className="w-full gap-2 font-semibold">
-              <RefreshCw className="h-5 w-5 animate-spin" /> Đang tạo slide ({progress}%)…
-            </Button>
-          </div>
-        ) : documentProcessing ? (
-          <div className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-border/60 px-4 py-3 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" /> Tài liệu đang được xử lý, vui lòng đợi...
-          </div>
-        ) : (
-          <Button onClick={handleGenerate} size="lg" className="gap-2 font-semibold">
-            <Sparkles className="h-5 w-5" /> Tạo slide bài giảng
-          </Button>
-        )}
+        <SlideOptionsPanel
+          value={optionValue}
+          onChange={updateOptions}
+          onSubmit={handleGenerate}
+          busy={generating}
+          progress={progress}
+          submitLabel="Tạo slide bài giảng"
+          documentProcessing={documentProcessing}
+        />
       </EmptyState>
     );
   }
@@ -301,7 +359,7 @@ export function SlideTab({ courseId, documentProcessing = false }: SlideTabProps
             {downloadMenuOpen && (
               <div className="absolute right-0 top-full mt-1.5 w-40 rounded-xl border bg-card p-1 shadow-[var(--shadow-md)] z-10 animate-in fade-in-50">
                 <a
-                  href={getDownloadSlideUrl(courseId)}
+                  href={getDownloadSlideUrl(courseId, viewedVersion)}
                   target="_blank"
                   rel="noopener noreferrer"
                   download
@@ -311,7 +369,7 @@ export function SlideTab({ courseId, documentProcessing = false }: SlideTabProps
                   <Download className="h-3.5 w-3.5" /> PPTX
                 </a>
                 <a
-                  href={getDownloadSlidePdfUrl(courseId)}
+                  href={getDownloadSlidePdfUrl(courseId, viewedVersion)}
                   target="_blank"
                   rel="noopener noreferrer"
                   download
@@ -331,18 +389,21 @@ export function SlideTab({ courseId, documentProcessing = false }: SlideTabProps
 
           {generating ? (
             <Button disabled variant="outline" className="gap-1.5">
-              <RefreshCw className="h-4 w-4 animate-spin" /> Đang tạo lại ({progress}%)…
+              <RefreshCw className="h-4 w-4 animate-spin" /> Đang tạo ({progress}%)…
             </Button>
           ) : (
-            <RegenerateButton
+            <CreateVersionButton
               label="bộ slide"
-              regenUsed={regenUsed}
-              regenMax={regenMax}
-              onConfirm={handleRegenerate}
+              onOpen={() => {
+                setRegenError(null);
+                setRegenDialogOpen(true);
+              }}
             />
           )}
         </div>
       </div>
+
+      <VersionSwitcher versions={versions} activeVersion={activeVersion} viewedVersion={viewedVersion} onSwitch={switchVersion} onCreate={() => setRegenDialogOpen(true)} onRename={handleRenameVersion} onDelete={handleDeleteVersion} />
 
       {regenError && (
         <div className="flex items-center justify-between gap-3 rounded-xl border border-error/40 bg-error/5 px-4 py-3 text-sm text-error">
@@ -352,6 +413,8 @@ export function SlideTab({ courseId, documentProcessing = false }: SlideTabProps
           </button>
         </div>
       )}
+
+      {regenerateDialog}
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Left Sidebar: Thumbnails List */}

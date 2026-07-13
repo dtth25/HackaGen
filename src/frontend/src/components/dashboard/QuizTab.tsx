@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { toast } from "sonner";
 import { usePollingArtifact } from "@/hooks/usePollingArtifact";
 import {
   HelpCircle,
@@ -15,17 +16,26 @@ import {
   RotateCcw,
   ListChecks,
   Lightbulb,
-  Loader2,
 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Markdown } from "@/components/ui/markdown";
 import { cn } from "@/lib/utils";
-import { RegenerateButton } from "@/components/dashboard/RegenerateButton";
-import { apiGetQuiz, apiGenerateQuiz, getDownloadQuizKeyUrl } from "@/lib/api";
+import { QuizOptionsPanel } from "@/components/dashboard/QuizOptionsPanel";
+import { CreateVersionButton } from "@/components/dashboard/CreateVersionButton";
+import { VersionSwitcher } from "@/components/dashboard/VersionSwitcher";
+import { ApiRequestError, apiDeleteArtifactVersion, apiGetQuiz, apiGenerateQuiz, apiRenameArtifactVersion, getDownloadQuizKeyUrl } from "@/lib/api";
 import type { QuizQuestion } from "@/lib/types";
 
 interface QuizTabProps {
@@ -34,15 +44,6 @@ interface QuizTabProps {
    * would hit the backend's "still processing" guard, so the button is disabled instead. */
   documentProcessing?: boolean;
 }
-
-// --- Config options for the generation picker ---
-const QUANTITY_OPTIONS = [5, 10, 15];
-const DIFFICULTY_OPTIONS: { value: string; label: string }[] = [
-  { value: "easy", label: "Dễ" },
-  { value: "medium", label: "Vừa" },
-  { value: "hard", label: "Khó" },
-  { value: "mixed", label: "Trộn" },
-];
 
 // --- Normalizers: quiz payload can vary in shape, keep the UI defensive ---
 interface NormalizedOption {
@@ -88,6 +89,7 @@ export function QuizTab({ courseId, documentProcessing = false }: QuizTabProps) 
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [showResults, setShowResults] = useState(false);
   const [regenError, setRegenError] = useState<string | null>(null);
+  const [regenDialogOpen, setRegenDialogOpen] = useState(false);
 
   const resetTaking = useCallback(() => {
     setCurrentIndex(0);
@@ -105,11 +107,12 @@ export function QuizTab({ courseId, documentProcessing = false }: QuizTabProps) 
     setGenerating,
     progress,
     setProgress,
-    regenUsed,
-    setRegenUsed,
-    regenMax,
-    setRegenMax,
     startPolling,
+    versions,
+    activeVersion,
+    viewedVersion,
+    switchVersion,
+    refresh,
   } = usePollingArtifact<QuizQuestion[]>({
     courseId,
     fetchFn: apiGetQuiz,
@@ -127,8 +130,8 @@ export function QuizTab({ courseId, documentProcessing = false }: QuizTabProps) 
     setError(null);
     setProgress(5);
     try {
-      await apiGenerateQuiz(courseId, { quantity, difficulty });
-      startPolling(Date.now());
+      const res = await apiGenerateQuiz(courseId, { quantity, difficulty });
+      startPolling(Date.now(), res.version_id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Bắt đầu tạo trắc nghiệm thất bại.");
       setGenerating(false);
@@ -136,30 +139,77 @@ export function QuizTab({ courseId, documentProcessing = false }: QuizTabProps) 
   };
 
   // The backend persists a hard "error" status from the last generation attempt, so a plain
-  // refetch would just surface the same error forever — retrying must kick off a new job.
+  // refetch would just surface the same error forever — retry opens the picker before a new job.
   const handleRetryAfterError = () => {
-    setError(null);
-    handleGenerate();
+    setRegenDialogOpen(true);
   };
 
   // Regenerating from the ready view keeps the current questions visible
   // (stale-while-revalidate) instead of bouncing to the full-page ErrorState/EmptyState —
   // a 429 (regen limit reached) surfaces as a small inline banner instead of blowing away
   // otherwise-valid content. Reuses the currently configured quantity/difficulty.
-  const handleRegenerate = async () => {
+  const handleCreateVersion = async (retry = false) => {
     setRegenError(null);
     setGenerating(true);
     setProgress(5);
     try {
-      const res = await apiGenerateQuiz(courseId, { quantity, difficulty });
-      if (typeof res.regen_used === "number") setRegenUsed(res.regen_used);
-      if (typeof res.regen_max === "number") setRegenMax(res.regen_max);
-      startPolling(Date.now());
+      const res = await apiGenerateQuiz(courseId, { quantity, difficulty, ...(retry && viewedVersion ? { retry_version_id: viewedVersion } : {}) });
+      startPolling(Date.now(), res.version_id);
     } catch (err) {
-      setRegenError(err instanceof Error ? err.message : "Tạo lại thất bại.");
+      if (err instanceof ApiRequestError && err.status === 409 && (err.detail as { code?: string })?.code === "version_cap_reached") {
+        toast.error("Tối đa 3 phiên bản. Hãy xóa một phiên bản để tạo bản mới.");
+        setGenerating(false);
+        return;
+      }
+      setRegenError(err instanceof Error ? err.message : "Tạo phiên bản mới thất bại.");
       setGenerating(false);
     }
   };
+
+  const optionValue = { quantity, difficulty };
+  const handleRenameVersion = async (versionId: string, label: string) => {
+    try { await apiRenameArtifactVersion(courseId, "quiz", versionId, label); refresh(); }
+    catch (err) { setRegenError(err instanceof Error ? err.message : "Không thể đổi tên phiên bản."); }
+  };
+  const handleDeleteVersion = async (versionId: string) => {
+    if (!window.confirm("Xóa phiên bản này? Thao tác không thể hoàn tác.")) return;
+    try { await apiDeleteArtifactVersion(courseId, "quiz", versionId); refresh(); }
+    catch (err) { setRegenError(err instanceof Error ? err.message : "Không thể xóa phiên bản."); }
+  };
+  const updateOptions = (value: typeof optionValue) => {
+    setQuantity(value.quantity);
+    setDifficulty(value.difficulty);
+  };
+  const submitRegenerateFromDialog = () => {
+    setRegenDialogOpen(false);
+    void handleCreateVersion(Boolean(error));
+  };
+  const regenerateDialog = (
+    <Dialog open={regenDialogOpen} onOpenChange={setRegenDialogOpen}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Tạo phiên bản câu hỏi mới</DialogTitle>
+          <DialogDescription>
+            Chọn cấu hình mới rồi xác nhận để bắt đầu tạo. Nội dung hiện tại vẫn được giữ cho đến khi bản mới sẵn sàng.
+          </DialogDescription>
+        </DialogHeader>
+        <QuizOptionsPanel
+          value={optionValue}
+          onChange={updateOptions}
+          onSubmit={submitRegenerateFromDialog}
+          busy={generating}
+          progress={progress}
+          submitLabel="Tạo phiên bản mới"
+          documentProcessing={documentProcessing}
+        />
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => setRegenDialogOpen(false)}>
+            Hủy
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 
   const total = questions?.length ?? 0;
   const currentQuestion = questions?.[currentIndex];
@@ -219,12 +269,15 @@ export function QuizTab({ courseId, documentProcessing = false }: QuizTabProps) 
   // ---------- Error ----------
   if (error) {
     return (
-      <ErrorState
-        title="Lỗi tạo bộ câu hỏi"
-        description={error}
-        onRetry={handleRetryAfterError}
-        retryLabel="Thử tạo lại"
-      />
+      <>
+        <ErrorState
+          title="Lỗi tạo bộ câu hỏi"
+          description={error}
+          onRetry={handleRetryAfterError}
+          retryLabel="Mở tùy chọn tạo mới"
+        />
+        {regenerateDialog}
+      </>
     );
   }
 
@@ -237,79 +290,15 @@ export function QuizTab({ courseId, documentProcessing = false }: QuizTabProps) 
         description="Hệ thống sẽ phân tích tài liệu của bạn và tạo bộ câu hỏi trắc nghiệm bám sát nội dung để ôn luyện."
         badge=""
       >
-        <div className="w-full max-w-md space-y-5 rounded-2xl border bg-card/40 p-5 text-left shadow-[var(--shadow-xs)]">
-          <div className="space-y-2">
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Số câu hỏi
-            </span>
-            <div className="grid grid-cols-3 gap-2">
-              {QUANTITY_OPTIONS.map((n) => (
-                <button
-                  key={n}
-                  onClick={() => setQuantity(n)}
-                  disabled={generating}
-                  className={cn(
-                    "rounded-lg border py-2 text-sm font-semibold transition-colors",
-                    quantity === n
-                      ? "border-primary bg-primary/10 text-primary shadow-[var(--shadow-xs)]"
-                      : "border-border/60 text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                  )}
-                >
-                  {n} câu
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Độ khó
-            </span>
-            <div className="grid grid-cols-4 gap-2">
-              {DIFFICULTY_OPTIONS.map((d) => (
-                <button
-                  key={d.value}
-                  onClick={() => setDifficulty(d.value)}
-                  disabled={generating}
-                  className={cn(
-                    "rounded-lg border py-2 text-sm font-semibold transition-colors",
-                    difficulty === d.value
-                      ? "border-primary bg-primary/10 text-primary shadow-[var(--shadow-xs)]"
-                      : "border-border/60 text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                  )}
-                >
-                  {d.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {generating ? (
-            <div className="space-y-2">
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                <div
-                  className="h-full rounded-full bg-primary transition-all"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-              <Button disabled size="lg" className="w-full gap-2 font-semibold">
-                <RefreshCw className="h-5 w-5 animate-spin" /> Đang tạo trắc nghiệm ({progress}%)…
-              </Button>
-            </div>
-          ) : documentProcessing ? (
-            <div className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-border/60 py-3 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" /> Tài liệu đang được xử lý, vui lòng đợi...
-            </div>
-          ) : (
-            <Button
-              onClick={handleGenerate}
-              size="lg"
-              className="w-full gap-2 font-semibold"
-            >
-              <Sparkles className="h-5 w-5" /> Tạo trắc nghiệm
-            </Button>
-          )}
-        </div>
+        <QuizOptionsPanel
+          value={optionValue}
+          onChange={updateOptions}
+          onSubmit={handleGenerate}
+          busy={generating}
+          progress={progress}
+          submitLabel="Tạo trắc nghiệm"
+          documentProcessing={documentProcessing}
+        />
       </EmptyState>
     );
   }
@@ -366,7 +355,7 @@ export function QuizTab({ courseId, documentProcessing = false }: QuizTabProps) 
               <Sparkles className="h-4 w-4" /> Tạo bộ mới
             </Button>
             <a
-              href={getDownloadQuizKeyUrl(courseId)}
+              href={getDownloadQuizKeyUrl(courseId, viewedVersion)}
               target="_blank"
               rel="noopener noreferrer"
               download
@@ -457,7 +446,7 @@ export function QuizTab({ courseId, documentProcessing = false }: QuizTabProps) 
 
         <div className="flex flex-wrap items-center gap-2 shrink-0">
           <a
-            href={getDownloadQuizKeyUrl(courseId)}
+            href={getDownloadQuizKeyUrl(courseId, viewedVersion)}
             target="_blank"
             rel="noopener noreferrer"
             download
@@ -475,15 +464,18 @@ export function QuizTab({ courseId, documentProcessing = false }: QuizTabProps) 
               <RefreshCw className="h-4 w-4 animate-spin" /> Đang tạo lại ({progress}%)…
             </Button>
           ) : (
-            <RegenerateButton
+            <CreateVersionButton
               label="bộ câu hỏi"
-              regenUsed={regenUsed}
-              regenMax={regenMax}
-              onConfirm={handleRegenerate}
+              onOpen={() => {
+                setRegenError(null);
+                setRegenDialogOpen(true);
+              }}
             />
           )}
         </div>
       </div>
+
+      <VersionSwitcher versions={versions} activeVersion={activeVersion} viewedVersion={viewedVersion} onSwitch={switchVersion} onCreate={() => setRegenDialogOpen(true)} onRename={handleRenameVersion} onDelete={handleDeleteVersion} />
 
       {regenError && (
         <div className="flex items-center justify-between gap-3 rounded-xl border border-error/40 bg-error/5 px-4 py-3 text-sm text-error">
@@ -493,6 +485,8 @@ export function QuizTab({ courseId, documentProcessing = false }: QuizTabProps) 
           </button>
         </div>
       )}
+
+      {regenerateDialog}
 
       {/* Progress bar */}
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">

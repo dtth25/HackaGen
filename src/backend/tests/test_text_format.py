@@ -39,7 +39,7 @@ def test_bold_and_italic_markdown_stripped():
 
 
 def test_commonmark_flanking_rule_preserves_multiplication():
-    # Real Gemini output observed in production: spaced "*" is multiplication, not markdown
+    # Real model output observed in production: spaced "*" is multiplication, not markdown
     # emphasis, and must survive untouched (CommonMark flanking rule: no whitespace touching
     # the delimiters counts as emphasis).
     text = "w * cnt(u) * (K - cnt(u))"
