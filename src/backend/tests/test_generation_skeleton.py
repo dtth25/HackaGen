@@ -87,6 +87,7 @@ def test_artifact_retrieval_null_and_empty(client):
     empty_envelope = {
         "status": "empty", "error": None, "progress": None, "data": None,
         "regen_used": 0, "regen_max": MAX_REGENERATIONS,
+        "version_id": None, "active_version": None, "versions": [],
     }
 
     # book -> status envelope with empty status and null data

@@ -30,6 +30,16 @@ from app.services.llm import LLMService
 from app.services.pdf_book import build_book_pdf
 from app.services.text_format import clean_text
 from app.services.vector_store import Document, VectorStore
+from app.services.versioning import (
+    AtomicArtifactDirectory,
+    GenerationInFlightError,
+    VERSION_CAPS,
+    VersionCapReachedError,
+    artifact_directory_path,
+    migrate_legacy_artifact_metadata,
+    version_label,
+    version_slug,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +100,7 @@ class Generator:
         # Per-feature LLM instances (book/slides/quiz/vid), each optionally configured with
         # its own Gemini API key. Falls back to `self.llm` for any feature not provided.
         self.feature_llms = feature_llms or {}
+        self._generation_versions: Dict[tuple[str, str], str] = {}
 
     def _llm_for(self, feature: str) -> LLMService:
         return self.feature_llms.get(feature, self.llm)
@@ -201,9 +212,22 @@ class Generator:
         os.makedirs(dir_path, exist_ok=True)
         return dir_path
 
-    def _save_artifact_json(self, course_id: str, filename: str, data: Any) -> str:
+    def _start_version_write(self, course_id: str, artifact: str, version_id: Optional[str]):
+        if not version_id:
+            return None, None
+        self._generation_versions[(course_id, artifact)] = version_id
+        transaction = AtomicArtifactDirectory(
+            artifact_directory_path(settings.UPLOAD_DIR, course_id, artifact, version_id)
+        )
+        return transaction, transaction.prepare()
+
+    def _finish_version_write(self, transaction, success: bool) -> None:
+        if transaction:
+            transaction.commit() if success else transaction.abort()
+
+    def _save_artifact_json(self, course_id: str, filename: str, data: Any, artifact_dir: Optional[str] = None) -> str:
         """Save generated Pydantic model or dict as JSON file."""
-        dir_path = self._get_artifact_dir(course_id)
+        dir_path = artifact_dir or self._get_artifact_dir(course_id)
         file_path = os.path.join(dir_path, filename)
         try:
             if hasattr(data, "model_dump"):
@@ -220,9 +244,9 @@ class Generator:
             logger.error(f"Error saving artifact JSON {filename}: {e}")
             raise
 
-    def _load_artifact_json(self, course_id: str, filename: str) -> Optional[Dict[str, Any]]:
+    def _load_artifact_json(self, course_id: str, filename: str, artifact_dir: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """Load artifact JSON from disk if exists."""
-        file_path = os.path.join(self._get_artifact_dir(course_id), filename)
+        file_path = os.path.join(artifact_dir or self._get_artifact_dir(course_id), filename)
         if not os.path.exists(file_path):
             return None
         try:
@@ -232,19 +256,19 @@ class Generator:
             logger.error(f"Error loading artifact JSON {filename}: {e}")
             return None
 
-    def _generate_pdf_book(self, course_id: str, book_data: BookOutput) -> str:
+    def _generate_pdf_book(self, course_id: str, book_data: BookOutput, artifact_dir: Optional[str] = None) -> str:
         """Generate the Study Guide PDF (cover, preface, page-numbered TOC, chapters).
 
         Raises on failure — callers must treat that as a hard generation error, not write a
         placeholder file in its place.
         """
-        file_path = os.path.join(self._get_artifact_dir(course_id), "book.pdf")
+        file_path = os.path.join(artifact_dir or self._get_artifact_dir(course_id), "book.pdf")
         build_book_pdf(file_path, book_data)
         return file_path
 
-    def _generate_pdf_slides(self, course_id: str, slides_data: SlidesOutput) -> str:
+    def _generate_pdf_slides(self, course_id: str, slides_data: SlidesOutput, artifact_dir: Optional[str] = None) -> str:
         """Generate a 16:9 Widescreen PDF presentation using ReportLab."""
-        file_path = os.path.join(self._get_artifact_dir(course_id), "slide.pdf")
+        file_path = os.path.join(artifact_dir or self._get_artifact_dir(course_id), "slide.pdf")
         try:
             from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
             from reportlab.lib import colors
@@ -388,10 +412,10 @@ class Generator:
                 f.write(f"PDF Slides Placeholder for {slides_data.title}")
             return file_path
 
-    def _convert_pdf_to_images(self, pdf_path: str, course_id: str) -> list[str]:
+    def _convert_pdf_to_images(self, pdf_path: str, course_id: str, artifact_dir: Optional[str] = None) -> list[str]:
         """Convert a PDF file into PNG slide images using PyMuPDF (fitz)."""
         import fitz
-        artifact_dir = self._get_artifact_dir(course_id)
+        artifact_dir = artifact_dir or self._get_artifact_dir(course_id)
         image_paths = []
         try:
             doc = fitz.open(pdf_path)
@@ -407,15 +431,16 @@ class Generator:
             logger.error(f"Failed to convert PDF to images: {e}", exc_info=True)
             return []
 
-    def _generate_pptx_slides(self, course_id: str, slides_data: SlidesOutput) -> str:
+    def _generate_pptx_slides(self, course_id: str, slides_data: SlidesOutput, artifact_dir: Optional[str] = None) -> str:
         """Generate PowerPoint presentation by inserting ReportLab slide PNGs full screen."""
-        file_path = os.path.join(self._get_artifact_dir(course_id), "slide.pptx")
+        artifact_dir = artifact_dir or self._get_artifact_dir(course_id)
+        file_path = os.path.join(artifact_dir, "slide.pptx")
         try:
             from pptx import Presentation
             from pptx.util import Inches
 
-            pdf_path = self._generate_pdf_slides(course_id, slides_data)
-            image_paths = self._convert_pdf_to_images(pdf_path, course_id)
+            pdf_path = self._generate_pdf_slides(course_id, slides_data, artifact_dir)
+            image_paths = self._convert_pdf_to_images(pdf_path, course_id, artifact_dir)
 
             prs = Presentation()
             prs.slide_width = Inches(13.333)
@@ -436,9 +461,9 @@ class Generator:
                 f.write(f"PPTX Placeholder for {slides_data.title}")
             return file_path
 
-    def _generate_pdf_quiz_key(self, course_id: str, quiz_data: QuizOutput) -> str:
+    def _generate_pdf_quiz_key(self, course_id: str, quiz_data: QuizOutput, artifact_dir: Optional[str] = None) -> str:
         """Generate Quiz PDF in two sections: Student Quiz Sheet and Answer Key & Explanations."""
-        file_path = os.path.join(self._get_artifact_dir(course_id), "quiz-key.pdf")
+        file_path = os.path.join(artifact_dir or self._get_artifact_dir(course_id), "quiz-key.pdf")
         try:
             from reportlab.lib.pagesizes import A4
             from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
@@ -489,18 +514,19 @@ class Generator:
             return file_path
 
     def _generate_video_mp4(
-        self, course_id: str, vid_data: VidOutput, fmt: str, voice: str, progress_cb=None
+        self, course_id: str, vid_data: VidOutput, fmt: str, voice: str, progress_cb=None, artifact_dir: Optional[str] = None
     ) -> str:
         """Render the narrated MP4 (TTS + still frames + ffmpeg concat) plus transcript.txt /
         vid.srt. Raises on failure — callers must treat that as a hard generation error, not
         write a placeholder file in its place (matches the strict invariant used by Book's PDF)."""
         from app.services.video_render import assemble_video
 
-        artifact_dir = self._get_artifact_dir(course_id)
+        artifact_dir = artifact_dir or self._get_artifact_dir(course_id)
         return assemble_video(vid_data, fmt, voice, artifact_dir, progress_cb=progress_cb)
 
     def _update_course_metadata(self, course_id: str, artifact_type: str, score: int, db_session_factory=None):
         """Update course metadata_json and readiness flags in database."""
+        version_id = self._generation_versions.get((course_id, artifact_type))
         db = self._get_db(db_session_factory)
         try:
             course = db.query(Course).filter(Course.id == course_id).first()
@@ -514,6 +540,17 @@ class Generator:
                 except Exception:
                     meta = {}
             study_pack = meta.get("study_pack", {})
+            if version_id:
+                artifacts = dict(study_pack.get("artifacts", {}))
+                entry = dict(artifacts.get(artifact_type, {}))
+                versions = dict(entry.get("versions", {}))
+                if version_id in versions:
+                    version = dict(versions[version_id])
+                    version["quality_score"] = score
+                    versions[version_id] = version
+                    entry["versions"] = versions
+                    artifacts[artifact_type] = entry
+                    study_pack["artifacts"] = artifacts
             readiness = study_pack.get("readiness", {})
             quality_scores = study_pack.get("quality_scores", {})
             grounding = study_pack.get("grounding", {"num_chunks": course.chunk_count, "quality_score": 0, "warnings": []})
@@ -551,6 +588,92 @@ class Generator:
         finally:
             db.close()
 
+    @staticmethod
+    def _metadata_dict(course: Course) -> Dict[str, Any]:
+        raw = course.metadata_json or "{}"
+        if isinstance(raw, str):
+            try:
+                raw = json.loads(raw)
+            except Exception:
+                raw = {}
+        return raw if isinstance(raw, dict) else {}
+
+    def prepare_artifact_version(
+        self, course_id: str, artifact: str, options: Dict[str, Any], topic: Optional[str] = None,
+        user_prompt: str = "", replace_version_id: Optional[str] = None, reserve: bool = True, db_session_factory=None,
+    ) -> str:
+        """Reserve a version slot and enforce per-artifact concurrency/caps."""
+        db = self._get_db(db_session_factory)
+        try:
+            course = db.query(Course).filter(Course.id == course_id).first()
+            if not course:
+                raise ValueError("Course not found")
+            meta, _ = migrate_legacy_artifact_metadata(self._metadata_dict(course))
+            study_pack = dict(meta.get("study_pack", {}))
+            artifacts = dict(study_pack.get("artifacts", {}))
+            entry = dict(artifacts.get(artifact, {}))
+            versions = dict(entry.get("versions", {}))
+            now = datetime.utcnow().isoformat()
+            stale_minutes = {"book": 10, "vid": 20, "slides": 8, "quiz": 8}[artifact]
+            for value in versions.values():
+                if not isinstance(value, dict) or value.get("status") != "processing":
+                    continue
+                try:
+                    age = datetime.utcnow() - datetime.fromisoformat(value.get("updated_at", ""))
+                except (TypeError, ValueError):
+                    age = None
+                if age is None or age.total_seconds() <= stale_minutes * 60:
+                    raise GenerationInFlightError()
+                value.update({"status": "error", "error": "Tác vụ tạo đã hết thời gian chờ.", "finished_at": now, "updated_at": now})
+
+            version_id = version_slug(artifact, options)
+            is_new = version_id not in versions
+            if is_new and len(versions) >= VERSION_CAPS[artifact] and not replace_version_id:
+                raise VersionCapReachedError(self._version_summaries(versions))
+            if replace_version_id and replace_version_id not in versions:
+                raise ValueError("Version selected for replacement does not exist")
+            current = dict(versions.get(version_id, {}))
+            current.update({
+                "options": dict(options), "label": version_label(artifact, options), "topic": topic,
+                "user_prompt": user_prompt, "path": version_id, "status": "processing", "error": None,
+                "progress": 0, "created_at": current.get("created_at", now), "started_at": now, "updated_at": now,
+            })
+            if is_new and replace_version_id:
+                current["replace_version_id"] = replace_version_id
+            versions[version_id] = current
+            artifacts[artifact] = {"active": entry.get("active"), "versions": versions}
+            study_pack["artifacts"] = artifacts
+            meta["study_pack"] = study_pack
+            if reserve:
+                course.metadata_json = json.dumps(meta, ensure_ascii=False)
+                db.commit()
+            return version_id
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.close()
+
+    @staticmethod
+    def _version_summaries(versions: Dict[str, Any]) -> list[Dict[str, Any]]:
+        return [
+            {"version_id": key, "label": value.get("label", key), "options": value.get("options", {}),
+             "status": value.get("status", "empty"), "created_at": value.get("created_at")}
+            for key, value in versions.items() if isinstance(value, dict)
+        ]
+
+    def artifact_versions(self, course_id: str, artifact: str, db_session_factory=None) -> tuple[Optional[str], list[Dict[str, Any]]]:
+        db = self._get_db(db_session_factory)
+        try:
+            course = db.query(Course).filter(Course.id == course_id).first()
+            if not course:
+                return None, []
+            meta, _ = migrate_legacy_artifact_metadata(self._metadata_dict(course))
+            entry = meta.get("study_pack", {}).get("artifacts", {}).get(artifact, {})
+            return entry.get("active"), self._version_summaries(entry.get("versions", {}))
+        finally:
+            db.close()
+
     def _set_artifact_status(
         self,
         course_id: str,
@@ -558,61 +681,72 @@ class Generator:
         status: str,
         error: Optional[str] = None,
         progress: Optional[int] = None,
+        version_id: Optional[str] = None,
         db_session_factory=None,
     ):
         """Persist per-artifact generation status (processing/ready/error) into Course.metadata_json."""
+        version_id = version_id or self._generation_versions.get((course_id, artifact))
         db = self._get_db(db_session_factory)
         try:
             course = db.query(Course).filter(Course.id == course_id).first()
             if not course:
                 return
 
-            meta = course.metadata_json or "{}"
-            if isinstance(meta, str):
-                try:
-                    meta = json.loads(meta)
-                except Exception:
-                    meta = {}
-            study_pack = meta.get("study_pack", {})
-            artifacts = study_pack.get("artifacts", {})
-            entry = artifacts.get(artifact, {})
+            meta, _ = migrate_legacy_artifact_metadata(self._metadata_dict(course))
+            study_pack = dict(meta.get("study_pack", {}))
+            artifacts = dict(study_pack.get("artifacts", {}))
+            entry = dict(artifacts.get(artifact, {}))
+            if not version_id and entry.get("active") and isinstance(entry.get("versions"), dict):
+                version_id = entry["active"]
+            versions = dict(entry.get("versions", {})) if version_id else {}
+            current = dict(versions.get(version_id, {})) if version_id else entry
 
             now = datetime.utcnow().isoformat()
-            entry["status"] = status
-            entry["error"] = error
+            current["status"] = status
+            current["error"] = error
             if progress is not None:
-                entry["progress"] = progress
-            if status == "processing" and "started_at" not in entry:
-                entry["started_at"] = now
+                current["progress"] = progress
+            if status == "processing" and "started_at" not in current:
+                current["started_at"] = now
             if status in ("ready", "error"):
-                entry["finished_at"] = now
-            entry["updated_at"] = now
+                current["finished_at"] = now
+            current["updated_at"] = now
+            if version_id:
+                versions[version_id] = current
+                if status == "ready":
+                    victim = current.pop("replace_version_id", None)
+                    if victim and victim != version_id:
+                        versions.pop(victim, None)
+                    entry["active"] = version_id
+                entry["versions"] = versions
+            else:
+                entry = current
 
             artifacts[artifact] = entry
             study_pack["artifacts"] = artifacts
             meta["study_pack"] = study_pack
             course.metadata_json = json.dumps(meta, ensure_ascii=False)
             db.commit()
+            if version_id and status in ("ready", "error"):
+                self._generation_versions.pop((course_id, artifact), None)
         except Exception as e:
             db.rollback()
             logger.error(f"Error setting artifact status for {artifact}: {e}")
         finally:
             db.close()
 
-    def get_artifact_status(self, course_id: str, artifact: str, db_session_factory=None) -> Dict[str, Any]:
+    def get_artifact_status(self, course_id: str, artifact: str, version_id: Optional[str] = None, db_session_factory=None) -> Dict[str, Any]:
         """Read per-artifact generation status from Course.metadata_json."""
         db = self._get_db(db_session_factory)
         try:
             course = db.query(Course).filter(Course.id == course_id).first()
             if not course:
                 return {}
-            meta = course.metadata_json or "{}"
-            if isinstance(meta, str):
-                try:
-                    meta = json.loads(meta)
-                except Exception:
-                    meta = {}
-            return meta.get("study_pack", {}).get("artifacts", {}).get(artifact, {})
+            meta, _ = migrate_legacy_artifact_metadata(self._metadata_dict(course))
+            entry = meta.get("study_pack", {}).get("artifacts", {}).get(artifact, {})
+            if not isinstance(entry, dict) or "versions" not in entry:
+                return entry if isinstance(entry, dict) else {}
+            return dict(entry.get("versions", {}).get(version_id or entry.get("active"), {}))
         finally:
             db.close()
 
@@ -658,7 +792,12 @@ class Generator:
                     meta = {}
             study_pack = meta.get("study_pack", {})
             artifacts = study_pack.get("artifacts", {})
-            prior_status = artifacts.get(artifact, {}).get("status")
+            artifact_entry = artifacts.get(artifact, {})
+            if isinstance(artifact_entry, dict) and "versions" in artifact_entry:
+                active = artifact_entry.get("active")
+                prior_status = artifact_entry.get("versions", {}).get(active, {}).get("status")
+            else:
+                prior_status = artifact_entry.get("status")
 
             if prior_status not in ("ready", "error"):
                 # First-ever attempt for this artifact: not a regen, never blocked/counted.
@@ -739,6 +878,7 @@ class Generator:
         partial/placeholder artifact.
         """
         logger.info(f"Starting Book generation for course {course_id}")
+        transaction, artifact_dir = self._start_version_write(course_id, "book", kwargs.get("version_id"))
         try:
             self._set_artifact_status(course_id, "book", "processing", progress=5, db_session_factory=db_session_factory)
             self._require_course_not_processing(course_id, db_session_factory)
@@ -788,12 +928,14 @@ class Generator:
             if warnings:
                 logger.warning(f"Book generation warnings for {course_id}: {warnings}")
 
-            self._save_artifact_json(course_id, "book.json", validated_output)
-            self._generate_pdf_book(course_id, validated_output)
+            self._save_artifact_json(course_id, "book.json", validated_output, artifact_dir)
+            self._generate_pdf_book(course_id, validated_output, artifact_dir)
+            self._finish_version_write(transaction, True)
             self._update_course_metadata(course_id, "book", score, db_session_factory)
             self._set_artifact_status(course_id, "book", "ready", progress=100, db_session_factory=db_session_factory)
             return validated_output
         except Exception as e:
+            self._finish_version_write(transaction, False)
             logger.error(f"Book generation failed for course {course_id}: {e}", exc_info=True)
             self._set_artifact_status(
                 course_id, "book", "error", error=str(e)[:500], db_session_factory=db_session_factory
@@ -807,6 +949,7 @@ class Generator:
         letting a background-task exception vanish silently.
         """
         logger.info(f"Starting Slides generation for course {course_id}")
+        transaction, artifact_dir = self._start_version_write(course_id, "slides", kwargs.get("version_id"))
         try:
             self._set_artifact_status(course_id, "slides", "processing", progress=10, db_session_factory=db_session_factory)
             self._require_course_not_processing(course_id, db_session_factory)
@@ -822,12 +965,14 @@ class Generator:
             validated_output = _clean_slides_output(validated_output)
 
             self._set_artifact_status(course_id, "slides", "processing", progress=70, db_session_factory=db_session_factory)
-            self._save_artifact_json(course_id, "slides.json", validated_output)
-            self._generate_pptx_slides(course_id, validated_output)
+            self._save_artifact_json(course_id, "slides.json", validated_output, artifact_dir)
+            self._generate_pptx_slides(course_id, validated_output, artifact_dir)
+            self._finish_version_write(transaction, True)
             self._update_course_metadata(course_id, "slides", score, db_session_factory)
             self._set_artifact_status(course_id, "slides", "ready", progress=100, db_session_factory=db_session_factory)
             return validated_output
         except Exception as e:
+            self._finish_version_write(transaction, False)
             logger.error(f"Slides generation failed for course {course_id}: {e}", exc_info=True)
             self._set_artifact_status(
                 course_id, "slides", "error", error=str(e)[:500], db_session_factory=db_session_factory
@@ -841,6 +986,7 @@ class Generator:
         letting a background-task exception vanish silently.
         """
         logger.info(f"Starting Quiz generation for course {course_id} (quantity={quantity}, difficulty={difficulty})")
+        transaction, artifact_dir = self._start_version_write(course_id, "quiz", kwargs.get("version_id"))
         try:
             self._set_artifact_status(course_id, "quiz", "processing", progress=10, db_session_factory=db_session_factory)
             self._require_course_not_processing(course_id, db_session_factory)
@@ -855,12 +1001,14 @@ class Generator:
                 logger.warning(f"Quiz generation warnings for {course_id}: {warnings}")
 
             self._set_artifact_status(course_id, "quiz", "processing", progress=70, db_session_factory=db_session_factory)
-            self._save_artifact_json(course_id, "quiz.json", validated_output)
-            self._generate_pdf_quiz_key(course_id, validated_output)
+            self._save_artifact_json(course_id, "quiz.json", validated_output, artifact_dir)
+            self._generate_pdf_quiz_key(course_id, validated_output, artifact_dir)
+            self._finish_version_write(transaction, True)
             self._update_course_metadata(course_id, "quiz", score, db_session_factory)
             self._set_artifact_status(course_id, "quiz", "ready", progress=100, db_session_factory=db_session_factory)
             return validated_output
         except Exception as e:
+            self._finish_version_write(transaction, False)
             logger.error(f"Quiz generation failed for course {course_id}: {e}", exc_info=True)
             self._set_artifact_status(
                 course_id, "quiz", "error", error=str(e)[:500], db_session_factory=db_session_factory
@@ -884,6 +1032,7 @@ class Generator:
         letting a background-task exception vanish silently.
         """
         logger.info(f"Starting Video generation for course {course_id} (format={fmt}, voice={voice})")
+        transaction, artifact_dir = self._start_version_write(course_id, "vid", kwargs.get("version_id"))
         try:
             self._set_artifact_status(course_id, "vid", "processing", progress=10, db_session_factory=db_session_factory)
             self._require_course_not_processing(course_id, db_session_factory)
@@ -908,14 +1057,16 @@ class Generator:
                     db_session_factory=db_session_factory,
                 )
 
-            self._generate_video_mp4(course_id, validated_output, fmt, voice, progress_cb=_progress_cb)
+            self._generate_video_mp4(course_id, validated_output, fmt, voice, progress_cb=_progress_cb, artifact_dir=artifact_dir)
 
             self._set_artifact_status(course_id, "vid", "processing", progress=90, db_session_factory=db_session_factory)
-            self._save_artifact_json(course_id, "vid.json", validated_output)
+            self._save_artifact_json(course_id, "vid.json", validated_output, artifact_dir)
+            self._finish_version_write(transaction, True)
             self._update_course_metadata(course_id, "vid", score, db_session_factory)
             self._set_artifact_status(course_id, "vid", "ready", progress=100, db_session_factory=db_session_factory)
             return validated_output
         except Exception as e:
+            self._finish_version_write(transaction, False)
             logger.error(f"Vid generation failed for course {course_id}: {e}", exc_info=True)
             self._set_artifact_status(
                 course_id, "vid", "error", error=str(e)[:500], db_session_factory=db_session_factory
@@ -940,18 +1091,26 @@ class Generator:
         finally:
             db.close()
 
-        book_json = self._load_artifact_json(course_id, "book.json")
-        slides_json = self._load_artifact_json(course_id, "slides.json")
-        quiz_json = self._load_artifact_json(course_id, "quiz.json")
-        vid_json = self._load_artifact_json(course_id, "vid.json")
+        def active_artifact_dir(artifact: str) -> str:
+            entry = sp_meta.get("artifacts", {}).get(artifact, {})
+            if isinstance(entry, dict) and entry.get("active"):
+                return artifact_directory_path(settings.UPLOAD_DIR, course_id, artifact, entry["active"])
+            return self._get_artifact_dir(course_id)
 
-        art_dir = self._get_artifact_dir(course_id)
+        book_dir = active_artifact_dir("book")
+        slides_dir = active_artifact_dir("slides")
+        quiz_dir = active_artifact_dir("quiz")
+        vid_dir = active_artifact_dir("vid")
+        book_json = self._load_artifact_json(course_id, "book.json", book_dir)
+        slides_json = self._load_artifact_json(course_id, "slides.json", slides_dir)
+        quiz_json = self._load_artifact_json(course_id, "quiz.json", quiz_dir)
+        vid_json = self._load_artifact_json(course_id, "vid.json", vid_dir)
         has_book = book_json is not None
-        has_book_pdf = os.path.exists(os.path.join(art_dir, "book.pdf"))
+        has_book_pdf = os.path.exists(os.path.join(book_dir, "book.pdf"))
         has_slide = slides_json is not None
-        has_slide_pptx = os.path.exists(os.path.join(art_dir, "slide.pptx"))
+        has_slide_pptx = os.path.exists(os.path.join(slides_dir, "slide.pptx"))
         has_quiz = quiz_json is not None
-        has_quiz_key = os.path.exists(os.path.join(art_dir, "quiz-key.pdf"))
+        has_quiz_key = os.path.exists(os.path.join(quiz_dir, "quiz-key.pdf"))
         has_vid = vid_json is not None
 
         readiness_meta = sp_meta.get("readiness", {})

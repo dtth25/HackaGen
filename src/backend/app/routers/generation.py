@@ -22,6 +22,12 @@ from app.schemas.generation import (
 from app.services.generator import MAX_REGENERATIONS, Generator
 from app.services.llm import LLMService
 from app.services.vector_store import get_vector_store
+from app.services.versioning import (
+    GenerationInFlightError,
+    VersionCapReachedError,
+    artifact_file_path,
+    artifact_directory_path,
+)
 
 router = APIRouter(prefix="/api/courses", tags=["generation"])
 router_single = APIRouter(prefix="/api/course", tags=["generation"])
@@ -117,6 +123,36 @@ def regen_fields(generator: Generator, course_id: str, artifact: str) -> Dict[st
     return {"regen_used": used, "regen_max": MAX_REGENERATIONS}
 
 
+def version_fields(generator: Generator, course_id: str, artifact: str, requested: Optional[str]) -> tuple[Optional[str], Optional[str], list[Dict[str, Any]]]:
+    active, versions = generator.artifact_versions(course_id, artifact)
+    fallback = versions[-1]["version_id"] if versions else None
+    return requested or active or fallback, active, versions
+
+
+def versioned_file_path(generator: Generator, course_id: str, artifact: str, filename: str, requested: Optional[str]) -> Optional[str]:
+    active, _ = generator.artifact_versions(course_id, artifact)
+    version_id = requested or active
+    return artifact_file_path(settings.UPLOAD_DIR, course_id, artifact, version_id, filename) if version_id else None
+
+
+def prepare_version_or_raise(generator: Generator, course_id: str, artifact: str, options: Dict[str, Any], **kwargs) -> str:
+    try:
+        return generator.prepare_artifact_version(course_id, artifact, options, **kwargs)
+    except GenerationInFlightError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail={"code": "generation_in_flight"}) from exc
+    except VersionCapReachedError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail={"code": "version_cap_reached", "versions": exc.versions}) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+def reserve_version_and_regen_or_raise(generator: Generator, course_id: str, artifact: str, options: Dict[str, Any], **kwargs) -> tuple[str, int, int]:
+    prepare_version_or_raise(generator, course_id, artifact, options, reserve=False, **kwargs)
+    regen_used, regen_max = check_regen_or_raise(generator, course_id, artifact)
+    version_id = prepare_version_or_raise(generator, course_id, artifact, options, **kwargs)
+    return version_id, regen_used, regen_max
+
+
 # =====================================================================
 # 1. Study Pack Endpoint
 # =====================================================================
@@ -147,6 +183,7 @@ def generate_book(
     course_id: Optional[str] = Query(None),
     user_prompt: Optional[str] = Query(None),
     detail_level: Optional[str] = Query(None),
+    replace_version_id: Optional[str] = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Any:
@@ -155,9 +192,9 @@ def generate_book(
     prompt = (req and req.user_prompt) or user_prompt or ""
     detail = (req and req.detail_level) or detail_level or "Tiêu chuẩn"
     generator = get_generator()
-    regen_used, regen_max = check_regen_or_raise(generator, course.id, "book")
-    background_tasks.add_task(generator.generate_book, course.id, detail_level=detail, user_prompt=prompt)
-    return GenerateResponse(course_id=course.id, regen_used=regen_used, regen_max=regen_max)
+    version_id, regen_used, regen_max = reserve_version_and_regen_or_raise(generator, course.id, "book", {"detail_level": detail}, user_prompt=prompt, replace_version_id=(req and req.replace_version_id) or replace_version_id)
+    background_tasks.add_task(generator.generate_book, course.id, detail_level=detail, user_prompt=prompt, version_id=version_id)
+    return GenerateResponse(course_id=course.id, regen_used=regen_used, regen_max=regen_max, version_id=version_id)
 
 
 @router_generate.post("/generate-slide", response_model=GenerateResponse)
@@ -167,6 +204,7 @@ def generate_slide(
     course_id: Optional[str] = Query(None),
     topic: Optional[str] = Query(None),
     num_slides: Optional[int] = Query(None),
+    replace_version_id: Optional[str] = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Any:
@@ -175,9 +213,9 @@ def generate_slide(
     t = (req and req.topic) or topic
     n = (req and req.num_slides) or num_slides or 15
     generator = get_generator()
-    regen_used, regen_max = check_regen_or_raise(generator, course.id, "slides")
-    background_tasks.add_task(generator.generate_slides, course.id, topic=t, num_slides=n)
-    return GenerateResponse(course_id=course.id, regen_used=regen_used, regen_max=regen_max)
+    version_id, regen_used, regen_max = reserve_version_and_regen_or_raise(generator, course.id, "slides", {}, topic=t, replace_version_id=(req and req.replace_version_id) or replace_version_id)
+    background_tasks.add_task(generator.generate_slides, course.id, topic=t, num_slides=n, version_id=version_id)
+    return GenerateResponse(course_id=course.id, regen_used=regen_used, regen_max=regen_max, version_id=version_id)
 
 
 @router_generate.post("/generate-quiz", response_model=GenerateResponse)
@@ -188,6 +226,7 @@ def generate_quiz(
     topic: Optional[str] = Query(None),
     quantity: Optional[int] = Query(None),
     difficulty: Optional[str] = Query(None),
+    replace_version_id: Optional[str] = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Any:
@@ -197,9 +236,9 @@ def generate_quiz(
     q = (req and req.quantity) or quantity or 5
     d = (req and req.difficulty) or difficulty or "medium"
     generator = get_generator()
-    regen_used, regen_max = check_regen_or_raise(generator, course.id, "quiz")
-    background_tasks.add_task(generator.generate_quiz, course.id, topic=t, quantity=q, difficulty=d)
-    return GenerateResponse(course_id=course.id, regen_used=regen_used, regen_max=regen_max)
+    version_id, regen_used, regen_max = reserve_version_and_regen_or_raise(generator, course.id, "quiz", {"quantity": q, "difficulty": d}, topic=t, replace_version_id=(req and req.replace_version_id) or replace_version_id)
+    background_tasks.add_task(generator.generate_quiz, course.id, topic=t, quantity=q, difficulty=d, version_id=version_id)
+    return GenerateResponse(course_id=course.id, regen_used=regen_used, regen_max=regen_max, version_id=version_id)
 
 
 @router_generate.post("/generate-vid", response_model=GenerateResponse)
@@ -211,6 +250,7 @@ def generate_vid(
     format: Optional[str] = Query(None),
     voice: Optional[str] = Query(None),
     user_prompt: Optional[str] = Query(None),
+    replace_version_id: Optional[str] = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Any:
@@ -221,9 +261,9 @@ def generate_vid(
     v = (req and req.voice) or voice or "female"
     up = (req and req.user_prompt) or user_prompt or ""
     generator = get_generator()
-    regen_used, regen_max = check_regen_or_raise(generator, course.id, "vid")
-    background_tasks.add_task(generator.generate_vid, course.id, topic=t, fmt=fmt, voice=v, user_prompt=up)
-    return GenerateResponse(course_id=course.id, estimated_time="3-5 minutes", regen_used=regen_used, regen_max=regen_max)
+    version_id, regen_used, regen_max = reserve_version_and_regen_or_raise(generator, course.id, "vid", {"format": fmt, "voice": v}, topic=t, user_prompt=up, replace_version_id=(req and req.replace_version_id) or replace_version_id)
+    background_tasks.add_task(generator.generate_vid, course.id, topic=t, fmt=fmt, voice=v, user_prompt=up, version_id=version_id)
+    return GenerateResponse(course_id=course.id, estimated_time="3-5 minutes", regen_used=regen_used, regen_max=regen_max, version_id=version_id)
 
 
 # =====================================================================
@@ -235,6 +275,7 @@ def generate_vid(
 @router.get("/{course_id}/book", response_model=Any)
 def get_book(
     course_id: str,
+    version: Optional[str] = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Any:
@@ -245,8 +286,9 @@ def get_book(
     """
     get_valid_course(course_id, current_user, db)
     generator = get_generator()
-    data = generator._load_artifact_json(course_id, "book.json")
-    info = generator.get_artifact_status(course_id, "book")
+    version_id, active_version, versions = version_fields(generator, course_id, "book", version)
+    data = generator._load_artifact_json(course_id, "book.json", artifact_directory_path(settings.UPLOAD_DIR, course_id, "book", version_id)) if version_id else None
+    info = generator.get_artifact_status(course_id, "book", version_id)
     status_val = info.get("status") or ("ready" if data else "empty")
     if status_val == "ready" and data is None:
         status_val = "empty"
@@ -258,6 +300,9 @@ def get_book(
         "error": info.get("error"),
         "progress": info.get("progress"),
         "data": data,
+        "version_id": version_id,
+        "active_version": active_version,
+        "versions": versions,
         **regen_fields(generator, course_id, "book"),
     }
 
@@ -266,6 +311,7 @@ def get_book(
 @router.get("/{course_id}/slide", response_model=Any)
 def get_slide(
     course_id: str,
+    version: Optional[str] = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Any:
@@ -276,8 +322,9 @@ def get_slide(
     """
     get_valid_course(course_id, current_user, db)
     generator = get_generator()
-    data = generator._load_artifact_json(course_id, "slides.json")
-    info = generator.get_artifact_status(course_id, "slides")
+    version_id, active_version, versions = version_fields(generator, course_id, "slides", version)
+    data = generator._load_artifact_json(course_id, "slides.json", artifact_directory_path(settings.UPLOAD_DIR, course_id, "slides", version_id)) if version_id else None
+    info = generator.get_artifact_status(course_id, "slides", version_id)
     status_val = info.get("status") or ("ready" if data else "empty")
     if status_val == "ready" and data is None:
         status_val = "empty"
@@ -289,6 +336,9 @@ def get_slide(
         "error": info.get("error"),
         "progress": info.get("progress"),
         "data": data,
+        "version_id": version_id,
+        "active_version": active_version,
+        "versions": versions,
         **regen_fields(generator, course_id, "slides"),
     }
 
@@ -297,6 +347,7 @@ def get_slide(
 @router.get("/{course_id}/quiz", response_model=Any)
 def get_quiz(
     course_id: str,
+    version: Optional[str] = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Any:
@@ -307,12 +358,13 @@ def get_quiz(
     """
     get_valid_course(course_id, current_user, db)
     generator = get_generator()
-    raw = generator._load_artifact_json(course_id, "quiz.json")
+    version_id, active_version, versions = version_fields(generator, course_id, "quiz", version)
+    raw = generator._load_artifact_json(course_id, "quiz.json", artifact_directory_path(settings.UPLOAD_DIR, course_id, "quiz", version_id)) if version_id else None
     questions = raw.get("questions", []) if raw else None
     if questions:
         for q in questions:
             q.pop("source_chunk_ids", None)
-    info = generator.get_artifact_status(course_id, "quiz")
+    info = generator.get_artifact_status(course_id, "quiz", version_id)
     status_val = info.get("status") or ("ready" if questions else "empty")
     if status_val == "ready" and not questions:
         status_val = "empty"
@@ -321,6 +373,9 @@ def get_quiz(
         "error": info.get("error"),
         "progress": info.get("progress"),
         "data": questions,
+        "version_id": version_id,
+        "active_version": active_version,
+        "versions": versions,
         **regen_fields(generator, course_id, "quiz"),
     }
 
@@ -329,6 +384,7 @@ def get_quiz(
 @router.get("/{course_id}/vid", response_model=Any)
 def get_vid(
     course_id: str,
+    version: Optional[str] = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Any:
@@ -339,8 +395,9 @@ def get_vid(
     """
     get_valid_course(course_id, current_user, db)
     generator = get_generator()
-    data = generator._load_artifact_json(course_id, "vid.json")
-    info = generator.get_artifact_status(course_id, "vid")
+    version_id, active_version, versions = version_fields(generator, course_id, "vid", version)
+    data = generator._load_artifact_json(course_id, "vid.json", artifact_directory_path(settings.UPLOAD_DIR, course_id, "vid", version_id)) if version_id else None
+    info = generator.get_artifact_status(course_id, "vid", version_id)
     status_val = info.get("status") or ("ready" if data else "empty")
     if status_val == "ready" and data is None:
         status_val = "empty"
@@ -352,6 +409,9 @@ def get_vid(
         "error": info.get("error"),
         "progress": info.get("progress"),
         "data": data,
+        "version_id": version_id,
+        "active_version": active_version,
+        "versions": versions,
         **regen_fields(generator, course_id, "vid"),
     }
 
@@ -365,13 +425,14 @@ def get_vid(
 @router.get("/{course_id}/book.pdf")
 def download_book_pdf(
     course_id: str,
+    version: Optional[str] = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Any:
     """Download Book Study Guide PDF."""
     get_valid_course(course_id, current_user, db)
-    file_path = os.path.join(settings.UPLOAD_DIR, course_id, "artifacts", "book.pdf")
-    if os.path.exists(file_path):
+    file_path = versioned_file_path(get_generator(), course_id, "book", "book.pdf", version)
+    if file_path and os.path.exists(file_path):
         return FileResponse(
             file_path,
             media_type="application/pdf",
@@ -387,13 +448,14 @@ def download_book_pdf(
 @router.get("/{course_id}/slide.pptx")
 def download_slide_pptx(
     course_id: str,
+    version: Optional[str] = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Any:
     """Download Slide PPTX presentation."""
     get_valid_course(course_id, current_user, db)
-    file_path = os.path.join(settings.UPLOAD_DIR, course_id, "artifacts", "slide.pptx")
-    if os.path.exists(file_path):
+    file_path = versioned_file_path(get_generator(), course_id, "slides", "slide.pptx", version)
+    if file_path and os.path.exists(file_path):
         return FileResponse(
             file_path,
             media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
@@ -409,13 +471,14 @@ def download_slide_pptx(
 @router.get("/{course_id}/slide.pdf")
 def download_slide_pdf(
     course_id: str,
+    version: Optional[str] = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Any:
     """Download Slide presentation as a 16:9 PDF."""
     get_valid_course(course_id, current_user, db)
-    file_path = os.path.join(settings.UPLOAD_DIR, course_id, "artifacts", "slide.pdf")
-    if os.path.exists(file_path):
+    file_path = versioned_file_path(get_generator(), course_id, "slides", "slide.pdf", version)
+    if file_path and os.path.exists(file_path):
         return FileResponse(
             file_path,
             media_type="application/pdf",
@@ -432,13 +495,14 @@ def download_slide_pdf(
 def get_slide_image(
     course_id: str,
     slide_num: int,
+    version: Optional[str] = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Any:
     """Get slide image by slide number."""
     get_valid_course(course_id, current_user, db)
-    file_path = os.path.join(settings.UPLOAD_DIR, course_id, "artifacts", f"slide_{slide_num}.png")
-    if os.path.exists(file_path):
+    file_path = versioned_file_path(get_generator(), course_id, "slides", f"slide_{slide_num}.png", version)
+    if file_path and os.path.exists(file_path):
         return FileResponse(file_path, media_type="image/png")
     raise HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,
@@ -450,13 +514,14 @@ def get_slide_image(
 @router.get("/{course_id}/quiz-key.pdf")
 def download_quiz_key_pdf(
     course_id: str,
+    version: Optional[str] = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Any:
     """Download Quiz Answer Key PDF."""
     get_valid_course(course_id, current_user, db)
-    file_path = os.path.join(settings.UPLOAD_DIR, course_id, "artifacts", "quiz-key.pdf")
-    if os.path.exists(file_path):
+    file_path = versioned_file_path(get_generator(), course_id, "quiz", "quiz-key.pdf", version)
+    if file_path and os.path.exists(file_path):
         return FileResponse(
             file_path,
             media_type="application/pdf",
@@ -472,13 +537,14 @@ def download_quiz_key_pdf(
 @router.get("/{course_id}/vid.mp4")
 def download_vid_mp4(
     course_id: str,
+    version: Optional[str] = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Any:
     """Download/stream the narrated Video MP4 (FileResponse supports Range for <video> seeking)."""
     get_valid_course(course_id, current_user, db)
-    file_path = os.path.join(settings.UPLOAD_DIR, course_id, "artifacts", "vid.mp4")
-    if os.path.exists(file_path):
+    file_path = versioned_file_path(get_generator(), course_id, "vid", "vid.mp4", version)
+    if file_path and os.path.exists(file_path):
         return FileResponse(
             file_path,
             media_type="video/mp4",
@@ -494,13 +560,14 @@ def download_vid_mp4(
 @router.get("/{course_id}/vid/file")
 def download_vid_transcript(
     course_id: str,
+    version: Optional[str] = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Any:
     """Download the Video narration transcript (.txt)."""
     get_valid_course(course_id, current_user, db)
-    file_path = os.path.join(settings.UPLOAD_DIR, course_id, "artifacts", "transcript.txt")
-    if os.path.exists(file_path):
+    file_path = versioned_file_path(get_generator(), course_id, "vid", "transcript.txt", version)
+    if file_path and os.path.exists(file_path):
         return FileResponse(
             file_path,
             media_type="text/plain",
@@ -516,13 +583,14 @@ def download_vid_transcript(
 @router.get("/{course_id}/vid.srt")
 def download_vid_srt(
     course_id: str,
+    version: Optional[str] = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Any:
     """Download the Video subtitle file (.srt)."""
     get_valid_course(course_id, current_user, db)
-    file_path = os.path.join(settings.UPLOAD_DIR, course_id, "artifacts", "vid.srt")
-    if os.path.exists(file_path):
+    file_path = versioned_file_path(get_generator(), course_id, "vid", "vid.srt", version)
+    if file_path and os.path.exists(file_path):
         return FileResponse(
             file_path,
             media_type="application/x-subrip",

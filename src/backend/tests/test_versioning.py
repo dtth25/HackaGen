@@ -7,9 +7,14 @@ from alembic.config import Config
 from sqlalchemy import create_engine, text
 
 from app.core.config import settings
+from app.models.course import Course
+from app.services.database import SessionLocal
+from app.services.generator import Generator
 from app.services.versioning import (
     AtomicArtifactDirectory,
+    GenerationInFlightError,
     VERSION_CAPS,
+    VersionCapReachedError,
     artifact_file_path,
     migrate_legacy_artifact_metadata,
     version_label,
@@ -142,3 +147,38 @@ def test_alembic_upgrade_wraps_legacy_artifact_metadata(tmp_path, monkeypatch):
         "user_prompt": "",
         "path": "flat",
     }
+
+
+def test_version_cap_replace_and_in_flight_gate():
+    course_id = "version-gate"
+    db = SessionLocal()
+    try:
+        db.add(Course(id=course_id, user_id="version-user", status="ready"))
+        db.commit()
+    finally:
+        db.close()
+
+    generator = Generator(vector_store=None, llm=None)
+    first = generator.prepare_artifact_version(course_id, "quiz", {"quantity": 5, "difficulty": "easy"})
+    with pytest.raises(GenerationInFlightError):
+        generator.prepare_artifact_version(course_id, "quiz", {"quantity": 10, "difficulty": "easy"})
+    generator._set_artifact_status(course_id, "quiz", "ready", version_id=first)
+
+    for quantity, difficulty in ((5, "medium"), (5, "hard")):
+        version_id = generator.prepare_artifact_version(course_id, "quiz", {"quantity": quantity, "difficulty": difficulty})
+        generator._set_artifact_status(course_id, "quiz", "ready", version_id=version_id)
+
+    with pytest.raises(VersionCapReachedError) as cap_error:
+        generator.prepare_artifact_version(course_id, "quiz", {"quantity": 10, "difficulty": "easy"})
+    assert len(cap_error.value.versions) == 3
+
+    replacement = generator.prepare_artifact_version(
+        course_id,
+        "quiz",
+        {"quantity": 10, "difficulty": "easy"},
+        replace_version_id=first,
+    )
+    generator._set_artifact_status(course_id, "quiz", "ready", version_id=replacement)
+    active, versions = generator.artifact_versions(course_id, "quiz")
+    assert active == "q10-easy"
+    assert {version["version_id"] for version in versions} == {"q5-medium", "q5-hard", "q10-easy"}

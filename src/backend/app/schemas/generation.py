@@ -18,6 +18,7 @@ class BookGenerateRequest(BaseModel):
     course_id: Optional[str] = None
     user_prompt: Optional[str] = ""
     detail_level: Optional[str] = "Tiêu chuẩn"
+    replace_version_id: Optional[str] = None
 
 
 class SlideGenerateRequest(BaseModel):
@@ -26,6 +27,7 @@ class SlideGenerateRequest(BaseModel):
     course_id: Optional[str] = None
     topic: Optional[str] = "AI Overview"
     num_slides: Optional[int] = 15
+    replace_version_id: Optional[str] = None
 
 
 class QuizGenerateRequest(BaseModel):
@@ -35,6 +37,7 @@ class QuizGenerateRequest(BaseModel):
     topic: Optional[str] = "AI Quiz"
     quantity: Optional[int] = 5
     difficulty: Optional[str] = "medium"
+    replace_version_id: Optional[str] = None
 
 
 class VidGenerateRequest(BaseModel):
@@ -45,6 +48,7 @@ class VidGenerateRequest(BaseModel):
     format: Optional[str] = "standard"  # "standard" | "overview" | "shorts"
     voice: Optional[str] = "female"  # "female" | "male"
     user_prompt: Optional[str] = ""
+    replace_version_id: Optional[str] = None
 
 
 class GenerateResponse(BaseModel):
@@ -56,6 +60,7 @@ class GenerateResponse(BaseModel):
     estimated_time: str = "2 minutes"
     regen_used: int = 0
     regen_max: int = 0
+    version_id: Optional[str] = None
 
 
 class ReadinessData(BaseModel):

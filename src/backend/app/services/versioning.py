@@ -40,6 +40,22 @@ _VID_FORMAT_LABELS = {
 _VID_VOICE_LABELS = {"female": "Giọng nữ", "male": "Giọng nam"}
 
 
+class VersioningError(Exception):
+    """Base exception for generation version selection."""
+
+
+class GenerationInFlightError(VersioningError):
+    """Another version of this artifact is already generating."""
+
+
+class VersionCapReachedError(VersioningError):
+    """A new option combination needs an explicit victim version."""
+
+    def __init__(self, versions: list[Dict[str, Any]]):
+        super().__init__("version_cap_reached")
+        self.versions = versions
+
+
 def _require_artifact_type(artifact_type: str) -> None:
     if artifact_type not in VERSION_CAPS:
         raise ValueError(f"Unsupported artifact type: {artifact_type}")
