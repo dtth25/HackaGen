@@ -6,6 +6,7 @@ before `uv sync` has pulled these in."""
 
 import asyncio
 import logging
+import math
 import os
 import re
 import shutil
@@ -199,12 +200,15 @@ def _wrap_text(draw: Any, text: str, font: Any, max_width: int) -> List[str]:
     return lines
 
 
-def render_scene_frame(scene: VidScene, idx: int, total: int, width: int, height: int, out_path: str) -> None:
-    """Render a text-light still frame: heading, optional short keyword line, and up to a few
-    keyword bullets, on the always-dark stage palette. Narration (spoken via TTS) still
-    carries the real content — this just gives the eye a bit more to track. Alternates
-    centered/left-aligned layout and rotates the accent color per scene (_scene_accent) so a
-    multi-scene video doesn't look like the same slide repeated."""
+def render_scene_layers(
+    scene: VidScene,
+    idx: int,
+    total: int,
+    width: int,
+    height: int,
+    base_path: str,
+) -> List[tuple[str, float]]:
+    """Render a permanent stage and transparent text overlays for one animated scene."""
     from PIL import Image, ImageDraw, ImageFont
 
     ttf_path = get_vietnamese_ttf_path()
@@ -214,11 +218,11 @@ def render_scene_frame(scene: VidScene, idx: int, total: int, width: int, height
     accent = _scene_accent(idx)
     left_aligned = idx % 2 == 0
 
-    img = Image.new("RGB", (width, height), STAGE_BG)
-    draw = ImageDraw.Draw(img)
+    base = Image.new("RGB", (width, height), STAGE_BG)
+    base_draw = ImageDraw.Draw(base)
 
     bar_w = max(6, width // 160)
-    draw.rectangle([0, 0, bar_w, height], fill=accent)
+    base_draw.rectangle([0, 0, bar_w, height], fill=accent)
 
     heading_size = max(36, width // 16)
     sub_size = max(20, width // 32)
@@ -230,11 +234,11 @@ def render_scene_frame(scene: VidScene, idx: int, total: int, width: int, height
     max_text_width = int(width * (0.62 if left_aligned else 0.78))
     left_margin = int(width * 0.12)
 
-    heading_lines = _wrap_text(draw, heading, heading_font, max_text_width)
-    sub_lines = _wrap_text(draw, subtext, sub_font, max_text_width) if subtext else []
-    bullet_lines: List[str] = []
+    heading_lines = _wrap_text(base_draw, heading, heading_font, max_text_width)
+    sub_lines = _wrap_text(base_draw, subtext, sub_font, max_text_width) if subtext else []
+    bullet_groups: List[List[str]] = []
     for bp in bullets[:3]:
-        bullet_lines.extend(_wrap_text(draw, f"• {bp}", bullet_font, max_text_width))
+        bullet_groups.append(_wrap_text(base_draw, f"• {bp}", bullet_font, max_text_width))
 
     line_gap = int(heading_size * 0.25)
     heading_line_h = heading_size + line_gap
@@ -244,65 +248,132 @@ def render_scene_frame(scene: VidScene, idx: int, total: int, width: int, height
     total_h = len(heading_lines) * heading_line_h
     if sub_lines:
         total_h += sub_line_h // 2 + len(sub_lines) * sub_line_h
-    if bullet_lines:
-        total_h += int(bullet_line_h * 0.9) + len(bullet_lines) * bullet_line_h
+    if bullet_groups:
+        total_h += int(bullet_line_h * 0.9) + sum(len(lines) * bullet_line_h for lines in bullet_groups)
     y = (height - total_h) // 2
 
-    def _draw_line(text: str, font: Any, fill: tuple, y_pos: int) -> None:
-        w = draw.textlength(text, font=font)
-        x = left_margin if left_aligned else (width - w) / 2
-        draw.text((x, y_pos), text, font=font, fill=fill)
+    def _draw_lines(layer: Any, lines: List[str], font: Any, fill: tuple, y_pos: int, line_height: int) -> None:
+        draw = ImageDraw.Draw(layer)
+        for line in lines:
+            text_width = draw.textlength(line, font=font)
+            x = left_margin if left_aligned else (width - text_width) / 2
+            draw.text((x, y_pos), line, font=font, fill=fill)
+            y_pos += line_height
 
-    for line in heading_lines:
-        _draw_line(line, heading_font, STAGE_FOREGROUND, y)
-        y += heading_line_h
+    def _layer_path(name: str) -> str:
+        root, _ = os.path.splitext(base_path)
+        return f"{root}_{name}.png"
+
+    layers: List[tuple[str, float]] = []
+    title_layer = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    _draw_lines(title_layer, heading_lines, heading_font, (*STAGE_FOREGROUND, 255), y, heading_line_h)
+    title_path = _layer_path("title")
+    title_layer.save(title_path, "PNG")
+    layers.append((title_path, 0.3))
+    y += len(heading_lines) * heading_line_h
 
     if sub_lines:
         y += sub_line_h // 2
-        for line in sub_lines:
-            _draw_line(line, sub_font, accent, y)
-            y += sub_line_h
+        sub_layer = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+        _draw_lines(sub_layer, sub_lines, sub_font, (*accent, 255), y, sub_line_h)
+        sub_path = _layer_path("subtext")
+        sub_layer.save(sub_path, "PNG")
+        layers.append((sub_path, 0.9))
+        y += len(sub_lines) * sub_line_h
 
-    if bullet_lines:
+    if bullet_groups:
         y += int(bullet_line_h * 0.9)
-        for line in bullet_lines:
-            _draw_line(line, bullet_font, STAGE_FOREGROUND, y)
-            y += bullet_line_h
+        for bullet_idx, bullet_lines in enumerate(bullet_groups, start=1):
+            bullet_layer = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+            _draw_lines(bullet_layer, bullet_lines, bullet_font, (*STAGE_FOREGROUND, 255), y, bullet_line_h)
+            bullet_path = _layer_path(f"bullet_{bullet_idx}")
+            bullet_layer.save(bullet_path, "PNG")
+            layers.append((bullet_path, 1.5 + 0.9 * (bullet_idx - 1)))
+            y += len(bullet_lines) * bullet_line_h
 
     counter_font = ImageFont.truetype(ttf_path, max(16, width // 48)) if ttf_path else ImageFont.load_default()
     counter_text = f"{idx} / {total}"
-    cw = draw.textlength(counter_text, font=counter_font)
-    draw.text((width - cw - 24, height - 24 - counter_font.size), counter_text, font=counter_font, fill=STAGE_MUTED)
-
-    img.save(out_path, "PNG")
-
-
-def build_scene_clip(png_path: str, mp3_path: str, width: int, height: int, out_path: str, duration: float) -> None:
-    """Mux a looped still image with its narration track into a single scene clip, adding a
-    slow zoompan (subtle Ken-Burns drift) and a short fade in/out so scenes read as motion
-    graphics rather than a static slideshow. All scene clips share identical encode params so
-    `concat_clips` can fast-path with `-c copy`."""
-    fps = 30
-    total_frames = max(1, round(duration * fps))
-    fade_dur = min(0.4, duration / 4)
-    fade_out_start = max(0.0, duration - fade_dur)
-    vf = (
-        f"zoompan=z='min(zoom+0.0006,1.05)':d={total_frames}:s={width}x{height}:fps={fps},"
-        f"fade=t=in:st=0:d={fade_dur:.2f},"
-        f"fade=t=out:st={fade_out_start:.2f}:d={fade_dur:.2f}"
+    cw = base_draw.textlength(counter_text, font=counter_font)
+    base_draw.text(
+        (width - cw - 24, height - 24 - counter_font.size),
+        counter_text,
+        font=counter_font,
+        fill=STAGE_MUTED,
     )
-    _run_ffmpeg(
+    base.save(base_path, "PNG")
+    return layers
+
+
+def _zoompan_filter(idx: int, total_frames: int, width: int, height: int, fps: int) -> str:
+    """Rotate three deliberately subtle Ken-Burns moves across scenes."""
+    variant = (idx - 1) % 3
+    if variant == 0:
+        zoom, x, y = "min(zoom+0.00055,1.055)", "iw/2-(iw/zoom/2)", "ih/2-(ih/zoom/2)"
+    elif variant == 1:
+        zoom = "min(zoom+0.00045,1.05)"
+        x, y = "if(lte(on,1),iw/4,x+0.55)", "if(lte(on,1),ih/3,y+0.35)"
+    else:
+        zoom = "if(eq(on,0),1.055,max(1.0,zoom-0.00045))"
+        x, y = "iw/2-(iw/zoom/2)", "ih/2-(ih/zoom/2)"
+    return f"zoompan=z='{zoom}':x='{x}':y='{y}':d={total_frames}:s={width}x{height}:fps={fps}"
+
+
+def build_scene_clip(
+    base_png_path: str,
+    layer_paths: List[tuple[str, float]],
+    mp3_path: str,
+    width: int,
+    height: int,
+    out_path: str,
+    duration: float,
+    idx: int,
+) -> None:
+    """Mux staged text layers over a moving base frame without clipping narration tails."""
+    fps = 30
+    total_frames = max(1, math.ceil(duration * fps) + 1)
+    fade_dur = min(0.35, max(0.12, duration / 5))
+    rise_seconds = min(0.35, max(0.18, duration / 5))
+    rise_px = max(12, round(height * 0.025))
+
+    cmd = [_get_ffmpeg(), "-y", "-loop", "1", "-i", base_png_path]
+    for layer_path, _ in layer_paths:
+        cmd.extend(["-loop", "1", "-i", layer_path])
+    audio_input = len(layer_paths) + 1
+    cmd.extend(["-i", mp3_path])
+
+    filters = [f"[0:v]{_zoompan_filter(idx, total_frames, width, height, fps)},format=rgba[base]"]
+    previous = "base"
+    for layer_idx, (_, delay) in enumerate(layer_paths):
+        capped_delay = min(delay, duration * 0.6)
+        layer_label = f"layer{layer_idx}"
+        overlay_label = f"overlay{layer_idx}"
+        filters.append(
+            f"[{layer_idx + 1}:v]format=rgba,split=2[layer_color{layer_idx}][layer_mask{layer_idx}]"
+        )
+        filters.append(
+            f"[layer_color{layer_idx}]format=rgb24,fade=t=in:st={capped_delay:.2f}:d={fade_dur:.2f}[layer_fade{layer_idx}]"
+        )
+        filters.append(
+            f"[layer_mask{layer_idx}]alphaextract[layer_alpha{layer_idx}]"
+        )
+        filters.append(
+            f"[layer_fade{layer_idx}][layer_alpha{layer_idx}]alphamerge[{layer_label}]"
+        )
+        rise_expression = f"{rise_px}*max(0\\,1-(t-{capped_delay:.2f})/{rise_seconds:.2f})"
+        filters.append(
+            f"[{previous}][{layer_label}]overlay=x=0:y='{rise_expression}':format=auto:shortest=1[{overlay_label}]"
+        )
+        previous = overlay_label
+    filters.append(f"[{previous}]format=yuv420p[video]")
+    cmd.extend(
         [
-            _get_ffmpeg(), "-y",
-            "-loop", "1", "-i", png_path,
-            "-i", mp3_path,
-            "-vf", vf,
+            "-filter_complex", ";".join(filters),
+            "-map", "[video]", "-map", f"{audio_input}:a",
             "-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", str(fps),
-            "-c:a", "aac", "-b:a", "192k",
-            "-shortest",
-            out_path,
+            "-c:a", "aac", "-b:a", "192k", "-t", f"{duration:.3f}", out_path,
         ]
     )
+    _run_ffmpeg(cmd)
 
 
 def concat_clips(clip_paths: List[str], out_path: str) -> None:
@@ -332,6 +403,63 @@ def concat_clips(clip_paths: List[str], out_path: str) -> None:
             os.remove(list_path)
         except OSError:
             pass
+
+
+def concat_clips_xfade(clip_paths: List[str], durations: List[float], out_path: str) -> None:
+    """Crossfade visual scene boundaries while concatenating every audio track in full.
+
+    The video chain gets shorter by each 0.5-second crossfade, so its last frame is padded
+    back to the uncut audio duration. That makes a transition feel smooth without trimming
+    the tail of the final spoken sentence. Any filtergraph failure falls back to the proven
+    concat-demuxer implementation above.
+    """
+    if len(clip_paths) != len(durations) or not clip_paths:
+        raise VideoRenderError("Danh sách cảnh và thời lượng video không khớp.")
+    if len(clip_paths) == 1:
+        concat_clips(clip_paths, out_path)
+        return
+
+    transition = min(0.5, min(durations) / 2)
+    if transition <= 0:
+        concat_clips(clip_paths, out_path)
+        return
+
+    try:
+        cmd = [_get_ffmpeg(), "-y"]
+        for clip_path in clip_paths:
+            cmd.extend(["-i", clip_path])
+
+        filters: List[str] = []
+        previous = "0:v"
+        visual_duration = durations[0]
+        for idx in range(1, len(clip_paths)):
+            output = f"xfade{idx}"
+            offset = max(0.0, visual_duration - transition)
+            filters.append(
+                f"[{previous}][{idx}:v]xfade=transition=fade:duration={transition:.2f}:offset={offset:.2f}[{output}]"
+            )
+            previous = output
+            visual_duration += durations[idx] - transition
+
+        total_audio_duration = sum(durations)
+        pad_duration = max(0.0, total_audio_duration - visual_duration)
+        filters.append(
+            f"[{previous}]tpad=stop_mode=clone:stop_duration={pad_duration:.2f}[video]"
+        )
+        audio_inputs = "".join(f"[{idx}:a]" for idx in range(len(clip_paths)))
+        filters.append(f"{audio_inputs}concat=n={len(clip_paths)}:v=0:a=1[audio]")
+        cmd.extend(
+            [
+                "-filter_complex", ";".join(filters),
+                "-map", "[video]", "-map", "[audio]",
+                "-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", "30",
+                "-c:a", "aac", "-b:a", "192k", out_path,
+            ]
+        )
+        _run_ffmpeg(cmd)
+    except VideoRenderError as e:
+        logger.warning("xfade concat failed, falling back to concat demuxer: %s", e)
+        concat_clips(clip_paths, out_path)
 
 
 def _group_word_cues(cues: List[Dict[str, Any]], max_words: int = 10) -> List[Dict[str, Any]]:
@@ -404,6 +532,7 @@ def assemble_video(
     os.makedirs(scene_dir, exist_ok=True)
 
     clip_paths: List[str] = []
+    clip_durations: List[float] = []
     srt_cues: List[Dict[str, Any]] = []
     cumulative = 0.0
     total_scenes = len(vid_data.scenes)
@@ -418,12 +547,17 @@ def assemble_video(
             duration = max(duration, 1.0)
             scene.duration_seconds = int(round(duration))
 
-            png_path = os.path.join(scene_dir, f"scene_{i + 1}.png")
-            render_scene_frame(scene, i + 1, total_scenes, width, height, png_path)
+            base_png_path = os.path.join(scene_dir, f"scene_{i + 1}_base.png")
+            layer_paths = render_scene_layers(
+                scene, i + 1, total_scenes, width, height, base_png_path
+            )
 
             clip_path = os.path.join(scene_dir, f"scene_{i + 1}.mp4")
-            build_scene_clip(png_path, mp3_path, width, height, clip_path, duration)
+            build_scene_clip(
+                base_png_path, layer_paths, mp3_path, width, height, clip_path, duration, i + 1
+            )
             clip_paths.append(clip_path)
+            clip_durations.append(duration)
 
             if word_cues:
                 srt_cues.extend(
@@ -438,7 +572,7 @@ def assemble_video(
                 progress_cb((i + 1) / total_scenes)
 
         mp4_path = os.path.join(artifact_dir, "vid.mp4")
-        concat_clips(clip_paths, mp4_path)
+        concat_clips_xfade(clip_paths, clip_durations, mp4_path)
 
         vid_data.total_duration_seconds = int(round(cumulative))
         _write_transcript(vid_data, os.path.join(artifact_dir, "transcript.txt"))

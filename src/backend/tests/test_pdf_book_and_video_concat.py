@@ -6,15 +6,18 @@ import os
 
 import pytest
 
-from app.schemas.generator_output import BookChapter, BookOutput, BookSection
+from app.schemas.generator_output import BookChapter, BookOutput, BookSection, VidOutput, VidScene
 from app.services import video_render
 from app.services.pdf_book import build_book_pdf
 from app.services.video_render import (
     FORMAT_SPECS,
     VideoRenderError,
     _estimate_spoken_duration,
+    assemble_video,
     concat_clips,
+    concat_clips_xfade,
     format_guidance,
+    render_scene_layers,
 )
 
 
@@ -105,6 +108,74 @@ def test_concat_clips_reencode_also_fails_raises(monkeypatch, tmp_path):
     out_path = str(tmp_path / "out.mp4")
     with pytest.raises(VideoRenderError):
         concat_clips(["a.mp4", "b.mp4"], out_path)
+
+
+def test_concat_clips_xfade_falls_back_without_clipping_audio(monkeypatch, tmp_path):
+    calls = []
+
+    def fake_run_ffmpeg(cmd):
+        calls.append(cmd)
+        if "xfade=transition=fade" in " ".join(cmd):
+            raise VideoRenderError("filtergraph unavailable")
+
+    monkeypatch.setattr(video_render, "_get_ffmpeg", lambda: "ffmpeg")
+    monkeypatch.setattr(video_render, "_run_ffmpeg", fake_run_ffmpeg)
+
+    concat_clips_xfade(["a.mp4", "b.mp4"], [2.0, 2.0], str(tmp_path / "out.mp4"))
+
+    xfade_command = " ".join(calls[0])
+    assert "xfade=transition=fade:duration=0.50" in xfade_command
+    assert "tpad=stop_mode=clone:stop_duration=0.50" in xfade_command
+    assert "concat=n=2:v=0:a=1" in xfade_command
+    assert "copy" in calls[1]
+
+
+def _sample_vid() -> VidOutput:
+    return VidOutput(
+        title="Video kiểm thử chuyển cảnh",
+        total_duration_seconds=0,
+        scenes=[
+            VidScene(
+                scene_number=1,
+                title="Câu hỏi mở đầu",
+                on_screen_text="Một ý quan trọng",
+                key_points=["Điểm thứ nhất", "Điểm thứ hai"],
+                narration="Đây là câu dẫn ngắn cho cảnh đầu tiên.",
+            ),
+            VidScene(
+                scene_number=2,
+                title="Lời giải thích",
+                on_screen_text="Kết nối ý chính",
+                key_points=["Kết luận rõ ràng"],
+                narration="Cảnh thứ hai khép lại mạch giải thích một cách ngắn gọn.",
+            ),
+        ],
+    )
+
+
+def test_motion_layers_and_xfade_render_with_silence(tmp_path):
+    """The no-network pytest path still renders layered scenes, xfade, and audio tails."""
+    from PIL import Image
+
+    base_path = str(tmp_path / "scene_base.png")
+    layers = render_scene_layers(_sample_vid().scenes[0], 1, 2, 320, 180, base_path)
+    assert os.path.exists(base_path)
+    assert [delay for _, delay in layers] == [0.3, 0.9, 1.5, 2.4]
+    assert Image.open(base_path).mode == "RGB"
+    assert all(Image.open(path).mode == "RGBA" for path, _ in layers)
+
+    artifact_dir = str(tmp_path / "artifact")
+    os.makedirs(artifact_dir)
+    output = _sample_vid()
+    mp4_path = assemble_video(output, "shorts", "female", artifact_dir)
+
+    assert os.path.exists(mp4_path)
+    assert os.path.getsize(mp4_path) > 1000
+    assert output.total_duration_seconds >= 2
+    rendered_duration = video_render._probe_duration(mp4_path)
+    assert rendered_duration >= output.total_duration_seconds - 0.5
+    assert rendered_duration <= output.total_duration_seconds + 1.0
+    assert not os.path.exists(os.path.join(artifact_dir, "_vid_scenes"))
 
 
 def test_format_pacing_rates_and_guidance_are_explicit():
