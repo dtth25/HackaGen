@@ -110,7 +110,9 @@ export function usePollingArtifact<T>({
             return;
           }
           if (res.status === "error") {
-            setError(res.error || defaultErrorMessage);
+            if (!viewedVersionRef.current || viewedVersionRef.current === pollingVersion) {
+              setError(res.error || defaultErrorMessage);
+            }
             setGenerating(false);
             pollingVersionRef.current = null;
             return;
@@ -121,7 +123,9 @@ export function usePollingArtifact<T>({
         }
         if (pollingVersionRef.current !== pollingVersion) return;
         if (Date.now() - startedAt > timeoutMs) {
-          setError(timeoutMessage);
+          if (!viewedVersionRef.current || viewedVersionRef.current === pollingVersion) {
+            setError(timeoutMessage);
+          }
           setGenerating(false);
           pollingVersionRef.current = null;
           return;

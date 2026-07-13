@@ -29,7 +29,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Markdown } from "@/components/ui/markdown";
 import { BookOptionsPanel, BOOK_DETAIL_OPTIONS } from "@/components/dashboard/BookOptionsPanel";
-import { RegenerateButton } from "@/components/dashboard/RegenerateButton";
+import { CreateVersionButton } from "@/components/dashboard/CreateVersionButton";
 import { VersionSwitcher } from "@/components/dashboard/VersionSwitcher";
 import { ApiRequestError, apiDeleteArtifactVersion, apiGetBook, apiGenerateBook, apiRenameArtifactVersion, getDownloadBookUrl } from "@/lib/api";
 import { usePollingArtifact } from "@/hooks/usePollingArtifact";
@@ -214,7 +214,7 @@ export function BookTab({ courseId, documentProcessing = false }: BookTabProps) 
   if (error) {
     return (
       <>
-        <ErrorState title="Lỗi tạo sách ôn tập" description={error} onRetry={handleRetryAfterError} retryLabel="Thử tạo lại" />
+        <ErrorState title="Lỗi tạo sách ôn tập" description={error} onRetry={handleRetryAfterError} retryLabel="Mở tùy chọn tạo mới" />
         {regenerateDialog}
       </>
     );
@@ -282,7 +282,7 @@ export function BookTab({ courseId, documentProcessing = false }: BookTabProps) 
               <RefreshCw className="h-4 w-4 animate-spin" /> Đang tạo ({progress}%)…
             </Button>
           ) : (
-            <RegenerateButton
+            <CreateVersionButton
               label="sách ôn tập"
               onOpen={() => {
                 setRegenError(null);

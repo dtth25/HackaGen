@@ -18,7 +18,7 @@ Auth supports Bearer JWT and an HttpOnly cookie named `agy_session` for browser 
 - Disabled users cannot login/use protected APIs; backend prevents deleting, disabling, or demoting the last active admin.
 - First admin bootstrap uses `CREATE_DEFAULT_ADMIN=true`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, and only creates an admin if no admin exists. The password is never logged.
 
-- `GET /health`: readiness endpoint cho frontend proxy. Không gọi Gemini warm-up. Response gồm `status`, `ready`, `details.upload_dir`, `details.output_dir`, `details.vector_db`, `details.config_loaded`, `vector_db_provider`, `vector_db_ready`, `chroma_persist_dir`, `chroma_collection_name`, `startup_duration_seconds`, `error`. Với `VECTOR_DB_PROVIDER=chroma`, nếu Chroma thiếu hoặc không initialize được thì `vector_db_ready=false` và không fallback sang simple/local store.
+- `GET /health`: readiness endpoint cho frontend proxy. Không gọi AI warm-up. Response gồm `status`, `ready`, `details.upload_dir`, `details.output_dir`, `details.vector_db`, `details.config_loaded`, `vector_db_provider`, `vector_db_ready`, `chroma_persist_dir`, `chroma_collection_name`, `startup_duration_seconds`, `error`. Với `VECTOR_DB_PROVIDER=chroma`, nếu Chroma thiếu hoặc không initialize được thì `vector_db_ready=false` và không fallback sang simple/local store.
 - Health response có thể kèm `storage_provider`, `storage_ready`, `job_queue_provider`, `job_queue_ready`, `cache_provider`, `cache_ready` để chuẩn bị production provider switch.
 - `GET /api/health`: trả trạng thái backend và danh sách `course_id`.
 - `GET /api/courses`: trả danh sách `course_id` đã đăng ký.
@@ -74,7 +74,7 @@ Response:
 Possible statuses: `pending`, `processing`, `ready`, `completed_limited`, `failed`, `paused_due_to_quota`, `unknown`.
 Possible preprocessing stages: `uploading`, `extracting_text`, `cleaning_text`, `chunking`, `embedding`, `storing_vectors`, `completed`, `completed_limited`, `failed`, `paused_due_to_quota`, `analysis_failed`, `extraction_failed`, `embedding_failed`, `vector_index_failed`, `insufficient_context`.
 When available, response may include `preprocess_profile` with file size, page count, extracted character count, chunk count, embedding request count, cache hits/misses, retry count, throttle sleep time, and per-step timings.
-If preprocessing fails because Gemini embedding quota is exhausted, response includes `error_code: "EMBEDDING_QUOTA_EXCEEDED"` and a public `error` message that asks the user to wait, retry with a smaller file, enable billing, or switch embedding provider.
+If preprocessing fails after OpenRouter routing and retry are exhausted, the response has a public error message suitable for retrying later. Provider credentials and routing details are never exposed to the client.
 
 ### `GET /documents/{document_id}/status`
 

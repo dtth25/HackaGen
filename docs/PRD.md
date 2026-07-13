@@ -11,7 +11,7 @@ Code hiện tại là source of truth cho project. Các tài liệu phải bám 
 - **Backend:** FastAPI, Python 3.11+, LangChain, dependency management bằng `uv`.
 - **Vector DB:** Chroma local persistent DB là provider bắt buộc cho local/dev hackathon demo. FAISS chỉ còn là legacy reference/test path, không phải provider chính.
 - **Persistence:** Local filesystem JSON/generated files: `books/`, `slides/`, `questions/`, `videos/`, cùng Chroma data trong `data/chroma/`.
-- **AI:** Gemini qua LangChain Google GenAI. Model routing dùng các biến `GEMINI_*_MODEL`; Flash preset mặc định dùng `gemini-2.5-flash`. Embeddings dùng `GEMINI_EMBEDDING_MODEL`, legacy `EMBEDDING_MODEL=models/embedding-001` vẫn được hỗ trợ.
+- **AI:** OpenRouter-only. Runtime ưu tiên `openrouter/free`, sau đó fallback sang model paid cho quota, provider hoặc schema failure; embedding dùng model OpenRouter đã cấu hình.
 - **Auth:** Auth v2 đã có trong code: Bearer JWT + HttpOnly cookie (`agy_session`), user ownership cho upload/generation/output, admin endpoints cho quản trị user.
 
 ## 3. Core User Flow
@@ -30,7 +30,7 @@ Code hiện tại là source of truth cho project. Các tài liệu phải bám 
 - **No Additional Chats:** Không có chat tự do, custom prompt độc lập hoặc legacy output rời rạc ngoài hệ sinh thái Study Pack.
 - **No Raw Public Source Metadata:** Public generation responses không trả raw/internal `page`, `source`, `chunk_id`, `citations` hoặc debug markers. `source_chunk_ids` được giữ cho grounding, và source panel có thể hiển thị `page` + excerpt sạch theo API contract.
 - **Grounded Generation:** Output AI phải dựa trên chunks truy xuất từ Chroma/local vector index, sau bước lọc noisy/TOC/debug text.
-- **Backend-only AI:** Frontend không gọi Gemini/LLM trực tiếp; mọi AI flow đi qua FastAPI.
+- **Backend-only AI:** Frontend không gọi LLM trực tiếp; mọi AI flow đi qua FastAPI.
 - **Auth & Ownership:** Upload/generation/output/delete yêu cầu active user; user thường chỉ thấy tài liệu của mình, admin có quyền quản trị/hỗ trợ.
 - **File validation:** `/api/upload` chỉ nhận `.pdf`, `.docx`, `.txt`, không nhận file rỗng hoặc file quá 50MB mỗi file.
 

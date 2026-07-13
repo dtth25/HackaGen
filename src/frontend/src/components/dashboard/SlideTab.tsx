@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { SlideOptionsPanel } from "@/components/dashboard/SlideOptionsPanel";
-import { RegenerateButton } from "@/components/dashboard/RegenerateButton";
+import { CreateVersionButton } from "@/components/dashboard/CreateVersionButton";
 import { VersionSwitcher } from "@/components/dashboard/VersionSwitcher";
 import {
   ApiRequestError,
@@ -56,6 +56,8 @@ export function SlideTab({ courseId, documentProcessing = false }: SlideTabProps
   const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
   const [regenError, setRegenError] = useState<string | null>(null);
   const [regenDialogOpen, setRegenDialogOpen] = useState(false);
+  const [mode, setMode] = useState<"summary" | "lesson" | "deep_dive">("lesson");
+  const [focusPrompt, setFocusPrompt] = useState("");
   const stageRef = useRef<HTMLDivElement>(null);
   const downloadMenuRef = useRef<HTMLDivElement>(null);
 
@@ -120,7 +122,7 @@ export function SlideTab({ courseId, documentProcessing = false }: SlideTabProps
     setError(null);
     setProgress(5);
     try {
-      const res = await apiGenerateSlide(courseId);
+      const res = await apiGenerateSlide(courseId, { mode, focus_prompt: focusPrompt });
       startPolling(Date.now(), res.version_id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Bắt đầu tạo slide thất bại.");
@@ -151,7 +153,11 @@ export function SlideTab({ courseId, documentProcessing = false }: SlideTabProps
     setGenerating(true);
     setProgress(5);
     try {
-      const res = await apiGenerateSlide(courseId, retry && viewedVersion ? { retry_version_id: viewedVersion } : undefined);
+      const res = await apiGenerateSlide(courseId, {
+        mode,
+        focus_prompt: focusPrompt,
+        ...(retry && viewedVersion ? { retry_version_id: viewedVersion } : {}),
+      });
       startPolling(Date.now(), res.version_id);
     } catch (err) {
       if (err instanceof ApiRequestError && err.status === 409 && (err.detail as { code?: string })?.code === "version_cap_reached") {
@@ -164,6 +170,11 @@ export function SlideTab({ courseId, documentProcessing = false }: SlideTabProps
     }
   };
 
+  const optionValue = { mode, focusPrompt };
+  const updateOptions = (value: typeof optionValue) => {
+    setMode(value.mode);
+    setFocusPrompt(value.focusPrompt);
+  };
   const submitRegenerateFromDialog = () => {
     setRegenDialogOpen(false);
     void handleCreateVersion(Boolean(error));
@@ -178,8 +189,8 @@ export function SlideTab({ courseId, documentProcessing = false }: SlideTabProps
           </DialogDescription>
         </DialogHeader>
         <SlideOptionsPanel
-          value={{}}
-          onChange={() => undefined}
+          value={optionValue}
+          onChange={updateOptions}
           onSubmit={submitRegenerateFromDialog}
           busy={generating}
           progress={progress}
@@ -238,7 +249,7 @@ export function SlideTab({ courseId, documentProcessing = false }: SlideTabProps
           title="Lỗi tạo bài giảng"
           description={error}
           onRetry={handleRetryAfterError}
-          retryLabel="Thử tạo lại"
+          retryLabel="Mở tùy chọn tạo mới"
         />
         {regenerateDialog}
       </>
@@ -254,8 +265,8 @@ export function SlideTab({ courseId, documentProcessing = false }: SlideTabProps
         badge=""
       >
         <SlideOptionsPanel
-          value={{}}
-          onChange={() => undefined}
+          value={optionValue}
+          onChange={updateOptions}
           onSubmit={handleGenerate}
           busy={generating}
           progress={progress}
@@ -348,7 +359,7 @@ export function SlideTab({ courseId, documentProcessing = false }: SlideTabProps
             {downloadMenuOpen && (
               <div className="absolute right-0 top-full mt-1.5 w-40 rounded-xl border bg-card p-1 shadow-[var(--shadow-md)] z-10 animate-in fade-in-50">
                 <a
-                  href={getDownloadSlideUrl(courseId)}
+                  href={getDownloadSlideUrl(courseId, viewedVersion)}
                   target="_blank"
                   rel="noopener noreferrer"
                   download
@@ -358,7 +369,7 @@ export function SlideTab({ courseId, documentProcessing = false }: SlideTabProps
                   <Download className="h-3.5 w-3.5" /> PPTX
                 </a>
                 <a
-                  href={getDownloadSlidePdfUrl(courseId)}
+                  href={getDownloadSlidePdfUrl(courseId, viewedVersion)}
                   target="_blank"
                   rel="noopener noreferrer"
                   download
@@ -381,7 +392,7 @@ export function SlideTab({ courseId, documentProcessing = false }: SlideTabProps
               <RefreshCw className="h-4 w-4 animate-spin" /> Đang tạo ({progress}%)…
             </Button>
           ) : (
-            <RegenerateButton
+            <CreateVersionButton
               label="bộ slide"
               onOpen={() => {
                 setRegenError(null);

@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { VidOptionsPanel } from "@/components/dashboard/VidOptionsPanel";
-import { RegenerateButton } from "@/components/dashboard/RegenerateButton";
+import { CreateVersionButton } from "@/components/dashboard/CreateVersionButton";
 import { VersionSwitcher } from "@/components/dashboard/VersionSwitcher";
 import {
   ApiRequestError,
@@ -195,7 +195,7 @@ export function VidTab({ courseId, documentProcessing = false }: VidTabProps) {
           title="Lỗi tạo video"
           description={error}
           onRetry={handleRetryAfterError}
-          retryLabel="Thử tạo lại"
+          retryLabel="Mở tùy chọn tạo mới"
         />
         {regenerateDialog}
       </>
@@ -254,7 +254,7 @@ export function VidTab({ courseId, documentProcessing = false }: VidTabProps) {
               <RefreshCw className="h-4 w-4 animate-spin" /> Đang tạo ({progress}%)…
             </Button>
           ) : (
-            <RegenerateButton
+            <CreateVersionButton
               label="video"
               onOpen={() => {
                 setRegenError(null);

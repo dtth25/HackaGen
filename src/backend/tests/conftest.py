@@ -47,7 +47,7 @@ settings.UPLOAD_DIR = TEST_UPLOAD_DIR
 # Isolate the vector store from whatever collection local dev has been using — tests were
 # silently relying on the dev Chroma collection never having an incompatible embedding
 # function bound to it. Once dev testing populates data/chroma with real remote embeddings
-# (see embedding-pipeline-gemini-migration notes), pytest's PYTEST_CURRENT_TEST-gated
+# (see embedding-pipeline legacy migration notes), pytest's PYTEST_CURRENT_TEST-gated
 # default (Chroma's bundled MiniLM) collides with the persisted dimension. Point tests at
 # their own throwaway collection instead, matching the DB/UPLOAD_DIR isolation above.
 TEST_CHROMA_DIR = "test_chroma_tmp"

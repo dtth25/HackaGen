@@ -135,8 +135,7 @@ def _synthesize_silence(duration: float, mp3_path: str) -> None:
 
 
 def _synthesize_narration(text: str, voice_id: str, mp3_path: str, rate: str = "+0%") -> List[Dict[str, Any]]:
-    """Generate narration audio via edge-tts and collect word-boundary cues (used to build
-    vid.srt timing) as a side effect of the same streaming call."""
+    """Generate narration audio via edge-tts and return its word-boundary timing data."""
     if "PYTEST_CURRENT_TEST" in os.environ:
         _synthesize_silence(_estimate_spoken_duration(text, rate), mp3_path)
         return []
@@ -687,55 +686,6 @@ def concat_clips_xfade(clip_paths: List[str], durations: List[float], out_path: 
     except VideoRenderError as e:
         logger.warning("xfade concat failed, falling back to concat demuxer: %s", e)
         concat_clips(clip_paths, out_path)
-
-
-def _group_word_cues(cues: List[Dict[str, Any]], max_words: int = 10) -> List[Dict[str, Any]]:
-    """Group word-level TTS cues into readable subtitle lines (break on punctuation or a word
-    cap), rather than emitting a caption per word."""
-    groups: List[List[Dict[str, Any]]] = []
-    current: List[Dict[str, Any]] = []
-    for c in cues:
-        current.append(c)
-        if len(current) >= max_words or c["text"].strip().endswith((".", "!", "?", "…", ",")):
-            groups.append(current)
-            current = []
-    if current:
-        groups.append(current)
-    results = []
-    for g in groups:
-        text = " ".join(w["text"] for w in g).strip()
-        text = re.sub(r"\s+([,.!?…])", r"\1", text)  # "chào ," -> "chào,"
-        results.append({"start": g[0]["start"], "end": g[-1]["start"] + g[-1]["duration"], "text": text})
-    return results
-
-
-def _srt_timestamp(seconds: float) -> str:
-    ms = int(round(seconds * 1000))
-    h, ms = divmod(ms, 3600_000)
-    m, ms = divmod(ms, 60_000)
-    s, ms = divmod(ms, 1000)
-    return f"{h:02d}:{m:02d}:{s:02d},{ms:03d}"
-
-
-def _write_srt(cues: List[Dict[str, Any]], path: str) -> None:
-    lines = []
-    for i, cue in enumerate(cues, start=1):
-        lines.append(str(i))
-        lines.append(f"{_srt_timestamp(cue['start'])} --> {_srt_timestamp(cue['end'])}")
-        lines.append(cue["text"])
-        lines.append("")
-    with open(path, "w", encoding="utf-8") as f:
-        f.write("\n".join(lines))
-
-
-def _write_transcript(vid_data: VidOutput, path: str) -> None:
-    lines = [vid_data.title, ""]
-    for sc in vid_data.scenes:
-        lines.append(f"--- Cảnh {sc.scene_number}: {sc.title} ---")
-        lines.append(sc.narration)
-        lines.append("")
-    with open(path, "w", encoding="utf-8") as f:
-        f.write("\n".join(lines))
 
 
 def assemble_video(

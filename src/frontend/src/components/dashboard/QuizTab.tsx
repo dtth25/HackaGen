@@ -33,7 +33,7 @@ import {
 import { Markdown } from "@/components/ui/markdown";
 import { cn } from "@/lib/utils";
 import { QuizOptionsPanel } from "@/components/dashboard/QuizOptionsPanel";
-import { RegenerateButton } from "@/components/dashboard/RegenerateButton";
+import { CreateVersionButton } from "@/components/dashboard/CreateVersionButton";
 import { VersionSwitcher } from "@/components/dashboard/VersionSwitcher";
 import { ApiRequestError, apiDeleteArtifactVersion, apiGetQuiz, apiGenerateQuiz, apiRenameArtifactVersion, getDownloadQuizKeyUrl } from "@/lib/api";
 import type { QuizQuestion } from "@/lib/types";
@@ -274,7 +274,7 @@ export function QuizTab({ courseId, documentProcessing = false }: QuizTabProps) 
           title="Lỗi tạo bộ câu hỏi"
           description={error}
           onRetry={handleRetryAfterError}
-          retryLabel="Thử tạo lại"
+          retryLabel="Mở tùy chọn tạo mới"
         />
         {regenerateDialog}
       </>
@@ -464,7 +464,7 @@ export function QuizTab({ courseId, documentProcessing = false }: QuizTabProps) 
               <RefreshCw className="h-4 w-4 animate-spin" /> Đang tạo lại ({progress}%)…
             </Button>
           ) : (
-            <RegenerateButton
+            <CreateVersionButton
               label="bộ câu hỏi"
               onOpen={() => {
                 setRegenError(null);
