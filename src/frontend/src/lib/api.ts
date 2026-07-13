@@ -337,6 +337,17 @@ function versionQuery(version?: string | null): string {
   return version ? `?version=${encodeURIComponent(version)}` : "";
 }
 
+export async function apiRenameArtifactVersion(courseId: string, artifact: string, versionId: string, label: string): Promise<void> {
+  await apiFetch(`/api/course/${courseId}/artifacts/${artifact}/versions/${versionId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ label }),
+  });
+}
+
+export async function apiDeleteArtifactVersion(courseId: string, artifact: string, versionId: string): Promise<void> {
+  await apiFetch(`/api/course/${courseId}/artifacts/${artifact}/versions/${versionId}`, { method: "DELETE" });
+}
+
 export async function apiGetBook(courseId: string, version?: string | null): Promise<BookArtifactStatus> {
   return apiFetch<BookArtifactStatus>(`/api/course/${courseId}/book${versionQuery(version)}`);
 }

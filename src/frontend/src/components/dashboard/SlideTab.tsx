@@ -31,8 +31,10 @@ import { SlideOptionsPanel } from "@/components/dashboard/SlideOptionsPanel";
 import { RegenerateButton } from "@/components/dashboard/RegenerateButton";
 import { VersionSwitcher } from "@/components/dashboard/VersionSwitcher";
 import {
+  apiDeleteArtifactVersion,
   apiGetSlide,
   apiGenerateSlide,
+  apiRenameArtifactVersion,
   getDownloadSlideUrl,
   getDownloadSlidePdfUrl,
   getSlideImageUrl,
@@ -69,6 +71,7 @@ export function SlideTab({ courseId, documentProcessing = false }: SlideTabProps
     activeVersion,
     viewedVersion,
     switchVersion,
+    refresh,
   } = usePollingArtifact<SlidesOutput>({
     courseId,
     fetchFn: apiGetSlide,
@@ -127,6 +130,15 @@ export function SlideTab({ courseId, documentProcessing = false }: SlideTabProps
   // refetch would just surface the same error forever — retry opens the picker before a new job.
   const handleRetryAfterError = () => {
     setRegenDialogOpen(true);
+  };
+  const handleRenameVersion = async (versionId: string, label: string) => {
+    try { await apiRenameArtifactVersion(courseId, "slides", versionId, label); refresh(); }
+    catch (err) { setRegenError(err instanceof Error ? err.message : "Không thể đổi tên phiên bản."); }
+  };
+  const handleDeleteVersion = async (versionId: string) => {
+    if (!window.confirm("Xóa phiên bản này? Thao tác không thể hoàn tác.")) return;
+    try { await apiDeleteArtifactVersion(courseId, "slides", versionId); refresh(); }
+    catch (err) { setRegenError(err instanceof Error ? err.message : "Không thể xóa phiên bản."); }
   };
 
   // Regenerating from the ready view keeps the current deck visible (stale-while-revalidate)
@@ -373,7 +385,7 @@ export function SlideTab({ courseId, documentProcessing = false }: SlideTabProps
         </div>
       </div>
 
-      <VersionSwitcher versions={versions} activeVersion={activeVersion} viewedVersion={viewedVersion} onSwitch={switchVersion} onCreate={() => setRegenDialogOpen(true)} />
+      <VersionSwitcher versions={versions} activeVersion={activeVersion} viewedVersion={viewedVersion} onSwitch={switchVersion} onCreate={() => setRegenDialogOpen(true)} onRename={handleRenameVersion} onDelete={handleDeleteVersion} />
 
       {regenError && (
         <div className="flex items-center justify-between gap-3 rounded-xl border border-error/40 bg-error/5 px-4 py-3 text-sm text-error">

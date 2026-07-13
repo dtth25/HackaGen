@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, Loader2, Plus } from "lucide-react";
+import { AlertCircle, Loader2, MoreHorizontal, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ArtifactVersion } from "@/lib/types";
 
@@ -10,9 +10,11 @@ interface VersionSwitcherProps {
   viewedVersion: string | null;
   onSwitch: (versionId: string) => void;
   onCreate?: () => void;
+  onRename?: (versionId: string, label: string) => void;
+  onDelete?: (versionId: string) => void;
 }
 
-export function VersionSwitcher({ versions, activeVersion, viewedVersion, onSwitch, onCreate }: VersionSwitcherProps) {
+export function VersionSwitcher({ versions, activeVersion, viewedVersion, onSwitch, onCreate, onRename, onDelete }: VersionSwitcherProps) {
 
   return (
     <div className="flex max-w-full items-center gap-1 border-b border-border/60" role="tablist" aria-label="Phiên bản học liệu">
@@ -20,8 +22,8 @@ export function VersionSwitcher({ versions, activeVersion, viewedVersion, onSwit
       {versions.map((version) => {
         const selected = version.version_id === viewedVersion;
         return (
+          <div key={version.version_id} className="flex shrink-0 items-center">
           <button
-            key={version.version_id}
             type="button"
             role="tab"
             aria-selected={selected}
@@ -37,6 +39,8 @@ export function VersionSwitcher({ versions, activeVersion, viewedVersion, onSwit
             {version.status === "processing" && <Loader2 className="h-3 w-3 animate-spin" aria-label="Đang tạo" />}
             {version.status === "error" && <AlertCircle className="h-3 w-3 text-error" aria-label="Lỗi" />}
           </button>
+          {(onRename || onDelete) && <button type="button" className="-ml-2 mr-1 grid h-6 w-6 shrink-0 place-items-center text-muted-foreground hover:text-foreground" title="Tùy chọn phiên bản" onClick={(event) => { event.stopPropagation(); const action = window.prompt("Nhập tên mới, hoặc gõ DELETE để xóa", version.label); if (action === "DELETE") onDelete?.(version.version_id); else if (action?.trim()) onRename?.(version.version_id, action); }}><MoreHorizontal className="h-4 w-4" /></button>}
+          </div>
         );
       })}
       </div>

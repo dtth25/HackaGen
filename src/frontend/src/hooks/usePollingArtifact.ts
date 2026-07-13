@@ -166,6 +166,11 @@ export function usePollingArtifact<T>({
     setHasFetched(Boolean(cached));
   }, [dataByVersion, viewedVersion]);
 
+  const refresh = useCallback(() => {
+    setHasFetched(false);
+    setError(null);
+  }, []);
+
   return {
     data,
     setData,
@@ -186,5 +191,6 @@ export function usePollingArtifact<T>({
     activeVersion,
     viewedVersion,
     switchVersion,
+    refresh,
   };
 }
