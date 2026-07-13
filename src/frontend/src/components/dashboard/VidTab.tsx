@@ -27,7 +27,10 @@ import {
 import { cn } from "@/lib/utils";
 import { VidOptionsPanel } from "@/components/dashboard/VidOptionsPanel";
 import { RegenerateButton } from "@/components/dashboard/RegenerateButton";
+import { VersionSwitcher } from "@/components/dashboard/VersionSwitcher";
+import { ReplaceVersionDialog } from "@/components/dashboard/ReplaceVersionDialog";
 import {
+  ApiRequestError,
   apiGetVid,
   apiGenerateVid,
   getDownloadVidMp4Url,
@@ -57,6 +60,7 @@ export function VidTab({ courseId, documentProcessing = false }: VidTabProps) {
   const [userPrompt, setUserPrompt] = useState("");
   const [regenError, setRegenError] = useState<string | null>(null);
   const [regenDialogOpen, setRegenDialogOpen] = useState(false);
+  const [replaceDialogOpen, setReplaceDialogOpen] = useState(false);
 
   const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -77,6 +81,10 @@ export function VidTab({ courseId, documentProcessing = false }: VidTabProps) {
     regenMax,
     setRegenMax,
     startPolling,
+    versions,
+    activeVersion,
+    viewedVersion,
+    switchVersion,
   } = usePollingArtifact<VidOutput>({
     courseId,
     fetchFn: apiGetVid,
@@ -129,16 +137,17 @@ export function VidTab({ courseId, documentProcessing = false }: VidTabProps) {
   // Regenerating from the ready view keeps the current video visible (stale-while-revalidate)
   // instead of bouncing to the full-page ErrorState/EmptyState — a 429 (regen limit reached)
   // surfaces as a small inline banner instead of blowing away otherwise-valid content.
-  const handleRegenerate = async () => {
+  const handleRegenerate = async (replaceVersionId?: string) => {
     setRegenError(null);
     setGenerating(true);
     setProgress(5);
     try {
-      const res = await apiGenerateVid(courseId, { format, voice, user_prompt: userPrompt });
+      const res = await apiGenerateVid(courseId, { format, voice, user_prompt: userPrompt, replace_version_id: replaceVersionId });
       if (typeof res.regen_used === "number") setRegenUsed(res.regen_used);
       if (typeof res.regen_max === "number") setRegenMax(res.regen_max);
       startPolling(Date.now());
     } catch (err) {
+      if (err instanceof ApiRequestError && err.status === 409 && (err.detail as { code?: string })?.code === "version_cap_reached") setReplaceDialogOpen(true);
       setRegenError(err instanceof Error ? err.message : "Tạo lại thất bại.");
       setGenerating(false);
     }
@@ -285,7 +294,7 @@ export function VidTab({ courseId, documentProcessing = false }: VidTabProps) {
             {downloadMenuOpen && (
               <div className="absolute right-0 top-full mt-1.5 w-48 rounded-xl border bg-card p-1 shadow-[var(--shadow-md)] z-10 animate-in fade-in-50">
                 <a
-                  href={getDownloadVidMp4Url(courseId)}
+                  href={getDownloadVidMp4Url(courseId, viewedVersion)}
                   target="_blank"
                   rel="noopener noreferrer"
                   download
@@ -295,7 +304,7 @@ export function VidTab({ courseId, documentProcessing = false }: VidTabProps) {
                   <Download className="h-3.5 w-3.5" /> Video (MP4)
                 </a>
                 <a
-                  href={getDownloadVidUrl(courseId)}
+                  href={getDownloadVidUrl(courseId, viewedVersion)}
                   target="_blank"
                   rel="noopener noreferrer"
                   download
@@ -305,7 +314,7 @@ export function VidTab({ courseId, documentProcessing = false }: VidTabProps) {
                   <FileText className="h-3.5 w-3.5" /> Lời thoại (.txt)
                 </a>
                 <a
-                  href={getDownloadVidSrtUrl(courseId)}
+                  href={getDownloadVidSrtUrl(courseId, viewedVersion)}
                   target="_blank"
                   rel="noopener noreferrer"
                   download
@@ -341,6 +350,8 @@ export function VidTab({ courseId, documentProcessing = false }: VidTabProps) {
         </div>
       </div>
 
+      <VersionSwitcher versions={versions} activeVersion={activeVersion} viewedVersion={viewedVersion} onSwitch={switchVersion} />
+
       {regenError && (
         <div className="flex items-center justify-between gap-3 rounded-xl border border-error/40 bg-error/5 px-4 py-3 text-sm text-error">
           <span>{regenError}</span>
@@ -351,6 +362,7 @@ export function VidTab({ courseId, documentProcessing = false }: VidTabProps) {
       )}
 
       {regenerateDialog}
+      <ReplaceVersionDialog open={replaceDialogOpen} versions={versions} onOpenChange={setReplaceDialogOpen} onConfirm={(versionId) => { setReplaceDialogOpen(false); handleRegenerate(versionId); }} />
 
       {/* Player stage */}
       <div
@@ -373,7 +385,7 @@ export function VidTab({ courseId, documentProcessing = false }: VidTabProps) {
             "max-w-full rounded-lg",
             isFullscreen ? "max-h-screen" : "max-h-[70vh]"
           )}
-          src={getDownloadVidMp4Url(courseId)}
+          src={getDownloadVidMp4Url(courseId, viewedVersion)}
         />
       </div>
     </div>

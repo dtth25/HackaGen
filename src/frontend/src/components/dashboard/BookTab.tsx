@@ -29,7 +29,9 @@ import { cn } from "@/lib/utils";
 import { Markdown } from "@/components/ui/markdown";
 import { BookOptionsPanel, BOOK_DETAIL_OPTIONS } from "@/components/dashboard/BookOptionsPanel";
 import { RegenerateButton } from "@/components/dashboard/RegenerateButton";
-import { apiGetBook, apiGenerateBook, getDownloadBookUrl } from "@/lib/api";
+import { VersionSwitcher } from "@/components/dashboard/VersionSwitcher";
+import { ReplaceVersionDialog } from "@/components/dashboard/ReplaceVersionDialog";
+import { ApiRequestError, apiGetBook, apiGenerateBook, getDownloadBookUrl } from "@/lib/api";
 import { usePollingArtifact } from "@/hooks/usePollingArtifact";
 import type { BookOutput } from "@/lib/types";
 
@@ -46,6 +48,7 @@ export function BookTab({ courseId, documentProcessing = false }: BookTabProps) 
   const [isExpanded, setIsExpanded] = useState(false);
   const [regenError, setRegenError] = useState<string | null>(null);
   const [regenDialogOpen, setRegenDialogOpen] = useState(false);
+  const [replaceDialogOpen, setReplaceDialogOpen] = useState(false);
 
   // Generation config
   const [detailLevel, setDetailLevel] = useState(BOOK_DETAIL_OPTIONS[1]);
@@ -66,6 +69,10 @@ export function BookTab({ courseId, documentProcessing = false }: BookTabProps) 
     regenMax,
     setRegenMax,
     startPolling,
+    versions,
+    activeVersion,
+    viewedVersion,
+    switchVersion,
   } = usePollingArtifact<BookOutput>({
     courseId,
     fetchFn: apiGetBook,
@@ -120,16 +127,17 @@ export function BookTab({ courseId, documentProcessing = false }: BookTabProps) 
   // Regenerating from the ready view keeps the current book visible (stale-while-revalidate)
   // instead of bouncing to the full-page ErrorState/EmptyState — a 429 (regen limit reached)
   // surfaces as a small inline banner instead of blowing away otherwise-valid content.
-  const handleRegenerate = async () => {
+  const handleRegenerate = async (replaceVersionId?: string) => {
     setRegenError(null);
     setGenerating(true);
     setProgress(5);
     try {
-      const res = await apiGenerateBook(courseId, { detail_level: detailLevel, user_prompt: userPrompt });
+      const res = await apiGenerateBook(courseId, { detail_level: detailLevel, user_prompt: userPrompt, replace_version_id: replaceVersionId });
       if (typeof res.regen_used === "number") setRegenUsed(res.regen_used);
       if (typeof res.regen_max === "number") setRegenMax(res.regen_max);
       startPolling(Date.now());
     } catch (err) {
+      if (err instanceof ApiRequestError && err.status === 409 && (err.detail as { code?: string })?.code === "version_cap_reached") setReplaceDialogOpen(true);
       setRegenError(err instanceof Error ? err.message : "Tạo lại thất bại.");
       setGenerating(false);
     }
@@ -259,7 +267,7 @@ export function BookTab({ courseId, documentProcessing = false }: BookTabProps) 
 
         <div className="flex flex-wrap items-center gap-2 shrink-0">
           <a
-            href={getDownloadBookUrl(courseId)}
+            href={getDownloadBookUrl(courseId, viewedVersion)}
             target="_blank"
             rel="noopener noreferrer"
             download
@@ -288,6 +296,8 @@ export function BookTab({ courseId, documentProcessing = false }: BookTabProps) 
         </div>
       </div>
 
+      <VersionSwitcher versions={versions} activeVersion={activeVersion} viewedVersion={viewedVersion} onSwitch={switchVersion} />
+
       {regenError && (
         <div className="flex items-center justify-between gap-3 rounded-xl border border-error/40 bg-error/5 px-4 py-3 text-sm text-error">
           <span>{regenError}</span>
@@ -298,6 +308,7 @@ export function BookTab({ courseId, documentProcessing = false }: BookTabProps) 
       )}
 
       {regenerateDialog}
+      <ReplaceVersionDialog open={replaceDialogOpen} versions={versions} onOpenChange={setReplaceDialogOpen} onConfirm={(versionId) => { setReplaceDialogOpen(false); handleRegenerate(versionId); }} />
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Chapter rail */}

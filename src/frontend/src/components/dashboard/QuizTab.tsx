@@ -33,7 +33,9 @@ import { Markdown } from "@/components/ui/markdown";
 import { cn } from "@/lib/utils";
 import { QuizOptionsPanel } from "@/components/dashboard/QuizOptionsPanel";
 import { RegenerateButton } from "@/components/dashboard/RegenerateButton";
-import { apiGetQuiz, apiGenerateQuiz, getDownloadQuizKeyUrl } from "@/lib/api";
+import { VersionSwitcher } from "@/components/dashboard/VersionSwitcher";
+import { ReplaceVersionDialog } from "@/components/dashboard/ReplaceVersionDialog";
+import { ApiRequestError, apiGetQuiz, apiGenerateQuiz, getDownloadQuizKeyUrl } from "@/lib/api";
 import type { QuizQuestion } from "@/lib/types";
 
 interface QuizTabProps {
@@ -88,6 +90,7 @@ export function QuizTab({ courseId, documentProcessing = false }: QuizTabProps) 
   const [showResults, setShowResults] = useState(false);
   const [regenError, setRegenError] = useState<string | null>(null);
   const [regenDialogOpen, setRegenDialogOpen] = useState(false);
+  const [replaceDialogOpen, setReplaceDialogOpen] = useState(false);
 
   const resetTaking = useCallback(() => {
     setCurrentIndex(0);
@@ -110,6 +113,10 @@ export function QuizTab({ courseId, documentProcessing = false }: QuizTabProps) 
     regenMax,
     setRegenMax,
     startPolling,
+    versions,
+    activeVersion,
+    viewedVersion,
+    switchVersion,
   } = usePollingArtifact<QuizQuestion[]>({
     courseId,
     fetchFn: apiGetQuiz,
@@ -145,16 +152,17 @@ export function QuizTab({ courseId, documentProcessing = false }: QuizTabProps) 
   // (stale-while-revalidate) instead of bouncing to the full-page ErrorState/EmptyState —
   // a 429 (regen limit reached) surfaces as a small inline banner instead of blowing away
   // otherwise-valid content. Reuses the currently configured quantity/difficulty.
-  const handleRegenerate = async () => {
+  const handleRegenerate = async (replaceVersionId?: string) => {
     setRegenError(null);
     setGenerating(true);
     setProgress(5);
     try {
-      const res = await apiGenerateQuiz(courseId, { quantity, difficulty });
+      const res = await apiGenerateQuiz(courseId, { quantity, difficulty, replace_version_id: replaceVersionId });
       if (typeof res.regen_used === "number") setRegenUsed(res.regen_used);
       if (typeof res.regen_max === "number") setRegenMax(res.regen_max);
       startPolling(Date.now());
     } catch (err) {
+      if (err instanceof ApiRequestError && err.status === 409 && (err.detail as { code?: string })?.code === "version_cap_reached") setReplaceDialogOpen(true);
       setRegenError(err instanceof Error ? err.message : "Tạo lại thất bại.");
       setGenerating(false);
     }
@@ -349,7 +357,7 @@ export function QuizTab({ courseId, documentProcessing = false }: QuizTabProps) 
               <Sparkles className="h-4 w-4" /> Tạo bộ mới
             </Button>
             <a
-              href={getDownloadQuizKeyUrl(courseId)}
+              href={getDownloadQuizKeyUrl(courseId, viewedVersion)}
               target="_blank"
               rel="noopener noreferrer"
               download
@@ -440,7 +448,7 @@ export function QuizTab({ courseId, documentProcessing = false }: QuizTabProps) 
 
         <div className="flex flex-wrap items-center gap-2 shrink-0">
           <a
-            href={getDownloadQuizKeyUrl(courseId)}
+            href={getDownloadQuizKeyUrl(courseId, viewedVersion)}
             target="_blank"
             rel="noopener noreferrer"
             download
@@ -471,6 +479,8 @@ export function QuizTab({ courseId, documentProcessing = false }: QuizTabProps) 
         </div>
       </div>
 
+      <VersionSwitcher versions={versions} activeVersion={activeVersion} viewedVersion={viewedVersion} onSwitch={switchVersion} />
+
       {regenError && (
         <div className="flex items-center justify-between gap-3 rounded-xl border border-error/40 bg-error/5 px-4 py-3 text-sm text-error">
           <span>{regenError}</span>
@@ -481,6 +491,7 @@ export function QuizTab({ courseId, documentProcessing = false }: QuizTabProps) 
       )}
 
       {regenerateDialog}
+      <ReplaceVersionDialog open={replaceDialogOpen} versions={versions} onOpenChange={setReplaceDialogOpen} onConfirm={(versionId) => { setReplaceDialogOpen(false); handleRegenerate(versionId); }} />
 
       {/* Progress bar */}
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">

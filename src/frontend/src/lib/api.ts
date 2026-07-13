@@ -333,65 +333,70 @@ export async function apiGenerateVid(
   });
 }
 
-export async function apiGetBook(courseId: string): Promise<BookArtifactStatus> {
-  return apiFetch<BookArtifactStatus>(`/api/course/${courseId}/book`);
+function versionQuery(version?: string | null): string {
+  return version ? `?version=${encodeURIComponent(version)}` : "";
 }
 
-export async function apiGetSlide(courseId: string): Promise<SlideArtifactStatus> {
-  return apiFetch<SlideArtifactStatus>(`/api/course/${courseId}/slide`);
+export async function apiGetBook(courseId: string, version?: string | null): Promise<BookArtifactStatus> {
+  return apiFetch<BookArtifactStatus>(`/api/course/${courseId}/book${versionQuery(version)}`);
 }
 
-export async function apiGetQuiz(courseId: string): Promise<QuizArtifactStatus> {
-  return apiFetch<QuizArtifactStatus>(`/api/course/${courseId}/quiz`);
+export async function apiGetSlide(courseId: string, version?: string | null): Promise<SlideArtifactStatus> {
+  return apiFetch<SlideArtifactStatus>(`/api/course/${courseId}/slide${versionQuery(version)}`);
 }
 
-export async function apiGetVid(courseId: string): Promise<VidArtifactStatus> {
-  return apiFetch<VidArtifactStatus>(`/api/course/${courseId}/vid`);
+export async function apiGetQuiz(courseId: string, version?: string | null): Promise<QuizArtifactStatus> {
+  return apiFetch<QuizArtifactStatus>(`/api/course/${courseId}/quiz${versionQuery(version)}`);
+}
+
+export async function apiGetVid(courseId: string, version?: string | null): Promise<VidArtifactStatus> {
+  return apiFetch<VidArtifactStatus>(`/api/course/${courseId}/vid${versionQuery(version)}`);
 }
 
 // ============================================================
 // Download Helpers
 // ============================================================
 
-export function getDownloadBookUrl(courseId: string): string {
+function downloadSuffix(version?: string | null): string {
   const token = getToken();
-  const suffix = token ? `?token=${encodeURIComponent(token)}` : "";
+  const params = new URLSearchParams();
+  if (token) params.set("token", token);
+  if (version) params.set("version", version);
+  return params.size ? `?${params.toString()}` : "";
+}
+
+export function getDownloadBookUrl(courseId: string, version?: string | null): string {
+  const suffix = downloadSuffix(version);
   return `${API_BASE}/api/course/${courseId}/book.pdf${suffix}`;
 }
 
-export function getDownloadSlideUrl(courseId: string): string {
-  const token = getToken();
-  const suffix = token ? `?token=${encodeURIComponent(token)}` : "";
+export function getDownloadSlideUrl(courseId: string, version?: string | null): string {
+  const suffix = downloadSuffix(version);
   return `${API_BASE}/api/course/${courseId}/slide.pptx${suffix}`;
 }
 
-export function getDownloadSlidePdfUrl(courseId: string): string {
-  const token = getToken();
-  const suffix = token ? `?token=${encodeURIComponent(token)}` : "";
+export function getDownloadSlidePdfUrl(courseId: string, version?: string | null): string {
+  const suffix = downloadSuffix(version);
   return `${API_BASE}/api/course/${courseId}/slide.pdf${suffix}`;
 }
 
-export function getDownloadQuizKeyUrl(courseId: string): string {
-  const token = getToken();
-  const suffix = token ? `?token=${encodeURIComponent(token)}` : "";
+export function getDownloadQuizKeyUrl(courseId: string, version?: string | null): string {
+  const suffix = downloadSuffix(version);
   return `${API_BASE}/api/course/${courseId}/quiz-key.pdf${suffix}`;
 }
 
-export function getDownloadVidMp4Url(courseId: string): string {
-  const token = getToken();
-  const suffix = token ? `?token=${encodeURIComponent(token)}` : "";
+export function getDownloadVidMp4Url(courseId: string, version?: string | null): string {
+  const suffix = downloadSuffix(version);
   return `${API_BASE}/api/course/${courseId}/vid.mp4${suffix}`;
 }
 
-export function getDownloadVidUrl(courseId: string): string {
-  const token = getToken();
-  const suffix = token ? `?token=${encodeURIComponent(token)}` : "";
+export function getDownloadVidUrl(courseId: string, version?: string | null): string {
+  const suffix = downloadSuffix(version);
   return `${API_BASE}/api/course/${courseId}/vid/file${suffix}`;
 }
 
-export function getDownloadVidSrtUrl(courseId: string): string {
-  const token = getToken();
-  const suffix = token ? `?token=${encodeURIComponent(token)}` : "";
+export function getDownloadVidSrtUrl(courseId: string, version?: string | null): string {
+  const suffix = downloadSuffix(version);
   return `${API_BASE}/api/course/${courseId}/vid.srt${suffix}`;
 }
 
@@ -400,8 +405,7 @@ export const getSlidePptxUrl = getDownloadSlideUrl;
 export const getQuizKeyPdfUrl = getDownloadQuizKeyUrl;
 export const getVidFileUrl = getDownloadVidUrl;
 
-export function getSlideImageUrl(courseId: string, slideNum: number): string {
-  const token = getToken();
-  const suffix = token ? `?token=${encodeURIComponent(token)}` : "";
+export function getSlideImageUrl(courseId: string, slideNum: number, version?: string | null): string {
+  const suffix = downloadSuffix(version);
   return `${API_BASE}/api/course/${courseId}/slide-images/${slideNum}${suffix}`;
 }

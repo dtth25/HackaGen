@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { ArtifactVersion } from "@/lib/types";
 
 /** Shared poll cadence — was a `3000` literal duplicated independently across 6 call
  * sites (the 4 tabs below, plus the simpler list/status pollers in courses/page.tsx and
@@ -16,11 +17,14 @@ export interface ArtifactStatusLike<T> {
   error?: string | null;
   regen_used?: number;
   regen_max?: number;
+  version_id?: string | null;
+  active_version?: string | null;
+  versions?: ArtifactVersion[];
 }
 
 interface UsePollingArtifactOptions<T> {
   courseId: string;
-  fetchFn: (courseId: string) => Promise<ArtifactStatusLike<T>>;
+  fetchFn: (courseId: string, version?: string | null) => Promise<ArtifactStatusLike<T>>;
   /** True once `data` actually has renderable content (e.g. chapters.length > 0) — a
    * "ready" status with an empty payload is treated as not-ready-yet. */
   isReady: (data: T) => boolean;
@@ -55,6 +59,9 @@ export function usePollingArtifact<T>({
   const [progress, setProgress] = useState(0);
   const [regenUsed, setRegenUsed] = useState<number | null>(null);
   const [regenMax, setRegenMax] = useState<number | null>(null);
+  const [versions, setVersions] = useState<ArtifactVersion[]>([]);
+  const [activeVersion, setActiveVersion] = useState<string | null>(null);
+  const [viewedVersion, setViewedVersion] = useState<string | null>(null);
 
   const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -75,9 +82,12 @@ export function usePollingArtifact<T>({
     (startedAt: number) => {
       const poll = async () => {
         try {
-          const res = await fetchFnRef.current(courseId);
+          const res = await fetchFnRef.current(courseId, viewedVersion);
           if (typeof res.regen_used === "number") setRegenUsed(res.regen_used);
           if (typeof res.regen_max === "number") setRegenMax(res.regen_max);
+          if (res.versions) setVersions(res.versions);
+          if (res.active_version !== undefined) setActiveVersion(res.active_version ?? null);
+          if (res.version_id && !viewedVersion) setViewedVersion(res.version_id);
           if (res.status === "ready" && res.data && isReadyRef.current(res.data)) {
             setData(res.data);
             setHasFetched(true);
@@ -104,16 +114,19 @@ export function usePollingArtifact<T>({
       };
       pollTimer.current = setTimeout(poll, pollMs);
     },
-    [courseId, timeoutMs, timeoutMessage, defaultErrorMessage, pollMs]
+    [courseId, timeoutMs, timeoutMessage, defaultErrorMessage, pollMs, viewedVersion]
   );
 
   useEffect(() => {
     if (hasFetched) return;
     fetchFnRef
-      .current(courseId)
+      .current(courseId, viewedVersion)
       .then((res) => {
         if (typeof res.regen_used === "number") setRegenUsed(res.regen_used);
         if (typeof res.regen_max === "number") setRegenMax(res.regen_max);
+        if (res.versions) setVersions(res.versions);
+        if (res.active_version !== undefined) setActiveVersion(res.active_version ?? null);
+        if (res.version_id && !viewedVersion) setViewedVersion(res.version_id);
         if (res.status === "ready" && res.data && isReadyRef.current(res.data)) {
           setData(res.data);
           onReadyRef.current?.(res.data);
@@ -132,7 +145,16 @@ export function usePollingArtifact<T>({
       if (pollTimer.current) clearTimeout(pollTimer.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [courseId, hasFetched]);
+  }, [courseId, hasFetched, viewedVersion]);
+
+  const switchVersion = useCallback((versionId: string) => {
+    if (versionId === viewedVersion) return;
+    if (pollTimer.current) clearTimeout(pollTimer.current);
+    setViewedVersion(versionId);
+    setData(null);
+    setError(null);
+    setHasFetched(false);
+  }, [viewedVersion]);
 
   return {
     data,
@@ -149,5 +171,9 @@ export function usePollingArtifact<T>({
     regenMax,
     setRegenMax,
     startPolling,
+    versions,
+    activeVersion,
+    viewedVersion,
+    switchVersion,
   };
 }
