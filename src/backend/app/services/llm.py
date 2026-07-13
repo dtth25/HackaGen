@@ -437,7 +437,7 @@ class LLMService:
         valid_chunk_ids: List[str] = None,
     ) -> VidOutput:
         """Generate a narrated Video script (minimal on-frame text, voice-led) from RAG context."""
-        from app.services.video_render import narration_hint, scene_count_hint
+        from app.services.video_render import format_guidance, narration_hint, scene_count_hint
 
         prompt = self._load_prompt(
             "vid.txt",
@@ -445,6 +445,7 @@ class LLMService:
             user_prompt=user_prompt or "(không có)",
             scene_hint=scene_count_hint(fmt),
             narration_hint=narration_hint(fmt),
+            format_guidance=format_guidance(fmt),
             context=context,
         )
         cids = valid_chunk_ids or ["chunk_1"]
@@ -456,10 +457,10 @@ class LLMService:
                 scenes=[
                     VidScene(
                         scene_number=1,
-                        title="Giới thiệu",
-                        on_screen_text=topic,
+                        title="Điều gì đang xảy ra?",
+                        on_screen_text="Một câu hỏi cần lời giải",
                         duration_seconds=0,
-                        narration=f"Chào mừng các bạn đến với video ngắn về {topic}. Hôm nay chúng ta sẽ cùng khám phá những khái niệm nền tảng nhất trong tài liệu này.",
+                        narration=f"Điều gì khiến {topic} trở thành vấn đề đáng chú ý? Câu trả lời nằm ở cách các ý chính trong tài liệu kết nối với nhau.",
                         source_chunk_ids=cids,
                     ),
                     VidScene(

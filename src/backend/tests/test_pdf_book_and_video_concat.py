@@ -9,7 +9,13 @@ import pytest
 from app.schemas.generator_output import BookChapter, BookOutput, BookSection
 from app.services import video_render
 from app.services.pdf_book import build_book_pdf
-from app.services.video_render import VideoRenderError, concat_clips
+from app.services.video_render import (
+    FORMAT_SPECS,
+    VideoRenderError,
+    _estimate_spoken_duration,
+    concat_clips,
+    format_guidance,
+)
 
 
 def _sample_book() -> BookOutput:
@@ -99,3 +105,12 @@ def test_concat_clips_reencode_also_fails_raises(monkeypatch, tmp_path):
     out_path = str(tmp_path / "out.mp4")
     with pytest.raises(VideoRenderError):
         concat_clips(["a.mp4", "b.mp4"], out_path)
+
+
+def test_format_pacing_rates_and_guidance_are_explicit():
+    assert FORMAT_SPECS["standard"]["tts_rate"] == "+0%"
+    assert FORMAT_SPECS["overview"]["tts_rate"] == "+4%"
+    assert FORMAT_SPECS["shorts"]["tts_rate"] == "+12%"
+    assert "Nhịp nhanh" in format_guidance("shorts")
+    text = "một hai ba bốn năm sáu"
+    assert _estimate_spoken_duration(text, "+12%") < _estimate_spoken_duration(text, "+0%")

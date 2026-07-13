@@ -45,9 +45,9 @@ def _scene_accent(idx: int) -> tuple:
 # regardless of the picked mode. Vietnamese edge-tts reads ~140-150 wpm (~2.4 words/sec),
 # so these word targets are what actually hit each format's stated minutes.
 FORMAT_SPECS: Dict[str, Dict[str, Any]] = {
-    "standard": {"width": 1280, "height": 720, "scenes": (8, 10), "label": "Tiêu chuẩn", "target": "5-7 phút", "narration": (95, 130)},
-    "overview": {"width": 1280, "height": 720, "scenes": (5, 6), "label": "Tổng quan", "target": "2-3 phút", "narration": (65, 90)},
-    "shorts": {"width": 720, "height": 1280, "scenes": (4, 5), "label": "Shorts", "target": "30-60 giây", "narration": (20, 30)},
+    "standard": {"width": 1280, "height": 720, "scenes": (8, 10), "label": "Tiêu chuẩn", "target": "5-7 phút", "narration": (95, 130), "tts_rate": "+0%", "narration_style": "Nhịp giải thích điềm tĩnh, có khoảng nghỉ ngắn sau ý quan trọng để người học kịp theo dõi."},
+    "overview": {"width": 1280, "height": 720, "scenes": (5, 6), "label": "Tổng quan", "target": "2-3 phút", "narration": (65, 90), "tts_rate": "+4%", "narration_style": "Nhịp gọn, đi thẳng vào mạch câu chuyện; mỗi cảnh chỉ giữ một ý then chốt và chuyển ý rõ ràng."},
+    "shorts": {"width": 720, "height": 1280, "scenes": (4, 5), "label": "Shorts", "target": "30-60 giây", "narration": (20, 30), "tts_rate": "+12%", "narration_style": "Nhịp nhanh, dứt khoát và giàu tò mò; câu ngắn, ưu tiên động từ, không lặp lại ý hay mở bài dài."},
 }
 
 VOICE_MAP = {
@@ -81,6 +81,12 @@ def narration_hint(fmt: Optional[str]) -> str:
     return f"khoảng {lo}-{hi} từ mỗi phân cảnh (để tổng thời lượng đạt mục tiêu {spec['target']})"
 
 
+def format_guidance(fmt: Optional[str]) -> str:
+    """Prompt guidance paired with the renderer's actual speech rate."""
+    spec = resolve_format(fmt)
+    return f"{spec['narration_style']} Tốc độ đọc được dựng ở mức {spec['tts_rate']}."
+
+
 def _get_ffmpeg() -> str:
     import imageio_ffmpeg
 
@@ -104,11 +110,12 @@ def _probe_duration(path: str) -> float:
     return int(h) * 3600 + int(m) * 60 + float(s)
 
 
-def _estimate_spoken_duration(text: str) -> float:
+def _estimate_spoken_duration(text: str, rate: str = "+0%") -> float:
     """Rough spoken-duration estimate (~150 wpm) — only used by the offline test fallback,
     where there's no real TTS audio to measure."""
     words = len(text.split())
-    return max(1.0, words / 2.5)
+    speed = 1 + int(rate.replace("%", "") or 0) / 100
+    return max(1.0, words / (2.5 * speed))
 
 
 def _synthesize_silence(duration: float, mp3_path: str) -> None:
@@ -126,17 +133,17 @@ def _synthesize_silence(duration: float, mp3_path: str) -> None:
     )
 
 
-def _synthesize_narration(text: str, voice_id: str, mp3_path: str) -> List[Dict[str, Any]]:
+def _synthesize_narration(text: str, voice_id: str, mp3_path: str, rate: str = "+0%") -> List[Dict[str, Any]]:
     """Generate narration audio via edge-tts and collect word-boundary cues (used to build
     vid.srt timing) as a side effect of the same streaming call."""
     if "PYTEST_CURRENT_TEST" in os.environ:
-        _synthesize_silence(_estimate_spoken_duration(text), mp3_path)
+        _synthesize_silence(_estimate_spoken_duration(text, rate), mp3_path)
         return []
 
     import edge_tts
 
     async def _run() -> List[Dict[str, Any]]:
-        communicate = edge_tts.Communicate(text, voice_id)
+        communicate = edge_tts.Communicate(text, voice_id, rate=rate)
         cues: List[Dict[str, Any]] = []
         with open(mp3_path, "wb") as f:
             async for chunk in communicate.stream():
@@ -391,6 +398,7 @@ def assemble_video(
     spec = resolve_format(fmt)
     width, height = spec["width"], spec["height"]
     voice_id = resolve_voice(voice)
+    tts_rate = spec["tts_rate"]
 
     scene_dir = os.path.join(artifact_dir, "_vid_scenes")
     os.makedirs(scene_dir, exist_ok=True)
@@ -405,7 +413,7 @@ def assemble_video(
     try:
         for i, scene in enumerate(vid_data.scenes):
             mp3_path = os.path.join(scene_dir, f"scene_{i + 1}.mp3")
-            word_cues = _synthesize_narration(scene.narration, voice_id, mp3_path)
+            word_cues = _synthesize_narration(scene.narration, voice_id, mp3_path, rate=tts_rate)
             duration = _cues_duration(word_cues) or _probe_duration(mp3_path)
             duration = max(duration, 1.0)
             scene.duration_seconds = int(round(duration))

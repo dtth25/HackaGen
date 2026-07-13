@@ -86,6 +86,15 @@ def test_llm_service_and_prompts():
     assert vid.title != ""
     assert len(vid.scenes) > 0
     assert len(vid.scenes[0].source_chunk_ids) > 0
+    assert not vid.scenes[0].narration.startswith("Chào mừng")
+
+    prompt = llm._load_prompt(
+        "vid.txt", topic="AI", user_prompt="(không có)", scene_hint="4-5 phân cảnh",
+        narration_hint="20-30 từ", format_guidance="Nhịp nhanh, dứt khoát.", context=context,
+    )
+    assert "Nhịp nhanh, dứt khoát" in prompt
+    assert "Cấm mở bằng" in prompt
+    assert "{format_guidance}" not in prompt
 
 
 def test_generator_all_artifacts_and_validation(client):
