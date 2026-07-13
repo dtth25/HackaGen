@@ -557,8 +557,7 @@ class Generator:
         artifact_dir: Optional[str] = None,
         scene_visual_map: Optional[Dict[int, Dict[str, Any]]] = None,
     ) -> str:
-        """Render the narrated MP4 (TTS + still frames + ffmpeg concat) plus transcript.txt /
-        vid.srt. Raises on failure — callers must treat that as a hard generation error, not
+        """Render the narrated MP4 (TTS + still frames + ffmpeg concat). Raises on failure — callers must treat that as a hard generation error, not
         write a placeholder file in its place (matches the strict invariant used by Book's PDF)."""
         from app.services.video_render import assemble_video
 
@@ -743,8 +742,16 @@ class Generator:
             is_new = version_id not in versions
             if is_new and len(versions) >= VERSION_CAPS[artifact]:
                 raise VersionCapReachedError(self._version_summaries(versions))
+            label = current.get("label") or version_label(artifact, options)
+            if is_new:
+                existing_labels = {str(value.get("label", "")).casefold() for value in versions.values() if isinstance(value, dict)}
+                base_label = label
+                suffix = 2
+                while label.casefold() in existing_labels:
+                    label = f"{base_label} ({suffix})"
+                    suffix += 1
             current.update({
-                "options": dict(options), "label": current.get("label") or version_label(artifact, options), "topic": topic,
+                "options": dict(options), "label": label, "topic": topic,
                 "user_prompt": user_prompt, "path": version_id, "status": "processing", "error": None,
                 "progress": 0, "created_at": current.get("created_at", now), "started_at": now, "updated_at": now,
             })

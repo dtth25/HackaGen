@@ -15,8 +15,6 @@ export interface ArtifactStatusLike<T> {
   data?: T | null;
   progress?: number | null;
   error?: string | null;
-  regen_used?: number;
-  regen_max?: number;
   version_id?: string | null;
   active_version?: string | null;
   versions?: ArtifactVersion[];
@@ -57,6 +55,8 @@ export function usePollingArtifact<T>({
   const [error, setError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [dataByVersion, setDataByVersion] = useState<Record<string, T>>({});
+  // Compatibility setters while tabs are migrated away from the former regenerate quota UI.
   const [regenUsed, setRegenUsed] = useState<number | null>(null);
   const [regenMax, setRegenMax] = useState<number | null>(null);
   const [versions, setVersions] = useState<ArtifactVersion[]>([]);
@@ -87,12 +87,11 @@ export function usePollingArtifact<T>({
         const pollingVersion = pollingVersionRef.current;
         try {
           const res = await fetchFnRef.current(courseId, pollingVersion);
-          if (typeof res.regen_used === "number") setRegenUsed(res.regen_used);
-          if (typeof res.regen_max === "number") setRegenMax(res.regen_max);
           if (res.versions) setVersions(res.versions);
           if (res.active_version !== undefined) setActiveVersion(res.active_version ?? null);
           if (res.status === "ready" && res.data && isReadyRef.current(res.data)) {
-            setViewedVersion(res.version_id ?? pollingVersion);
+            const completedVersion = res.version_id ?? pollingVersion;
+            if (completedVersion) setDataByVersion((cache) => ({ ...cache, [completedVersion]: res.data as T }));
             setData(res.data);
             setHasFetched(true);
             setGenerating(false);
@@ -137,13 +136,12 @@ export function usePollingArtifact<T>({
     fetchFnRef
       .current(courseId, viewedVersion)
       .then((res) => {
-        if (typeof res.regen_used === "number") setRegenUsed(res.regen_used);
-        if (typeof res.regen_max === "number") setRegenMax(res.regen_max);
         if (res.versions) setVersions(res.versions);
         if (res.active_version !== undefined) setActiveVersion(res.active_version ?? null);
         if (res.version_id && !viewedVersion) setViewedVersion(res.version_id);
         if (res.status === "ready" && res.data && isReadyRef.current(res.data)) {
           setData(res.data);
+          if (res.version_id) setDataByVersion((cache) => ({ ...cache, [res.version_id as string]: res.data as T }));
           onReadyRef.current?.(res.data);
         } else if (res.status === "processing") {
           setGenerating(true);
@@ -162,10 +160,11 @@ export function usePollingArtifact<T>({
   const switchVersion = useCallback((versionId: string) => {
     if (versionId === viewedVersion) return;
     setViewedVersion(versionId);
-    setData(null);
+    const cached = dataByVersion[versionId];
+    setData(cached ?? null);
     setError(null);
-    setHasFetched(false);
-  }, [viewedVersion]);
+    setHasFetched(Boolean(cached));
+  }, [dataByVersion, viewedVersion]);
 
   return {
     data,
@@ -177,6 +176,7 @@ export function usePollingArtifact<T>({
     setGenerating,
     progress,
     setProgress,
+    dataByVersion,
     regenUsed,
     setRegenUsed,
     regenMax,

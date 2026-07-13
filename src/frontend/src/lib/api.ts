@@ -390,20 +390,10 @@ export function getDownloadVidMp4Url(courseId: string, version?: string | null):
   return `${API_BASE}/api/course/${courseId}/vid.mp4${suffix}`;
 }
 
-export function getDownloadVidUrl(courseId: string, version?: string | null): string {
-  const suffix = downloadSuffix(version);
-  return `${API_BASE}/api/course/${courseId}/vid/file${suffix}`;
-}
-
-export function getDownloadVidSrtUrl(courseId: string, version?: string | null): string {
-  const suffix = downloadSuffix(version);
-  return `${API_BASE}/api/course/${courseId}/vid.srt${suffix}`;
-}
-
 export const getBookPdfUrl = getDownloadBookUrl;
 export const getSlidePptxUrl = getDownloadSlideUrl;
 export const getQuizKeyPdfUrl = getDownloadQuizKeyUrl;
-export const getVidFileUrl = getDownloadVidUrl;
+export const getVidFileUrl = getDownloadVidMp4Url;
 
 export function getSlideImageUrl(courseId: string, slideNum: number, version?: string | null): string {
   const suffix = downloadSuffix(version);

@@ -6,10 +6,6 @@ import {
   Video,
   RefreshCw,
   Download,
-  FileText,
-  Maximize2,
-  X,
-  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -34,8 +30,6 @@ import {
   apiGetVid,
   apiGenerateVid,
   getDownloadVidMp4Url,
-  getDownloadVidUrl,
-  getDownloadVidSrtUrl,
 } from "@/lib/api";
 import type { VidOutput } from "@/lib/types";
 
@@ -61,8 +55,6 @@ export function VidTab({ courseId, documentProcessing = false }: VidTabProps) {
   const [regenError, setRegenError] = useState<string | null>(null);
   const [regenDialogOpen, setRegenDialogOpen] = useState(false);
   const [replaceDialogOpen, setReplaceDialogOpen] = useState(false);
-  const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
 
 
   const {
@@ -94,7 +86,6 @@ export function VidTab({ courseId, documentProcessing = false }: VidTabProps) {
 
   const loading = !hasFetched && !error;
 
-  const toggleFullScreen = () => setIsFullscreen(false);
 
 
   const handleGenerate = async () => {
@@ -257,51 +248,6 @@ export function VidTab({ courseId, documentProcessing = false }: VidTabProps) {
           <a href={getDownloadVidMp4Url(courseId, viewedVersion)} target="_blank" rel="noopener noreferrer" download className="inline-flex h-10 items-center gap-1.5 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90">
             <Download className="h-4 w-4" /> Tải MP4
           </a>
-          {false && <div className="relative" ref={undefined}>
-            <Button
-              onClick={() => setDownloadMenuOpen((v) => !v)}
-              variant="default"
-              className="gap-1.5"
-            >
-              <Download className="h-4 w-4" />
-              Tải xuống
-              <ChevronDown className="h-3.5 w-3.5" />
-            </Button>
-            {downloadMenuOpen && (
-              <div className="absolute right-0 top-full mt-1.5 w-48 rounded-xl border bg-card p-1 shadow-[var(--shadow-md)] z-10 animate-in fade-in-50">
-                <a
-                  href={getDownloadVidMp4Url(courseId, viewedVersion)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  download
-                  onClick={() => setDownloadMenuOpen(false)}
-                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors"
-                >
-                  <Download className="h-3.5 w-3.5" /> Video (MP4)
-                </a>
-                <a
-                  href={getDownloadVidUrl(courseId, viewedVersion)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  download
-                  onClick={() => setDownloadMenuOpen(false)}
-                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors"
-                >
-                  <FileText className="h-3.5 w-3.5" /> Lời thoại (.txt)
-                </a>
-                <a
-                  href={getDownloadVidSrtUrl(courseId, viewedVersion)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  download
-                  onClick={() => setDownloadMenuOpen(false)}
-                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors"
-                >
-                  <FileText className="h-3.5 w-3.5" /> Phụ đề (.srt)
-                </a>
-              </div>
-            )}
-          </div>}
 
           {generating ? (
             <Button disabled variant="outline" className="gap-1.5">
@@ -339,15 +285,6 @@ export function VidTab({ courseId, documentProcessing = false }: VidTabProps) {
       <div
         className="w-full bg-stage border border-stage-border rounded-2xl shadow-2xl relative overflow-hidden text-stage-foreground flex items-center justify-center p-2 sm:p-4"
       >
-        {false && (
-          <button
-            onClick={toggleFullScreen}
-            className="absolute top-4 right-4 z-10 p-2 rounded-lg bg-stage-muted hover:bg-stage-border text-stage-foreground transition-colors"
-            title="Thoát toàn màn hình"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        )}
         <video
           key={courseId}
           controls

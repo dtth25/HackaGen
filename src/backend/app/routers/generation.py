@@ -544,52 +544,6 @@ def download_vid_mp4(
     )
 
 
-@router_single.get("/{course_id}/vid/file")
-@router.get("/{course_id}/vid/file")
-def download_vid_transcript(
-    course_id: str,
-    version: Optional[str] = Query(None),
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-) -> Any:
-    """Download the Video narration transcript (.txt)."""
-    get_valid_course(course_id, current_user, db)
-    file_path = versioned_file_path(get_generator(), course_id, "vid", "transcript.txt", version)
-    if file_path and os.path.exists(file_path):
-        return FileResponse(
-            file_path,
-            media_type="text/plain",
-            filename=f"transcript_{course_id}.txt",
-        )
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail="Chưa có bản lời thoại (transcript) cho video này.",
-    )
-
-
-@router_single.get("/{course_id}/vid.srt")
-@router.get("/{course_id}/vid.srt")
-def download_vid_srt(
-    course_id: str,
-    version: Optional[str] = Query(None),
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-) -> Any:
-    """Download the Video subtitle file (.srt)."""
-    get_valid_course(course_id, current_user, db)
-    file_path = versioned_file_path(get_generator(), course_id, "vid", "vid.srt", version)
-    if file_path and os.path.exists(file_path):
-        return FileResponse(
-            file_path,
-            media_type="application/x-subrip",
-            filename=f"video_{course_id}.srt",
-        )
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail="Chưa có file phụ đề cho video này.",
-    )
-
-
 @router_docs.get("/documents/{document_id}/sources")
 @router_docs.get("/api/documents/{document_id}/sources")
 def get_sources(

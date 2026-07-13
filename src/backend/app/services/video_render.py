@@ -746,8 +746,7 @@ def assemble_video(
     progress_cb: Optional[Callable[[float], None]] = None,
     scene_visual_map: Optional[Dict[int, Dict[str, Any]]] = None,
 ) -> str:
-    """Render every scene (TTS narration + still frame -> clip), concatenate into vid.mp4, and
-    write the accompanying transcript.txt / vid.srt. Fills in each scene's real
+    """Render every scene (TTS narration + still frame -> clip) into vid.mp4. Fills in each scene's real
     duration_seconds (from TTS audio) and the script's total_duration_seconds in-place.
     Raises VideoRenderError / propagates exceptions on failure — callers must treat that as a
     hard generation error (matches the strict, no-placeholder invariant)."""
@@ -761,7 +760,6 @@ def assemble_video(
 
     clip_paths: List[str] = []
     clip_durations: List[float] = []
-    srt_cues: List[Dict[str, Any]] = []
     cumulative = 0.0
     total_scenes = len(vid_data.scenes)
     if total_scenes == 0:
@@ -794,13 +792,6 @@ def assemble_video(
             clip_paths.append(clip_path)
             clip_durations.append(duration)
 
-            if word_cues:
-                srt_cues.extend(
-                    {**cue, "start": cue["start"] + cumulative, "end": cue["end"] + cumulative}
-                    for cue in _group_word_cues(word_cues)
-                )
-            else:
-                srt_cues.append({"start": cumulative, "end": cumulative + duration, "text": scene.narration})
             cumulative += duration
 
             if progress_cb:
@@ -810,8 +801,6 @@ def assemble_video(
         concat_clips_xfade(clip_paths, clip_durations, mp4_path)
 
         vid_data.total_duration_seconds = int(round(cumulative))
-        _write_transcript(vid_data, os.path.join(artifact_dir, "transcript.txt"))
-        _write_srt(srt_cues, os.path.join(artifact_dir, "vid.srt"))
         return mp4_path
     finally:
         shutil.rmtree(scene_dir, ignore_errors=True)

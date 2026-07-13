@@ -132,7 +132,7 @@ def test_generator_all_artifacts_and_validation(client):
     art_dir = gen._get_artifact_dir(course_id)
     for fname in [
         "book.json", "book.pdf", "slides.json", "slide.pptx", "quiz.json", "quiz-key.pdf",
-        "vid.json", "vid.mp4", "transcript.txt", "vid.srt",
+        "vid.json", "vid.mp4",
     ]:
         fpath = os.path.join(art_dir, fname)
         assert os.path.exists(fpath), f"Expected file {fname} to exist at {fpath}"
@@ -243,7 +243,6 @@ def test_generation_api_endpoints_complete(client):
         ("/slide.pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation"),
         ("/quiz-key.pdf", "application/pdf"),
         ("/vid.mp4", "video/mp4"),
-        ("/vid/file", "text/plain"),
     ]:
         res_dl = client.get(f"/api/course/{course_id}{file_ep}", headers=headers)
         assert res_dl.status_code == 200, f"Failed on {file_ep}: {res_dl.text}"
