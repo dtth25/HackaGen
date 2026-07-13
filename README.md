@@ -14,7 +14,7 @@ Code hiện tại là source of truth. README này mô tả đúng flow đang ch
 | Vector DB | Chroma local persistent DB, bắt buộc cho local/dev demo |
 | Persistence | Local filesystem JSON/generated files |
 | Auth | JWT bearer token + HttpOnly cookie, user ownership, admin routes |
-| AI Model | OpenRouter paid-only, per-feature: `google/gemini-2.5-pro` (Book/Vid), `google/gemini-2.5-flash` (Slide/Quiz) |
+| AI Model | OpenRouter paid-only: `google/gemini-2.5-pro` cho toàn bộ feature |
 | Embedding | OpenRouter `openai/text-embedding-3-small` |
 
 ## Product Surface
@@ -68,8 +68,8 @@ Sửa `.env` và điền ít nhất:
 ```bash
 OPENROUTER_API_KEY=your_openrouter_api_key_here
 OPENROUTER_MODEL=google/gemini-2.5-pro
-OPENROUTER_SLIDE_MODEL=google/gemini-2.5-flash
-OPENROUTER_QUIZ_MODEL=google/gemini-2.5-flash
+OPENROUTER_SLIDE_MODEL=google/gemini-2.5-pro
+OPENROUTER_QUIZ_MODEL=google/gemini-2.5-pro
 JWT_SECRET=change-this-dev-secret
 VECTOR_DB_PROVIDER=chroma
 CHROMA_PERSIST_DIR=./data/chroma
@@ -99,7 +99,7 @@ Windows PowerShell:
 Copy-Item .env.example .env -Force
 ```
 
-Điền `OPENROUTER_API_KEY` (bắt buộc). `OPENROUTER_MODEL` (mặc định `google/gemini-2.5-pro`) là model dùng cho Book/Vid và cho bất kỳ feature nào không có override riêng. `OPENROUTER_SLIDE_MODEL`/`OPENROUTER_QUIZ_MODEL` mặc định `google/gemini-2.5-flash` — Slide/Quiz sinh output ngắn, cấu trúc đơn giản nên ưu tiên tốc độ/chi phí hơn Pro. Mỗi content/OCR call dùng trực tiếp model đã cấu hình cho feature đó và retry đúng model một lần nếu provider lỗi hoặc JSON không đúng schema; không chuyển sang model khác.
+Điền `OPENROUTER_API_KEY` (bắt buộc). `OPENROUTER_MODEL` và mọi feature override mặc định đều là `google/gemini-2.5-pro`, để Book, Slide, Quiz, Vid và OCR dùng cùng mức chất lượng. Mỗi content/OCR call dùng trực tiếp model đã cấu hình cho feature đó và retry đúng model một lần nếu provider lỗi hoặc JSON không đúng schema; không chuyển sang model khác.
 
 Backend chỉ load `.env` ở root repo bằng đường dẫn tuyệt đối. Khởi động lại backend sau khi đổi env để startup log hiển thị content model và embedding model đang active.
 

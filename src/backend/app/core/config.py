@@ -42,12 +42,11 @@ class Settings(BaseSettings):
     )
 
     # Per-feature model overrides — mirrors the old GEMINI_{FEATURE}_MODEL pattern. Blank
-    # falls back to OPENROUTER_MODEL. Slide/Quiz default to the cheaper/faster flash model
-    # (short, structurally simple output where Pro's extra quality isn't worth the latency/
-    # cost); Book/Vid stay on OPENROUTER_MODEL (Pro) for long-form generation quality.
+    # falls back to OPENROUTER_MODEL; every default is Gemini 2.5 Pro for consistent
+    # generation quality across Book, Slide, Quiz, Vid, and OCR.
     OPENROUTER_BOOK_MODEL: str = Field(default="", description="OpenRouter model override for Book generation (falls back to OPENROUTER_MODEL)")
-    OPENROUTER_SLIDE_MODEL: str = Field(default="google/gemini-2.5-flash", description="OpenRouter model override for Slide generation (falls back to OPENROUTER_MODEL)")
-    OPENROUTER_QUIZ_MODEL: str = Field(default="google/gemini-2.5-flash", description="OpenRouter model override for Quiz generation (falls back to OPENROUTER_MODEL)")
+    OPENROUTER_SLIDE_MODEL: str = Field(default="google/gemini-2.5-pro", description="OpenRouter model override for Slide generation (falls back to OPENROUTER_MODEL)")
+    OPENROUTER_QUIZ_MODEL: str = Field(default="google/gemini-2.5-pro", description="OpenRouter model override for Quiz generation (falls back to OPENROUTER_MODEL)")
     OPENROUTER_VID_MODEL: str = Field(default="", description="OpenRouter model override for Vid generation (falls back to OPENROUTER_MODEL)")
 
     # Optional variables

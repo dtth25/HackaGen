@@ -204,8 +204,8 @@ def test_per_feature_model_overrides_default_correctly(monkeypatch):
     configured = _settings()
 
     assert configured.OPENROUTER_BOOK_MODEL == ""
-    assert configured.OPENROUTER_SLIDE_MODEL == "google/gemini-2.5-flash"
-    assert configured.OPENROUTER_QUIZ_MODEL == "google/gemini-2.5-flash"
+    assert configured.OPENROUTER_SLIDE_MODEL == "google/gemini-2.5-pro"
+    assert configured.OPENROUTER_QUIZ_MODEL == "google/gemini-2.5-pro"
     assert configured.OPENROUTER_VID_MODEL == ""
 
 

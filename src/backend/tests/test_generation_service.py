@@ -16,8 +16,8 @@ def test_get_generator_wires_per_feature_openrouter_models(monkeypatch):
 
     monkeypatch.setattr(settings, "OPENROUTER_MODEL", "google/gemini-2.5-pro")
     monkeypatch.setattr(settings, "OPENROUTER_BOOK_MODEL", "")
-    monkeypatch.setattr(settings, "OPENROUTER_SLIDE_MODEL", "google/gemini-2.5-flash")
-    monkeypatch.setattr(settings, "OPENROUTER_QUIZ_MODEL", "google/gemini-2.5-flash")
+    monkeypatch.setattr(settings, "OPENROUTER_SLIDE_MODEL", "google/gemini-2.5-pro")
+    monkeypatch.setattr(settings, "OPENROUTER_QUIZ_MODEL", "google/gemini-2.5-pro")
     monkeypatch.setattr(settings, "OPENROUTER_VID_MODEL", "")
 
     generation_router._generator_instance = None
@@ -30,9 +30,9 @@ def test_get_generator_wires_per_feature_openrouter_models(monkeypatch):
         assert gen.llm.model == "google/gemini-2.5-pro"
         # Slide/Quiz get their own instance running the Flash model.
         assert gen.feature_llms["slides"] is not gen.llm
-        assert gen.feature_llms["slides"].model == "google/gemini-2.5-flash"
+        assert gen.feature_llms["slides"].model == "google/gemini-2.5-pro"
         assert gen.feature_llms["quiz"] is not gen.llm
-        assert gen.feature_llms["quiz"].model == "google/gemini-2.5-flash"
+        assert gen.feature_llms["quiz"].model == "google/gemini-2.5-pro"
     finally:
         generation_router._generator_instance = None
 
