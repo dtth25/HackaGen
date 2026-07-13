@@ -99,7 +99,7 @@ def test_openrouter_fallback_used_when_gemini_exhausted(monkeypatch):
     from app.schemas.generator_output import CourseTitleOutput
 
     monkeypatch.setattr(settings, "OPENROUTER_API_KEY", "test-openrouter-key")
-    monkeypatch.setattr(settings, "OPENROUTER_MODEL", "openai/gpt-4o-mini")
+    monkeypatch.setattr(settings, "OPENROUTER_MODEL", "google/gemini-2.5-flash")
 
     service = LLMService()
 
@@ -123,7 +123,7 @@ def test_openrouter_fallback_used_when_gemini_exhausted(monkeypatch):
 
     class _FakeCompletions:
         def create(self, **kwargs):
-            assert kwargs["model"] == "openai/gpt-4o-mini"
+            assert kwargs["model"] == "google/gemini-2.5-flash"
             return _FakeCompletion()
 
     class _FakeChat:

@@ -49,7 +49,10 @@ class Settings(BaseSettings):
     # (free) provider for every feature; OpenRouter only kicks in as a last resort inside
     # LLMService._call_gemini_strict. Blank = no-op, behavior unchanged.
     OPENROUTER_API_KEY: str = Field(default="", description="OpenRouter API key, used only as a Gemini fallback")
-    OPENROUTER_MODEL: str = Field(default="openai/gpt-4o-mini", description="OpenRouter model slug for the fallback")
+    # Same model family as the Gemini primary (paid, via OpenRouter) — keeps fallback output
+    # style/JSON discipline consistent with Gemini-direct output instead of switching voice
+    # mid-course when quota is exhausted.
+    OPENROUTER_MODEL: str = Field(default="google/gemini-2.5-flash", description="OpenRouter model slug for the fallback")
 
     # Model routing — mirrors the GEMINI_{FEATURE}_API_KEY pattern above. Each feature
     # falls back to GEMINI_DEFAULT_MODEL when left blank (see LLMService.__init__ and
