@@ -173,7 +173,7 @@ class VidDiagramItem(BaseModel):
 
 
 class VidDiagram(BaseModel):
-    """Flat diagram schema avoids structured-output unions that Gemini rejects."""
+    """Flat diagram schema keeps structured output portable across routed models."""
 
     type: Literal["comparison", "flow", "timeline"] = Field(..., description="Diagram layout")
     title: Optional[str] = Field(None, max_length=80, description="Optional short diagram title")

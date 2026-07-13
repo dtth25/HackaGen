@@ -108,8 +108,6 @@ export interface GenerateResponse {
   status?: string;
   message?: string;
   estimated_time?: string;
-  regen_used?: number;
-  regen_max?: number;
   version_id?: string | null;
 }
 
@@ -158,8 +156,6 @@ export interface BookArtifactStatus extends VersionedArtifactStatus {
   error?: string | null;
   progress?: number | null;
   data: BookOutput | null;
-  regen_used?: number;
-  regen_max?: number;
 }
 
 export interface SlideItem {
@@ -185,8 +181,6 @@ export interface SlideArtifactStatus extends VersionedArtifactStatus {
   error?: string | null;
   progress?: number | null;
   data: SlidesOutput | null;
-  regen_used?: number;
-  regen_max?: number;
 }
 
 export interface QuizOption {
@@ -218,8 +212,6 @@ export interface QuizArtifactStatus extends VersionedArtifactStatus {
   error?: string | null;
   progress?: number | null;
   data: QuizQuestion[] | null;
-  regen_used?: number;
-  regen_max?: number;
 }
 
 export interface VidScene {
@@ -241,8 +233,6 @@ export interface VidArtifactStatus extends VersionedArtifactStatus {
   error?: string | null;
   progress?: number | null;
   data: VidOutput | null;
-  regen_used?: number;
-  regen_max?: number;
 }
 
 // ============================================================

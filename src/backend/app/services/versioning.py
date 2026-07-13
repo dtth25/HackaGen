@@ -43,7 +43,7 @@ _LEGACY_ARTIFACT_FILES = {
     "book": ("book.json", "book.pdf"),
     "slides": ("slides.json", "slide.pdf", "slide.pptx"),
     "quiz": ("quiz.json", "quiz-key.pdf"),
-    "vid": ("vid.json", "vid.mp4", "vid.srt", "transcript.txt"),
+    "vid": ("vid.json", "vid.mp4"),
 }
 
 

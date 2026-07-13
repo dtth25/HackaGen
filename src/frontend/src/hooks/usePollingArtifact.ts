@@ -56,9 +56,6 @@ export function usePollingArtifact<T>({
   const [generating, setGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [dataByVersion, setDataByVersion] = useState<Record<string, T>>({});
-  // Compatibility setters while tabs are migrated away from the former regenerate quota UI.
-  const [regenUsed, setRegenUsed] = useState<number | null>(null);
-  const [regenMax, setRegenMax] = useState<number | null>(null);
   const [versions, setVersions] = useState<ArtifactVersion[]>([]);
   const [activeVersion, setActiveVersion] = useState<string | null>(null);
   const [viewedVersion, setViewedVersion] = useState<string | null>(null);
@@ -194,10 +191,6 @@ export function usePollingArtifact<T>({
     progress,
     setProgress,
     dataByVersion,
-    regenUsed,
-    setRegenUsed,
-    regenMax,
-    setRegenMax,
     startPolling,
     versions,
     activeVersion,

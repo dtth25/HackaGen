@@ -70,7 +70,7 @@ def test_filename_fallback_title_strips_timestamp_and_extension():
 
 
 def test_course_naming_falls_back_to_filename_when_ai_unavailable(client, test_upload_dir):
-    """No Gemini client in test/mock mode -> AI naming returns None -> the course must still
+    """No remote client in test/mock mode -> AI naming returns None -> the course must still
     end up with a real `name` (the cleaned filename), never left null waiting for a retry
     that no longer exists."""
     headers = _auth_headers(client, "naming_fallback@example.com")

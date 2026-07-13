@@ -6,8 +6,6 @@ import { Button } from "@/components/ui/button";
 interface RegenerateButtonProps {
   /** Vietnamese noun phrase describing the artifact, e.g. "sách ôn tập", "bộ slide". */
   label: string;
-  regenUsed?: number | null;
-  regenMax?: number | null;
   /** True while a generation job is already in flight — disables the trigger. */
   busy?: boolean;
   onOpen: () => void;
