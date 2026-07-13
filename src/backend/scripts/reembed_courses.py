@@ -92,7 +92,8 @@ def main() -> None:
 
     logger.info(
         f"Re-embedding {len(courses)} course(s) into collection "
-        f"'{settings.CHROMA_COLLECTION_NAME}' (provider={settings.EMBEDDING_PROVIDER})..."
+        f"'{settings.CHROMA_COLLECTION_NAME}' "
+        f"(provider=openrouter, model={settings.OPENROUTER_EMBEDDING_MODEL})..."
     )
     total = 0
     failed = []
@@ -102,9 +103,8 @@ def main() -> None:
             logger.info(f"  {course.id} ({course.name}): {count} chunks")
             total += count
         except Exception as e:
-            # A single course hitting a rate limit / quota error (real risk on the free
-            # embedding tier for large documents) must not lose progress already made on
-            # the other courses in this run.
+            # A single course hitting a rate-limit or provider error must not lose
+            # progress already made on the other courses in this run.
             logger.error(f"  {course.id} ({course.name}): FAILED - {e}")
             failed.append(course.id)
     logger.info(f"Done. {total} chunks written across {len(courses) - len(failed)}/{len(courses)} course(s).")

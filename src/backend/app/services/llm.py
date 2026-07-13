@@ -1,10 +1,12 @@
-"""OpenRouter LLM service with free-first structured-output routing."""
+"""Paid-only OpenRouter LLM service with strict structured-output validation."""
 
+import base64
 import logging
 import os
-import base64
 from typing import Any, Callable, List, Optional
+
 from pydantic import ValidationError
+
 from app.core.config import settings
 from app.schemas.generator_output import (
     BookChapterContent,
@@ -42,7 +44,7 @@ def _slides_max_tokens(num_slides: int) -> int:
     return max(SLIDES_MAX_TOKENS, min(2048 + num_slides * 500, 24576))
 
 class LLMGenerationError(Exception):
-    """Raised when both OpenRouter routing attempts fail."""
+    """Raised when both attempts with the configured OpenRouter model fail."""
 
 
 def _friendly_openrouter_error(exc: Exception) -> str:
@@ -64,28 +66,32 @@ def _friendly_openrouter_error(exc: Exception) -> str:
 
 
 class LLMService:
-    """Service wrapper for OpenRouter's free-first, paid-fallback routing."""
+    """Service wrapper for one paid OpenRouter model with one same-model retry."""
 
-    def __init__(self):
+    def __init__(self, model: Optional[str] = None):
         self.client = None
+        self.model = model or settings.OPENROUTER_MODEL
+        self._test_mode = "PYTEST_CURRENT_TEST" in os.environ
         self._init_client()
         self.prompts_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "prompts")
 
     def _init_client(self):
-        """Initialize the single OpenRouter client outside offline/test mode."""
-        if "PYTEST_CURRENT_TEST" in os.environ:
+        """Initialize the OpenRouter client, allowing mock mode only under pytest."""
+        if self._test_mode:
             logger.info("PYTEST_CURRENT_TEST detected: using mock mode for LLMService.")
             return
-        api_key = settings.OPENROUTER_API_KEY
-        if api_key and api_key not in ["mock_key", ""] and not api_key.startswith("test_"):
-            try:
-                from openai import OpenAI
-                self.client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=api_key)
-                logger.info("Initialized OpenRouter client")
-            except Exception as e:
-                logger.warning(f"Failed to initialize OpenRouter client: {e}. Will use mock mode.")
-        else:
-            logger.info("Using mock mode for LLMService (test or mock API key).")
+        try:
+            from openai import OpenAI
+
+            self.client = OpenAI(
+                base_url="https://openrouter.ai/api/v1",
+                api_key=settings.OPENROUTER_API_KEY,
+                max_retries=0,
+            )
+            logger.info("Initialized OpenRouter client with model %s", self.model)
+        except Exception as exc:
+            logger.exception("Failed to initialize OpenRouter client")
+            raise LLMGenerationError("Không thể khởi tạo dịch vụ AI OpenRouter.") from exc
 
     def _load_prompt(self, template_name: str, **kwargs) -> str:
         """Load and format prompt template from app/prompts directory."""
@@ -105,16 +111,19 @@ class LLMService:
         fallback_fn: Callable[[], Any],
         max_output_tokens: int,
     ) -> Any:
-        """Call the free router once, validate locally, then retry once on the paid model.
+        """Call the configured paid model and retry it once if validation or delivery fails.
 
-        Local Pydantic parsing deliberately remains part of the fallback condition: a provider
+        Local Pydantic parsing deliberately remains part of the retry condition: a provider
         can return HTTP 200 while still emitting an incomplete or schema-invalid payload.
         """
         if not self.client:
-            return fallback_fn()
+            if self._test_mode:
+                return fallback_fn()
+            raise LLMGenerationError("Dịch vụ AI OpenRouter chưa được khởi tạo.")
 
         last_error: Optional[Exception] = None
-        for model in (settings.OPENROUTER_FREE_MODEL, settings.OPENROUTER_PAID_MODEL):
+        model = self.model
+        for attempt in range(1, 3):
             try:
                 response = self.client.chat.completions.create(
                     model=model,
@@ -137,10 +146,20 @@ class LLMService:
                 return schema_model.model_validate_json(content)
             except (ValidationError, LLMGenerationError) as e:
                 last_error = e
-                logger.warning("OpenRouter model %s produced invalid output: %s", model, e)
+                logger.warning(
+                    "OpenRouter model %s produced invalid output on attempt %s/2: %s",
+                    model,
+                    attempt,
+                    e,
+                )
             except Exception as e:
                 last_error = e
-                logger.warning("OpenRouter model %s failed: %s", model, e)
+                logger.warning(
+                    "OpenRouter model %s failed on attempt %s/2: %s",
+                    model,
+                    attempt,
+                    e,
+                )
 
         raise LLMGenerationError(
             _friendly_openrouter_error(last_error) if last_error else "AI generation failed."
@@ -153,7 +172,8 @@ class LLMService:
         if not self.client:
             return ""
         content = [{"type": "text", "text": "Trích xuất toàn bộ văn bản có thể đọc được trong ảnh này, giữ nguyên thứ tự đọc tự nhiên. Chỉ trả về văn bản thuần, không thêm giải thích hay định dạng markdown."}, {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{base64.b64encode(image_bytes).decode('ascii')}"}}]
-        for model in (settings.OPENROUTER_FREE_MODEL, settings.OPENROUTER_PAID_MODEL):
+        model = self.model
+        for attempt in range(1, 3):
             try:
                 response = self.client.chat.completions.create(
                     model=model,
@@ -165,8 +185,14 @@ class LLMService:
                 text = response.choices[0].message.content if response.choices else None
                 if text and text.strip():
                     return text.strip()
+                raise LLMGenerationError("OpenRouter returned an empty OCR response")
             except Exception as exc:
-                logger.warning("OCR via OpenRouter model %s failed: %s", model, exc)
+                logger.warning(
+                    "OCR via OpenRouter model %s failed on attempt %s/2: %s",
+                    model,
+                    attempt,
+                    exc,
+                )
         return ""
 
     def generate_course_title(self, context: str) -> CourseTitleOutput:

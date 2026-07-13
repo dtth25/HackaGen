@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Menu } from "@base-ui/react/menu";
 import { AlertCircle, Check, Loader2, MoreHorizontal, Pencil, Plus, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ArtifactVersion } from "@/lib/types";
@@ -59,8 +60,21 @@ export function VersionSwitcher({ versions, activeVersion, viewedVersion, onSwit
               {version.status === "error" && <AlertCircle className="h-3 w-3 text-error" aria-label="Lỗi" />}
             </button>
           )}
-          {editingVersion === version.version_id ? <><button type="button" onClick={(event) => { event.stopPropagation(); saveRename(); }} className="grid h-6 w-6 place-items-center text-primary" title="Lưu tên"><Check className="h-3.5 w-3.5" /></button><button type="button" onClick={(event) => { event.stopPropagation(); setEditingVersion(null); }} className="grid h-6 w-6 place-items-center text-muted-foreground" title="Hủy"><X className="h-3.5 w-3.5" /></button></> : (onRename || onDelete) && <button type="button" className="-ml-2 mr-1 grid h-6 w-6 shrink-0 place-items-center text-muted-foreground hover:text-foreground" title="Tùy chọn phiên bản" onClick={(event) => { event.stopPropagation(); setMenuVersion((active) => active === version.version_id ? null : version.version_id); }}><MoreHorizontal className="h-4 w-4" /></button>}
-          {menuVersion === version.version_id && <div className="absolute right-0 top-full z-20 w-28 border border-border/60 bg-card py-1 text-xs shadow-[var(--shadow-sm)]"><button type="button" className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-muted" onClick={() => beginRename(version)}><Pencil className="h-3.5 w-3.5" />Đổi tên</button><button type="button" className="flex w-full items-center gap-2 px-3 py-2 text-left text-error hover:bg-muted" onClick={() => { setMenuVersion(null); onDelete?.(version.version_id); }}><Trash2 className="h-3.5 w-3.5" />Xóa</button></div>}
+          {editingVersion === version.version_id ? <><button type="button" onClick={(event) => { event.stopPropagation(); saveRename(); }} className="grid h-6 w-6 place-items-center text-primary" title="Lưu tên"><Check className="h-3.5 w-3.5" /></button><button type="button" onClick={(event) => { event.stopPropagation(); setEditingVersion(null); }} className="grid h-6 w-6 place-items-center text-muted-foreground" title="Hủy"><X className="h-3.5 w-3.5" /></button></> : (onRename || onDelete) && (
+            <Menu.Root modal={false} open={menuVersion === version.version_id} onOpenChange={(open) => setMenuVersion((active) => open ? version.version_id : active === version.version_id ? null : active)}>
+              <Menu.Trigger className="-ml-2 mr-1 grid h-6 w-6 shrink-0 place-items-center text-muted-foreground hover:text-foreground" title="Tùy chọn phiên bản" onClick={(event) => event.stopPropagation()}>
+                <MoreHorizontal className="h-4 w-4" />
+              </Menu.Trigger>
+              <Menu.Portal>
+                <Menu.Positioner side="bottom" align="end" sideOffset={4} className="z-50">
+                  <Menu.Popup className="w-28 border border-border/60 bg-card py-1 text-xs shadow-[var(--shadow-sm)] outline-none">
+                    {onRename && <Menu.Item className="flex w-full items-center gap-2 px-3 py-2 text-left outline-none hover:bg-muted data-[highlighted]:bg-muted" onClick={() => beginRename(version)}><Pencil className="h-3.5 w-3.5" />Đổi tên</Menu.Item>}
+                    {onDelete && <Menu.Item className="flex w-full items-center gap-2 px-3 py-2 text-left text-error outline-none hover:bg-muted data-[highlighted]:bg-muted" onClick={() => onDelete(version.version_id)}><Trash2 className="h-3.5 w-3.5" />Xóa</Menu.Item>}
+                  </Menu.Popup>
+                </Menu.Positioner>
+              </Menu.Portal>
+            </Menu.Root>
+          )}
           </div>
         );
       })}

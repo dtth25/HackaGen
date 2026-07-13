@@ -34,8 +34,8 @@ course_id
   -> load configured vectorstore
   -> retrieve top-k chunks from the full corpus
   -> clean internal extraction markers
-  -> prompt OpenRouter free router
-  -> validate / fallback sang model paid khi cần
+  -> prompt OpenRouter paid model đã cấu hình
+  -> validate / retry đúng model một lần khi cần
   -> save artifact
   -> return public response
 ```
