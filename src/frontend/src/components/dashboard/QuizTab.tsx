@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { toast } from "sonner";
 import { usePollingArtifact } from "@/hooks/usePollingArtifact";
 import {
   HelpCircle,
@@ -34,7 +35,7 @@ import { cn } from "@/lib/utils";
 import { QuizOptionsPanel } from "@/components/dashboard/QuizOptionsPanel";
 import { RegenerateButton } from "@/components/dashboard/RegenerateButton";
 import { VersionSwitcher } from "@/components/dashboard/VersionSwitcher";
-import { apiDeleteArtifactVersion, apiGetQuiz, apiGenerateQuiz, apiRenameArtifactVersion, getDownloadQuizKeyUrl } from "@/lib/api";
+import { ApiRequestError, apiDeleteArtifactVersion, apiGetQuiz, apiGenerateQuiz, apiRenameArtifactVersion, getDownloadQuizKeyUrl } from "@/lib/api";
 import type { QuizQuestion } from "@/lib/types";
 
 interface QuizTabProps {
@@ -155,6 +156,11 @@ export function QuizTab({ courseId, documentProcessing = false }: QuizTabProps) 
       const res = await apiGenerateQuiz(courseId, { quantity, difficulty, ...(retry && viewedVersion ? { retry_version_id: viewedVersion } : {}) });
       startPolling(Date.now(), res.version_id);
     } catch (err) {
+      if (err instanceof ApiRequestError && err.status === 409 && (err.detail as { code?: string })?.code === "version_cap_reached") {
+        toast.error("Tối đa 3 phiên bản. Hãy xóa một phiên bản để tạo bản mới.");
+        setGenerating(false);
+        return;
+      }
       setRegenError(err instanceof Error ? err.message : "Tạo phiên bản mới thất bại.");
       setGenerating(false);
     }

@@ -65,6 +65,7 @@ export function usePollingArtifact<T>({
 
   const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pollingVersionRef = useRef<string | null>(null);
+  const viewedVersionRef = useRef<string | null>(null);
 
   // Keep the latest callbacks in refs so `startPolling`'s recursive closure always calls
   // the current version without needing to be recreated (and without going in the
@@ -77,12 +78,21 @@ export function usePollingArtifact<T>({
     fetchFnRef.current = fetchFn;
     isReadyRef.current = isReady;
     onReadyRef.current = onReady;
+    viewedVersionRef.current = viewedVersion;
   });
 
   const startPolling = useCallback(
     (startedAt: number, versionId?: string | null) => {
       if (pollTimer.current) clearTimeout(pollTimer.current);
       pollingVersionRef.current = versionId ?? viewedVersion;
+      if (pollingVersionRef.current) {
+        const invalidated = pollingVersionRef.current;
+        setDataByVersion((cache) => {
+          const next = { ...cache };
+          delete next[invalidated];
+          return next;
+        });
+      }
       const poll = async () => {
         const pollingVersion = pollingVersionRef.current;
         try {
@@ -92,12 +102,14 @@ export function usePollingArtifact<T>({
           if (res.status === "ready" && res.data && isReadyRef.current(res.data)) {
             const completedVersion = res.version_id ?? pollingVersion;
             if (completedVersion) setDataByVersion((cache) => ({ ...cache, [completedVersion]: res.data as T }));
-            setData(res.data);
-            setHasFetched(true);
+            if (!viewedVersionRef.current || viewedVersionRef.current === completedVersion) {
+              setData(res.data);
+              setHasFetched(true);
+              onReadyRef.current?.(res.data);
+            }
             setGenerating(false);
             setProgress(100);
             pollingVersionRef.current = null;
-            onReadyRef.current?.(res.data);
             return;
           }
           if (res.status === "error") {

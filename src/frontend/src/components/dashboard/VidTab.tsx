@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { usePollingArtifact } from "@/hooks/usePollingArtifact";
 import {
   Video,
@@ -25,6 +26,7 @@ import { VidOptionsPanel } from "@/components/dashboard/VidOptionsPanel";
 import { RegenerateButton } from "@/components/dashboard/RegenerateButton";
 import { VersionSwitcher } from "@/components/dashboard/VersionSwitcher";
 import {
+  ApiRequestError,
   apiDeleteArtifactVersion,
   apiGetVid,
   apiGenerateVid,
@@ -123,6 +125,11 @@ export function VidTab({ courseId, documentProcessing = false }: VidTabProps) {
       const res = await apiGenerateVid(courseId, { format, voice, user_prompt: userPrompt, ...(retry && viewedVersion ? { retry_version_id: viewedVersion } : {}) });
       startPolling(Date.now(), res.version_id);
     } catch (err) {
+      if (err instanceof ApiRequestError && err.status === 409 && (err.detail as { code?: string })?.code === "version_cap_reached") {
+        toast.error("Tối đa 3 phiên bản. Hãy xóa một phiên bản để tạo bản mới.");
+        setGenerating(false);
+        return;
+      }
       setRegenError(err instanceof Error ? err.message : "Tạo phiên bản mới thất bại.");
       setGenerating(false);
     }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import {
   BookOpen,
   RefreshCw,
@@ -30,7 +31,7 @@ import { Markdown } from "@/components/ui/markdown";
 import { BookOptionsPanel, BOOK_DETAIL_OPTIONS } from "@/components/dashboard/BookOptionsPanel";
 import { RegenerateButton } from "@/components/dashboard/RegenerateButton";
 import { VersionSwitcher } from "@/components/dashboard/VersionSwitcher";
-import { apiDeleteArtifactVersion, apiGetBook, apiGenerateBook, apiRenameArtifactVersion, getDownloadBookUrl } from "@/lib/api";
+import { ApiRequestError, apiDeleteArtifactVersion, apiGetBook, apiGenerateBook, apiRenameArtifactVersion, getDownloadBookUrl } from "@/lib/api";
 import { usePollingArtifact } from "@/hooks/usePollingArtifact";
 import type { BookOutput } from "@/lib/types";
 
@@ -134,6 +135,11 @@ export function BookTab({ courseId, documentProcessing = false }: BookTabProps) 
       });
       startPolling(Date.now(), res.version_id);
     } catch (err) {
+      if (err instanceof ApiRequestError && err.status === 409 && (err.detail as { code?: string })?.code === "version_cap_reached") {
+        toast.error("Tối đa 3 phiên bản. Hãy xóa một phiên bản để tạo bản mới.");
+        setGenerating(false);
+        return;
+      }
       setRegenError(err instanceof Error ? err.message : "Tạo phiên bản mới thất bại.");
       setGenerating(false);
     }

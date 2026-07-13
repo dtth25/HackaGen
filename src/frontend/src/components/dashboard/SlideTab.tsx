@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { toast } from "sonner";
 import { usePollingArtifact } from "@/hooks/usePollingArtifact";
 import {
   Presentation,
@@ -31,6 +32,7 @@ import { SlideOptionsPanel } from "@/components/dashboard/SlideOptionsPanel";
 import { RegenerateButton } from "@/components/dashboard/RegenerateButton";
 import { VersionSwitcher } from "@/components/dashboard/VersionSwitcher";
 import {
+  ApiRequestError,
   apiDeleteArtifactVersion,
   apiGetSlide,
   apiGenerateSlide,
@@ -152,6 +154,11 @@ export function SlideTab({ courseId, documentProcessing = false }: SlideTabProps
       const res = await apiGenerateSlide(courseId, retry && viewedVersion ? { retry_version_id: viewedVersion } : undefined);
       startPolling(Date.now(), res.version_id);
     } catch (err) {
+      if (err instanceof ApiRequestError && err.status === 409 && (err.detail as { code?: string })?.code === "version_cap_reached") {
+        toast.error("Tối đa 3 phiên bản. Hãy xóa một phiên bản để tạo bản mới.");
+        setGenerating(false);
+        return;
+      }
       setRegenError(err instanceof Error ? err.message : "Tạo phiên bản mới thất bại.");
       setGenerating(false);
     }
