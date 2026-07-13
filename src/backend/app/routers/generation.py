@@ -19,7 +19,7 @@ from app.schemas.generation import (
     StudyPackResponse,
     VidGenerateRequest,
 )
-from app.services.generator import MAX_REGENERATIONS, Generator
+from app.services.generator import Generator
 from app.services.llm import LLMService
 from app.services.vector_store import get_vector_store
 from app.services.versioning import (
@@ -82,27 +82,6 @@ def resolve_and_validate_course(
     return get_valid_course(cid, current_user, db)
 
 
-def check_regen_or_raise(generator: Generator, course_id: str, artifact: str) -> tuple[int, int]:
-    """Enforce the regeneration cap (Generator.MAX_REGENERATIONS) before queueing a
-    generate-* background task. The first generation of an artifact is always allowed and
-    free; only re-triggers after it already reached "ready"/"error" count against the cap.
-    Raises 429 once exhausted. Returns (regen_used, regen_max) for the response envelope."""
-    allowed, used, max_allowed = generator.check_and_record_regen_attempt(course_id, artifact)
-    if not allowed:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=f"Đã đạt giới hạn {max_allowed} lần tạo lại cho mục này.",
-        )
-    return used, max_allowed
-
-
-def regen_fields(generator: Generator, course_id: str, artifact: str) -> Dict[str, int]:
-    """Regen usage fields for an artifact-status envelope, so the frontend knows how many
-    regenerations remain without a separate study-pack round-trip."""
-    used = generator.get_regen_usage(course_id).get(artifact, 0)
-    return {"regen_used": used, "regen_max": MAX_REGENERATIONS}
-
-
 def version_fields(generator: Generator, course_id: str, artifact: str, requested: Optional[str]) -> tuple[Optional[str], Optional[str], list[Dict[str, Any]]]:
     active, versions = generator.artifact_versions(course_id, artifact)
     fallback = versions[-1]["version_id"] if versions else None
@@ -126,11 +105,8 @@ def prepare_version_or_raise(generator: Generator, course_id: str, artifact: str
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
 
-def reserve_version_and_regen_or_raise(generator: Generator, course_id: str, artifact: str, options: Dict[str, Any], **kwargs) -> tuple[str, int, int]:
-    prepare_version_or_raise(generator, course_id, artifact, options, reserve=False, **kwargs)
-    regen_used, regen_max = check_regen_or_raise(generator, course_id, artifact)
-    version_id = prepare_version_or_raise(generator, course_id, artifact, options, **kwargs)
-    return version_id, regen_used, regen_max
+def reserve_version_or_raise(generator: Generator, course_id: str, artifact: str, options: Dict[str, Any], **kwargs) -> str:
+    return prepare_version_or_raise(generator, course_id, artifact, options, **kwargs)
 
 
 # =====================================================================
@@ -163,7 +139,7 @@ def generate_book(
     course_id: Optional[str] = Query(None),
     user_prompt: Optional[str] = Query(None),
     detail_level: Optional[str] = Query(None),
-    replace_version_id: Optional[str] = Query(None),
+    retry_version_id: Optional[str] = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Any:
@@ -172,9 +148,9 @@ def generate_book(
     prompt = (req and req.user_prompt) or user_prompt or ""
     detail = (req and req.detail_level) or detail_level or "Tiêu chuẩn"
     generator = get_generator()
-    version_id, regen_used, regen_max = reserve_version_and_regen_or_raise(generator, course.id, "book", {"detail_level": detail}, user_prompt=prompt, replace_version_id=(req and req.replace_version_id) or replace_version_id)
+    version_id = reserve_version_or_raise(generator, course.id, "book", {"detail_level": detail}, user_prompt=prompt, retry_version_id=(req and req.retry_version_id) or retry_version_id)
     background_tasks.add_task(generator.generate_book, course.id, detail_level=detail, user_prompt=prompt, version_id=version_id)
-    return GenerateResponse(course_id=course.id, regen_used=regen_used, regen_max=regen_max, version_id=version_id)
+    return GenerateResponse(course_id=course.id, version_id=version_id)
 
 
 @router_generate.post("/generate-slide", response_model=GenerateResponse)
@@ -183,19 +159,22 @@ def generate_slide(
     req: Optional[SlideGenerateRequest] = None,
     course_id: Optional[str] = Query(None),
     topic: Optional[str] = Query(None),
-    num_slides: Optional[int] = Query(None),
-    replace_version_id: Optional[str] = Query(None),
+    mode: Optional[str] = Query(None),
+    focus_prompt: Optional[str] = Query(None),
+    retry_version_id: Optional[str] = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Any:
     """Trigger background generation for Slide artifact."""
     course = resolve_and_validate_course(req, course_id, current_user, db)
     t = (req and req.topic) or topic
-    n = (req and req.num_slides) or num_slides or 15
+    slide_mode = (req and req.mode) or mode or "lesson"
+    n = {"summary": 8, "lesson": 15, "deep_dive": 22}.get(slide_mode, 15)
+    focus = (req and req.focus_prompt) or focus_prompt or ""
     generator = get_generator()
-    version_id, regen_used, regen_max = reserve_version_and_regen_or_raise(generator, course.id, "slides", {}, topic=t, replace_version_id=(req and req.replace_version_id) or replace_version_id)
-    background_tasks.add_task(generator.generate_slides, course.id, topic=t, num_slides=n, version_id=version_id)
-    return GenerateResponse(course_id=course.id, regen_used=regen_used, regen_max=regen_max, version_id=version_id)
+    version_id = reserve_version_or_raise(generator, course.id, "slides", {"mode": slide_mode, "num_slides": n, "focus_prompt": focus}, topic=t, retry_version_id=(req and req.retry_version_id) or retry_version_id)
+    background_tasks.add_task(generator.generate_slides, course.id, topic=t, num_slides=n, focus_prompt=focus, version_id=version_id)
+    return GenerateResponse(course_id=course.id, version_id=version_id)
 
 
 @router_generate.post("/generate-quiz", response_model=GenerateResponse)
@@ -206,7 +185,7 @@ def generate_quiz(
     topic: Optional[str] = Query(None),
     quantity: Optional[int] = Query(None),
     difficulty: Optional[str] = Query(None),
-    replace_version_id: Optional[str] = Query(None),
+    retry_version_id: Optional[str] = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Any:
@@ -216,9 +195,9 @@ def generate_quiz(
     q = (req and req.quantity) or quantity or 5
     d = (req and req.difficulty) or difficulty or "medium"
     generator = get_generator()
-    version_id, regen_used, regen_max = reserve_version_and_regen_or_raise(generator, course.id, "quiz", {"quantity": q, "difficulty": d}, topic=t, replace_version_id=(req and req.replace_version_id) or replace_version_id)
+    version_id = reserve_version_or_raise(generator, course.id, "quiz", {"quantity": q, "difficulty": d}, topic=t, retry_version_id=(req and req.retry_version_id) or retry_version_id)
     background_tasks.add_task(generator.generate_quiz, course.id, topic=t, quantity=q, difficulty=d, version_id=version_id)
-    return GenerateResponse(course_id=course.id, regen_used=regen_used, regen_max=regen_max, version_id=version_id)
+    return GenerateResponse(course_id=course.id, version_id=version_id)
 
 
 @router_generate.post("/generate-vid", response_model=GenerateResponse)
@@ -230,7 +209,7 @@ def generate_vid(
     format: Optional[str] = Query(None),
     voice: Optional[str] = Query(None),
     user_prompt: Optional[str] = Query(None),
-    replace_version_id: Optional[str] = Query(None),
+    retry_version_id: Optional[str] = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Any:
@@ -241,14 +220,47 @@ def generate_vid(
     v = (req and req.voice) or voice or "female"
     up = (req and req.user_prompt) or user_prompt or ""
     generator = get_generator()
-    version_id, regen_used, regen_max = reserve_version_and_regen_or_raise(generator, course.id, "vid", {"format": fmt, "voice": v}, topic=t, user_prompt=up, replace_version_id=(req and req.replace_version_id) or replace_version_id)
+    version_id = reserve_version_or_raise(generator, course.id, "vid", {"format": fmt, "voice": v}, topic=t, user_prompt=up, retry_version_id=(req and req.retry_version_id) or retry_version_id)
     background_tasks.add_task(generator.generate_vid, course.id, topic=t, fmt=fmt, voice=v, user_prompt=up, version_id=version_id)
-    return GenerateResponse(course_id=course.id, estimated_time="3-5 minutes", regen_used=regen_used, regen_max=regen_max, version_id=version_id)
+    return GenerateResponse(course_id=course.id, estimated_time="3-5 minutes", version_id=version_id)
 
 
 # =====================================================================
 # 3. Artifact Retrieval Endpoints
 # =====================================================================
+
+
+@router_single.patch("/{course_id}/artifacts/{artifact}/versions/{version_id}")
+def rename_artifact_version(
+    course_id: str,
+    artifact: str,
+    version_id: str,
+    payload: Dict[str, str],
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Any:
+    get_valid_course(course_id, current_user, db)
+    try:
+        return get_generator().rename_artifact_version(course_id, artifact, version_id, payload.get("label", ""))
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router_single.delete("/{course_id}/artifacts/{artifact}/versions/{version_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_artifact_version(
+    course_id: str,
+    artifact: str,
+    version_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> None:
+    get_valid_course(course_id, current_user, db)
+    try:
+        get_generator().delete_artifact_version(course_id, artifact, version_id)
+    except GenerationInFlightError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail={"code": "generation_in_flight"}) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
 
 @router_single.get("/{course_id}/book", response_model=Any)
@@ -283,7 +295,6 @@ def get_book(
         "version_id": version_id,
         "active_version": active_version,
         "versions": versions,
-        **regen_fields(generator, course_id, "book"),
     }
 
 
@@ -319,7 +330,6 @@ def get_slide(
         "version_id": version_id,
         "active_version": active_version,
         "versions": versions,
-        **regen_fields(generator, course_id, "slides"),
     }
 
 
@@ -356,7 +366,6 @@ def get_quiz(
         "version_id": version_id,
         "active_version": active_version,
         "versions": versions,
-        **regen_fields(generator, course_id, "quiz"),
     }
 
 
@@ -392,7 +401,6 @@ def get_vid(
         "version_id": version_id,
         "active_version": active_version,
         "versions": versions,
-        **regen_fields(generator, course_id, "vid"),
     }
 
 

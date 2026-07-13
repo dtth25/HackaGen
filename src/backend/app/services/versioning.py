@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import uuid
 from pathlib import Path
 from typing import Any, Dict, Mapping
 
@@ -16,7 +17,7 @@ LEGACY_VERSION_ID = "legacy"
 
 VERSION_CAPS = {
     "book": 3,
-    "slides": 1,
+    "slides": 3,
     "quiz": 3,
     "vid": 3,
 }
@@ -74,18 +75,17 @@ def _safe_version_id(version_id: str) -> str:
 
 
 def version_slug(artifact_type: str, options: Mapping[str, Any]) -> str:
-    """Return the stable identity for an artifact option combination."""
+    """Validate options and return a fresh UUID identity for a new version."""
     _require_artifact_type(artifact_type)
 
     if artifact_type == "book":
         detail_level = str(options.get("detail_level", ""))
-        try:
-            return _BOOK_SLUGS[detail_level]
-        except KeyError as exc:
-            raise ValueError(f"Unsupported book detail level: {detail_level}") from exc
+        if detail_level not in _BOOK_SLUGS:
+            raise ValueError(f"Unsupported book detail level: {detail_level}")
+        return str(uuid.uuid4())
 
     if artifact_type == "slides":
-        return "default"
+        return str(uuid.uuid4())
 
     if artifact_type == "quiz":
         quantity = options.get("quantity")
@@ -94,13 +94,13 @@ def version_slug(artifact_type: str, options: Mapping[str, Any]) -> str:
             raise ValueError("Quiz quantity must be a positive integer")
         if difficulty not in _QUIZ_DIFFICULTY_LABELS:
             raise ValueError(f"Unsupported quiz difficulty: {difficulty}")
-        return f"q{quantity}-{difficulty}"
+        return str(uuid.uuid4())
 
     fmt = str(options.get("format", "")).lower()
     voice = str(options.get("voice", "")).lower()
     if fmt not in _VID_FORMAT_LABELS or voice not in _VID_VOICE_LABELS:
         raise ValueError("Unsupported video format or voice")
-    return f"{fmt}-{voice}"
+    return str(uuid.uuid4())
 
 
 def version_label(artifact_type: str, options: Mapping[str, Any]) -> str:
@@ -112,17 +112,17 @@ def version_label(artifact_type: str, options: Mapping[str, Any]) -> str:
             raise ValueError(f"Unsupported book detail level: {detail_level}")
         return detail_level
     if artifact_type == "slides":
-        return "Bản trình chiếu"
+        mode = str(options.get("mode", "lesson"))
+        return {"summary": "Tóm tắt", "lesson": "Bài giảng", "deep_dive": "Chuyên sâu"}.get(mode, "Bài giảng")
     if artifact_type == "quiz":
         quantity = options.get("quantity")
         difficulty = str(options.get("difficulty", "")).lower()
         version_slug(artifact_type, options)
-        return f"{quantity} câu - {_QUIZ_DIFFICULTY_LABELS[difficulty]}"
+        return f"{quantity} câu · {_QUIZ_DIFFICULTY_LABELS[difficulty]}"
 
     fmt = str(options.get("format", "")).lower()
-    voice = str(options.get("voice", "")).lower()
     version_slug(artifact_type, options)
-    return f"{_VID_FORMAT_LABELS[fmt]} - {_VID_VOICE_LABELS[voice]}"
+    return _VID_FORMAT_LABELS[fmt]
 
 
 def artifact_directory_path(
@@ -251,6 +251,10 @@ def migrate_legacy_artifact_metadata(metadata: Mapping[str, Any]) -> tuple[Dict[
             "active": LEGACY_VERSION_ID,
             "versions": {LEGACY_VERSION_ID: legacy_version_entry(entry)},
         }
+        changed = True
+
+    if "regen_counts" in study_pack:
+        study_pack.pop("regen_counts", None)
         changed = True
 
     if changed:

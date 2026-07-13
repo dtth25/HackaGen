@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import re
+import random
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 from app.core.config import settings
@@ -13,7 +14,6 @@ from app.schemas.generation import (
     GroundingData,
     QualityScoresData,
     ReadinessData,
-    RegenLimitsData,
     StudyPackData,
     StudyPackResponse,
     StudyPackStats,
@@ -43,9 +43,6 @@ from app.services.versioning import (
 )
 
 logger = logging.getLogger(__name__)
-
-MAX_REGENERATIONS = 3
-
 
 _LEADING_ID_TOKEN_RE = re.compile(r"^([A-Za-z0-9-]+)[_\s]+")
 
@@ -92,6 +89,31 @@ def _clean_vid_output(vid: VidOutput) -> VidOutput:
                 item.detail = clean_text(item.detail or "") or None
         sc.narration = clean_text(sc.narration)
     return vid
+
+
+def _balance_quiz_answers(quiz: QuizOutput, version_id: str) -> QuizOutput:
+    """Deterministically spread correct answers across A-D before every persistence path."""
+    letters = ["A", "B", "C", "D"]
+    targets = [letters[index % len(letters)] for index in range(len(quiz.questions))]
+    rng = random.Random(version_id)
+    for _ in range(32):
+        rng.shuffle(targets)
+        if all(targets[i] != targets[i - 1] or targets[i] != targets[i - 2] for i in range(2, len(targets))):
+            break
+    for question, target in zip(quiz.questions, targets):
+        by_key = {option.key.upper(): option for option in question.options}
+        correct = by_key.get(question.correct_answer.upper())
+        others = [option for option in question.options if option is not correct]
+        rng.shuffle(others)
+        target_index = letters.index(target)
+        arranged = others[:target_index] + ([correct] if correct else []) + others[target_index:]
+        if len(arranged) != 4:
+            continue
+        for key, option in zip(letters, arranged):
+            option.key = key
+        question.options = arranged
+        question.correct_answer = target
+    return quiz
 
 
 class Generator:
@@ -681,7 +703,7 @@ class Generator:
 
     def prepare_artifact_version(
         self, course_id: str, artifact: str, options: Dict[str, Any], topic: Optional[str] = None,
-        user_prompt: str = "", replace_version_id: Optional[str] = None, reserve: bool = True, db_session_factory=None,
+        user_prompt: str = "", retry_version_id: Optional[str] = None, reserve: bool = True, db_session_factory=None,
     ) -> str:
         """Reserve a version slot and enforce per-artifact concurrency/caps."""
         db = self._get_db(db_session_factory)
@@ -707,20 +729,25 @@ class Generator:
                     raise GenerationInFlightError()
                 value.update({"status": "error", "error": "Tác vụ tạo đã hết thời gian chờ.", "finished_at": now, "updated_at": now})
 
-            version_id = version_slug(artifact, options)
+            if retry_version_id:
+                version_id = retry_version_id
+                current = dict(versions.get(version_id, {}))
+                if not current or current.get("status") != "error":
+                    raise ValueError("Only an error version can be retried")
+                options = dict(current.get("options", options))
+                topic = current.get("topic", topic)
+                user_prompt = current.get("user_prompt", user_prompt)
+            else:
+                version_id = version_slug(artifact, options)
+                current = {}
             is_new = version_id not in versions
-            if is_new and len(versions) >= VERSION_CAPS[artifact] and not replace_version_id:
+            if is_new and len(versions) >= VERSION_CAPS[artifact]:
                 raise VersionCapReachedError(self._version_summaries(versions))
-            if replace_version_id and replace_version_id not in versions:
-                raise ValueError("Version selected for replacement does not exist")
-            current = dict(versions.get(version_id, {}))
             current.update({
-                "options": dict(options), "label": version_label(artifact, options), "topic": topic,
+                "options": dict(options), "label": current.get("label") or version_label(artifact, options), "topic": topic,
                 "user_prompt": user_prompt, "path": version_id, "status": "processing", "error": None,
                 "progress": 0, "created_at": current.get("created_at", now), "started_at": now, "updated_at": now,
             })
-            if is_new and replace_version_id:
-                current["replace_version_id"] = replace_version_id
             versions[version_id] = current
             artifacts[artifact] = {"active": entry.get("active"), "versions": versions}
             study_pack["artifacts"] = artifacts
@@ -796,10 +823,6 @@ class Generator:
             if version_id:
                 versions[version_id] = current
                 if status == "ready":
-                    victim = current.pop("replace_version_id", None)
-                    if victim and victim != version_id:
-                        versions.pop(victim, None)
-                        replacement_to_remove = victim
                     entry["active"] = version_id
                 entry["versions"] = versions
             else:
@@ -829,6 +852,62 @@ class Generator:
         finally:
             db.close()
 
+    def rename_artifact_version(self, course_id: str, artifact: str, version_id: str, label: str, db_session_factory=None) -> Dict[str, Any]:
+        label = label.strip()
+        if not 1 <= len(label) <= 40:
+            raise ValueError("Tên phiên bản phải dài từ 1 đến 40 ký tự")
+        db = self._get_db(db_session_factory)
+        try:
+            course = db.query(Course).filter(Course.id == course_id).first()
+            if not course:
+                raise ValueError("Course not found")
+            meta, _ = migrate_legacy_artifact_metadata(self._metadata_dict(course))
+            entry = meta.get("study_pack", {}).get("artifacts", {}).get(artifact, {})
+            versions = dict(entry.get("versions", {}))
+            current = dict(versions.get(version_id, {}))
+            if not current:
+                raise ValueError("Version not found")
+            if any(v.get("label", "").casefold() == label.casefold() for key, v in versions.items() if key != version_id):
+                raise ValueError("Tên phiên bản đã tồn tại")
+            current["label"] = label
+            current["updated_at"] = datetime.utcnow().isoformat()
+            versions[version_id] = current
+            entry["versions"] = versions
+            meta["study_pack"]["artifacts"][artifact] = entry
+            course.metadata_json = json.dumps(meta, ensure_ascii=False)
+            db.commit()
+            return {"version_id": version_id, "label": label}
+        finally:
+            db.close()
+
+    def delete_artifact_version(self, course_id: str, artifact: str, version_id: str, db_session_factory=None) -> None:
+        db = self._get_db(db_session_factory)
+        try:
+            course = db.query(Course).filter(Course.id == course_id).first()
+            if not course:
+                raise ValueError("Course not found")
+            meta, _ = migrate_legacy_artifact_metadata(self._metadata_dict(course))
+            entry = dict(meta.get("study_pack", {}).get("artifacts", {}).get(artifact, {}))
+            versions = dict(entry.get("versions", {}))
+            current = versions.get(version_id)
+            if not current:
+                raise ValueError("Version not found")
+            if current.get("status") == "processing":
+                raise GenerationInFlightError()
+            versions.pop(version_id)
+            if entry.get("active") == version_id:
+                candidates = sorted(versions.items(), key=lambda item: item[1].get("created_at", ""), reverse=True)
+                ready = next((key for key, value in candidates if value.get("status") == "ready"), None)
+                error = next((key for key, value in candidates if value.get("status") == "error"), None)
+                entry["active"] = ready or error
+            entry["versions"] = versions
+            meta["study_pack"]["artifacts"][artifact] = entry
+            course.metadata_json = json.dumps(meta, ensure_ascii=False)
+            db.commit()
+        finally:
+            db.close()
+        remove_artifact_version(settings.UPLOAD_DIR, course_id, artifact, version_id)
+
     def get_artifact_status(self, course_id: str, artifact: str, version_id: Optional[str] = None, db_session_factory=None) -> Dict[str, Any]:
         """Read per-artifact generation status from Course.metadata_json."""
         db = self._get_db(db_session_factory)
@@ -841,78 +920,6 @@ class Generator:
             if not isinstance(entry, dict) or "versions" not in entry:
                 return entry if isinstance(entry, dict) else {}
             return dict(entry.get("versions", {}).get(version_id or entry.get("active"), {}))
-        finally:
-            db.close()
-
-    def get_regen_usage(self, course_id: str, db_session_factory=None) -> Dict[str, int]:
-        """Read the current regeneration usage per artifact from Course.metadata_json."""
-        db = self._get_db(db_session_factory)
-        try:
-            course = db.query(Course).filter(Course.id == course_id).first()
-            if not course:
-                return {}
-            meta = course.metadata_json or "{}"
-            if isinstance(meta, str):
-                try:
-                    meta = json.loads(meta)
-                except Exception:
-                    meta = {}
-            return meta.get("study_pack", {}).get("regen_counts", {})
-        finally:
-            db.close()
-
-    def check_and_record_regen_attempt(
-        self, course_id: str, artifact: str, db_session_factory=None
-    ) -> Tuple[bool, int, int]:
-        """Gate a generate-* call as a "regeneration" only if the artifact already has a
-        ready/error status (i.e. it's been generated/attempted before) — the very first
-        generation is always free and never counted. Returns (allowed, used, max). When
-        the call is allowed and is in fact a regeneration, the counter is incremented and
-        persisted as a side effect.
-
-        Fails open on any bookkeeping error — a DB hiccup in the counter must never block
-        the user's actual ability to generate content."""
-        db = self._get_db(db_session_factory)
-        try:
-            course = db.query(Course).filter(Course.id == course_id).first()
-            if not course:
-                return True, 0, MAX_REGENERATIONS
-
-            meta = course.metadata_json or "{}"
-            if isinstance(meta, str):
-                try:
-                    meta = json.loads(meta)
-                except Exception:
-                    meta = {}
-            study_pack = meta.get("study_pack", {})
-            artifacts = study_pack.get("artifacts", {})
-            artifact_entry = artifacts.get(artifact, {})
-            if isinstance(artifact_entry, dict) and "versions" in artifact_entry:
-                active = artifact_entry.get("active")
-                prior_status = artifact_entry.get("versions", {}).get(active, {}).get("status")
-            else:
-                prior_status = artifact_entry.get("status")
-
-            if prior_status not in ("ready", "error"):
-                # First-ever attempt for this artifact: not a regen, never blocked/counted.
-                regen_counts = study_pack.get("regen_counts", {})
-                return True, regen_counts.get(artifact, 0), MAX_REGENERATIONS
-
-            regen_counts = study_pack.get("regen_counts", {})
-            used = regen_counts.get(artifact, 0)
-            if used >= MAX_REGENERATIONS:
-                return False, used, MAX_REGENERATIONS
-
-            regen_counts[artifact] = used + 1
-            study_pack["regen_counts"] = regen_counts
-            meta["study_pack"] = study_pack
-            course.metadata_json = json.dumps(meta, ensure_ascii=False)
-            db.commit()
-            return True, used + 1, MAX_REGENERATIONS
-        except Exception as e:
-            db.rollback()
-            logger.error(f"Error checking regen limit for {artifact}: {e}")
-            return True, 0, MAX_REGENERATIONS
         finally:
             db.close()
 
@@ -1036,7 +1043,7 @@ class Generator:
             )
             return None
 
-    def generate_slides(self, course_id: str, topic: str = "AI Overview", num_slides: int = 15, db_session_factory=None, **kwargs) -> Optional[SlidesOutput]:
+    def generate_slides(self, course_id: str, topic: str = "AI Overview", num_slides: int = 15, focus_prompt: str = "", db_session_factory=None, **kwargs) -> Optional[SlidesOutput]:
         """Execute full generation pipeline for Presentation Slides.
 
         On any failure, records an "error" artifact status and returns None instead of
@@ -1052,7 +1059,8 @@ class Generator:
                 course_id, query=resolved_topic, db_session_factory=db_session_factory
             )
             self._require_context(context)
-            raw_output = self._llm_for("slides").generate_slides(context, resolved_topic, num_slides, valid_chunk_ids)
+            focus = f"\nTrọng tâm mong muốn: {focus_prompt}" if focus_prompt.strip() else ""
+            raw_output = self._llm_for("slides").generate_slides(context + focus, resolved_topic, num_slides, valid_chunk_ids)
             validated_output, score, warnings = validate_and_score_output(raw_output, "slides", valid_chunk_ids)
             if warnings:
                 logger.warning(f"Slides generation warnings for {course_id}: {warnings}")
@@ -1091,6 +1099,7 @@ class Generator:
             self._require_context(context)
             raw_output = self._llm_for("quiz").generate_quiz(context, resolved_topic, quantity, valid_chunk_ids, difficulty=difficulty)
             validated_output, score, warnings = validate_and_score_output(raw_output, "quiz", valid_chunk_ids)
+            validated_output = _balance_quiz_answers(validated_output, kwargs.get("version_id", "legacy"))
             if warnings:
                 logger.warning(f"Quiz generation warnings for {course_id}: {warnings}")
 
@@ -1239,8 +1248,6 @@ class Generator:
             warnings=grounding_meta.get("warnings", []),
         )
 
-        regen_limits = RegenLimitsData(max=MAX_REGENERATIONS, used=sp_meta.get("regen_counts", {}))
-
         return StudyPackResponse(
             course_id=course_id,
             stats=StudyPackStats(
@@ -1265,6 +1272,5 @@ class Generator:
                 readiness=readiness,
                 quality_scores=quality_scores,
                 grounding=grounding,
-                regen_limits=regen_limits,
             ),
         )

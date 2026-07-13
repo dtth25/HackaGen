@@ -1,6 +1,6 @@
 """Pydantic schemas for Generation Service Skeleton."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any, List, Optional
 from pydantic import BaseModel, Field
 
 
@@ -18,7 +18,7 @@ class BookGenerateRequest(BaseModel):
     course_id: Optional[str] = None
     user_prompt: Optional[str] = ""
     detail_level: Optional[str] = "Tiêu chuẩn"
-    replace_version_id: Optional[str] = None
+    retry_version_id: Optional[str] = None
 
 
 class SlideGenerateRequest(BaseModel):
@@ -26,8 +26,9 @@ class SlideGenerateRequest(BaseModel):
 
     course_id: Optional[str] = None
     topic: Optional[str] = "AI Overview"
-    num_slides: Optional[int] = 15
-    replace_version_id: Optional[str] = None
+    mode: Optional[str] = "lesson"
+    focus_prompt: Optional[str] = ""
+    retry_version_id: Optional[str] = None
 
 
 class QuizGenerateRequest(BaseModel):
@@ -37,7 +38,7 @@ class QuizGenerateRequest(BaseModel):
     topic: Optional[str] = "AI Quiz"
     quantity: Optional[int] = 5
     difficulty: Optional[str] = "medium"
-    replace_version_id: Optional[str] = None
+    retry_version_id: Optional[str] = None
 
 
 class VidGenerateRequest(BaseModel):
@@ -48,7 +49,7 @@ class VidGenerateRequest(BaseModel):
     format: Optional[str] = "standard"  # "standard" | "overview" | "shorts"
     voice: Optional[str] = "female"  # "female" | "male"
     user_prompt: Optional[str] = ""
-    replace_version_id: Optional[str] = None
+    retry_version_id: Optional[str] = None
 
 
 class GenerateResponse(BaseModel):
@@ -58,8 +59,6 @@ class GenerateResponse(BaseModel):
     status: str = "queued"
     message: str = "Generation started..."
     estimated_time: str = "2 minutes"
-    regen_used: int = 0
-    regen_max: int = 0
     version_id: Optional[str] = None
 
 
@@ -89,15 +88,6 @@ class GroundingData(BaseModel):
     warnings: List[str] = []
 
 
-class RegenLimitsData(BaseModel):
-    """Regeneration usage per artifact type. The first generation of an artifact is always
-    free; only subsequent manual regenerations (whether triggered after "ready" or "error")
-    count against `max`, keyed by artifact ("book"/"slides"/"quiz"/"vid")."""
-
-    max: int = 0
-    used: Dict[str, int] = Field(default_factory=dict)
-
-
 class StudyPackData(BaseModel):
     """Core study pack content schema."""
 
@@ -109,7 +99,6 @@ class StudyPackData(BaseModel):
     readiness: ReadinessData
     quality_scores: QualityScoresData
     grounding: GroundingData
-    regen_limits: RegenLimitsData = Field(default_factory=RegenLimitsData)
 
 
 class StudyPackStats(BaseModel):
