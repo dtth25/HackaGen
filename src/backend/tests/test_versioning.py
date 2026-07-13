@@ -17,6 +17,7 @@ from app.services.versioning import (
     VersionCapReachedError,
     artifact_file_path,
     migrate_legacy_artifact_metadata,
+    remove_artifact_version,
     version_label,
     version_slug,
 )
@@ -52,6 +53,30 @@ def test_version_path_rejects_directory_traversal(tmp_path):
         artifact_file_path(str(tmp_path), "course-1", "book", "../other", "book.pdf")
     with pytest.raises(ValueError):
         artifact_file_path(str(tmp_path), "course-1", "book", "tom-tat", "../book.pdf")
+
+
+def test_remove_versioned_artifact_directory(tmp_path):
+    artifact_dir = tmp_path / "course-1" / "artifacts" / "quiz" / "q10-hard"
+    artifact_dir.mkdir(parents=True)
+    (artifact_dir / "quiz.json").write_text("{}", encoding="utf-8")
+
+    remove_artifact_version(str(tmp_path), "course-1", "quiz", "q10-hard")
+
+    assert not artifact_dir.exists()
+
+
+def test_remove_legacy_artifact_keeps_other_artifact_files(tmp_path):
+    artifact_dir = tmp_path / "course-1" / "artifacts"
+    artifact_dir.mkdir(parents=True)
+    (artifact_dir / "book.json").write_text("{}", encoding="utf-8")
+    (artifact_dir / "book.pdf").write_text("pdf", encoding="utf-8")
+    (artifact_dir / "quiz.json").write_text("{}", encoding="utf-8")
+
+    remove_artifact_version(str(tmp_path), "course-1", "book", "legacy")
+
+    assert not (artifact_dir / "book.json").exists()
+    assert not (artifact_dir / "book.pdf").exists()
+    assert (artifact_dir / "quiz.json").exists()
 
 
 def test_atomic_artifact_replace_preserves_old_version_until_commit(tmp_path):
@@ -149,7 +174,8 @@ def test_alembic_upgrade_wraps_legacy_artifact_metadata(tmp_path, monkeypatch):
     }
 
 
-def test_version_cap_replace_and_in_flight_gate():
+def test_version_cap_replace_and_in_flight_gate(tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "UPLOAD_DIR", str(tmp_path))
     course_id = "version-gate"
     db = SessionLocal()
     try:
@@ -178,7 +204,11 @@ def test_version_cap_replace_and_in_flight_gate():
         {"quantity": 10, "difficulty": "easy"},
         replace_version_id=first,
     )
+    victim_dir = tmp_path / course_id / "artifacts" / "quiz" / first
+    victim_dir.mkdir(parents=True)
+    (victim_dir / "quiz.json").write_text("{}", encoding="utf-8")
     generator._set_artifact_status(course_id, "quiz", "ready", version_id=replacement)
     active, versions = generator.artifact_versions(course_id, "quiz")
     assert active == "q10-easy"
     assert {version["version_id"] for version in versions} == {"q5-medium", "q5-hard", "q10-easy"}
+    assert not victim_dir.exists()

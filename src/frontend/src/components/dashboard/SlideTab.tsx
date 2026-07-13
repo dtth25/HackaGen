@@ -114,8 +114,8 @@ export function SlideTab({ courseId, documentProcessing = false }: SlideTabProps
     setError(null);
     setProgress(5);
     try {
-      await apiGenerateSlide(courseId);
-      startPolling(Date.now());
+      const res = await apiGenerateSlide(courseId);
+      startPolling(Date.now(), res.version_id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Bắt đầu tạo slide thất bại.");
       setGenerating(false);
@@ -139,7 +139,7 @@ export function SlideTab({ courseId, documentProcessing = false }: SlideTabProps
       const res = await apiGenerateSlide(courseId);
       if (typeof res.regen_used === "number") setRegenUsed(res.regen_used);
       if (typeof res.regen_max === "number") setRegenMax(res.regen_max);
-      startPolling(Date.now());
+      startPolling(Date.now(), res.version_id);
     } catch (err) {
       setRegenError(err instanceof Error ? err.message : "Tạo lại thất bại.");
       setGenerating(false);

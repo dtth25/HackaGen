@@ -64,6 +64,7 @@ export function usePollingArtifact<T>({
   const [viewedVersion, setViewedVersion] = useState<string | null>(null);
 
   const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pollingVersionRef = useRef<string | null>(null);
 
   // Keep the latest callbacks in refs so `startPolling`'s recursive closure always calls
   // the current version without needing to be recreated (and without going in the
@@ -79,35 +80,42 @@ export function usePollingArtifact<T>({
   });
 
   const startPolling = useCallback(
-    (startedAt: number) => {
+    (startedAt: number, versionId?: string | null) => {
+      if (pollTimer.current) clearTimeout(pollTimer.current);
+      pollingVersionRef.current = versionId ?? viewedVersion;
       const poll = async () => {
+        const pollingVersion = pollingVersionRef.current;
         try {
-          const res = await fetchFnRef.current(courseId, viewedVersion);
+          const res = await fetchFnRef.current(courseId, pollingVersion);
           if (typeof res.regen_used === "number") setRegenUsed(res.regen_used);
           if (typeof res.regen_max === "number") setRegenMax(res.regen_max);
           if (res.versions) setVersions(res.versions);
           if (res.active_version !== undefined) setActiveVersion(res.active_version ?? null);
-          if (res.version_id && !viewedVersion) setViewedVersion(res.version_id);
           if (res.status === "ready" && res.data && isReadyRef.current(res.data)) {
+            setViewedVersion(res.version_id ?? pollingVersion);
             setData(res.data);
             setHasFetched(true);
             setGenerating(false);
             setProgress(100);
+            pollingVersionRef.current = null;
             onReadyRef.current?.(res.data);
             return;
           }
           if (res.status === "error") {
             setError(res.error || defaultErrorMessage);
             setGenerating(false);
+            pollingVersionRef.current = null;
             return;
           }
           if (typeof res.progress === "number") setProgress(res.progress);
         } catch {
           // Ignore transient errors while the background job is still running.
         }
+        if (pollingVersionRef.current !== pollingVersion) return;
         if (Date.now() - startedAt > timeoutMs) {
           setError(timeoutMessage);
           setGenerating(false);
+          pollingVersionRef.current = null;
           return;
         }
         pollTimer.current = setTimeout(poll, pollMs);
@@ -116,6 +124,13 @@ export function usePollingArtifact<T>({
     },
     [courseId, timeoutMs, timeoutMessage, defaultErrorMessage, pollMs, viewedVersion]
   );
+
+  useEffect(() => {
+    return () => {
+      if (pollTimer.current) clearTimeout(pollTimer.current);
+      pollingVersionRef.current = null;
+    };
+  }, [courseId]);
 
   useEffect(() => {
     if (hasFetched) return;
@@ -133,7 +148,7 @@ export function usePollingArtifact<T>({
         } else if (res.status === "processing") {
           setGenerating(true);
           setProgress(res.progress ?? 5);
-          startPolling(Date.now());
+          startPolling(Date.now(), res.version_id ?? viewedVersion);
         } else if (res.status === "error") {
           setError(res.error || defaultErrorMessage);
         }
@@ -141,15 +156,11 @@ export function usePollingArtifact<T>({
       .catch((err) => setError(err instanceof Error ? err.message : defaultErrorMessage))
       .finally(() => setHasFetched(true));
 
-    return () => {
-      if (pollTimer.current) clearTimeout(pollTimer.current);
-    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseId, hasFetched, viewedVersion]);
 
   const switchVersion = useCallback((versionId: string) => {
     if (versionId === viewedVersion) return;
-    if (pollTimer.current) clearTimeout(pollTimer.current);
     setViewedVersion(versionId);
     setData(null);
     setError(null);

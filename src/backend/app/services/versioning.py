@@ -38,6 +38,12 @@ _VID_FORMAT_LABELS = {
     "standard": "Tiêu chuẩn",
 }
 _VID_VOICE_LABELS = {"female": "Giọng nữ", "male": "Giọng nam"}
+_LEGACY_ARTIFACT_FILES = {
+    "book": ("book.json", "book.pdf"),
+    "slides": ("slides.json", "slide.pdf", "slide.pptx"),
+    "quiz": ("quiz.json", "quiz-key.pdf"),
+    "vid": ("vid.json", "vid.mp4", "vid.srt", "transcript.txt"),
+}
 
 
 class VersioningError(Exception):
@@ -142,6 +148,24 @@ def artifact_file_path(
     if Path(filename).name != filename:
         raise ValueError("Artifact filename must not contain a directory")
     return str(Path(artifact_directory_path(upload_dir, course_id, artifact_type, version_id)) / filename)
+
+
+def remove_artifact_version(
+    upload_dir: str, course_id: str, artifact_type: str, version_id: str
+) -> None:
+    """Remove completed replacement artifacts without touching unrelated legacy files."""
+    _require_artifact_type(artifact_type)
+    version_id = _safe_version_id(version_id)
+    artifact_dir = Path(artifact_directory_path(upload_dir, course_id, artifact_type, version_id))
+    if version_id != LEGACY_VERSION_ID:
+        shutil.rmtree(artifact_dir, ignore_errors=True)
+        return
+
+    for filename in _LEGACY_ARTIFACT_FILES[artifact_type]:
+        (artifact_dir / filename).unlink(missing_ok=True)
+    if artifact_type == "slides":
+        for image_path in artifact_dir.glob("slide_*.png"):
+            image_path.unlink(missing_ok=True)
 
 
 class AtomicArtifactDirectory:

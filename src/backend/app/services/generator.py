@@ -37,6 +37,7 @@ from app.services.versioning import (
     VersionCapReachedError,
     artifact_directory_path,
     migrate_legacy_artifact_metadata,
+    remove_artifact_version,
     version_label,
     version_slug,
 )
@@ -760,6 +761,7 @@ class Generator:
     ):
         """Persist per-artifact generation status (processing/ready/error) into Course.metadata_json."""
         version_id = version_id or self._generation_versions.get((course_id, artifact))
+        replacement_to_remove: Optional[str] = None
         db = self._get_db(db_session_factory)
         try:
             course = db.query(Course).filter(Course.id == course_id).first()
@@ -791,6 +793,7 @@ class Generator:
                     victim = current.pop("replace_version_id", None)
                     if victim and victim != version_id:
                         versions.pop(victim, None)
+                        replacement_to_remove = victim
                     entry["active"] = version_id
                 entry["versions"] = versions
             else:
@@ -801,6 +804,17 @@ class Generator:
             meta["study_pack"] = study_pack
             course.metadata_json = json.dumps(meta, ensure_ascii=False)
             db.commit()
+            if replacement_to_remove:
+                try:
+                    remove_artifact_version(settings.UPLOAD_DIR, course_id, artifact, replacement_to_remove)
+                except OSError as exc:
+                    logger.warning(
+                        "Could not remove replaced %s artifact %s for course %s: %s",
+                        artifact,
+                        replacement_to_remove,
+                        course_id,
+                        exc,
+                    )
             if version_id and status in ("ready", "error"):
                 self._generation_versions.pop((course_id, artifact), None)
         except Exception as e:

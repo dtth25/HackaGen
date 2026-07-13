@@ -134,8 +134,8 @@ export function QuizTab({ courseId, documentProcessing = false }: QuizTabProps) 
     setError(null);
     setProgress(5);
     try {
-      await apiGenerateQuiz(courseId, { quantity, difficulty });
-      startPolling(Date.now());
+      const res = await apiGenerateQuiz(courseId, { quantity, difficulty });
+      startPolling(Date.now(), res.version_id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Bắt đầu tạo trắc nghiệm thất bại.");
       setGenerating(false);
@@ -160,7 +160,7 @@ export function QuizTab({ courseId, documentProcessing = false }: QuizTabProps) 
       const res = await apiGenerateQuiz(courseId, { quantity, difficulty, replace_version_id: replaceVersionId });
       if (typeof res.regen_used === "number") setRegenUsed(res.regen_used);
       if (typeof res.regen_max === "number") setRegenMax(res.regen_max);
-      startPolling(Date.now());
+      startPolling(Date.now(), res.version_id);
     } catch (err) {
       if (err instanceof ApiRequestError && err.status === 409 && (err.detail as { code?: string })?.code === "version_cap_reached") setReplaceDialogOpen(true);
       setRegenError(err instanceof Error ? err.message : "Tạo lại thất bại.");
