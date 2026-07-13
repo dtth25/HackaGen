@@ -99,11 +99,14 @@ export function usePollingArtifact<T>({
           if (res.status === "ready" && res.data && isReadyRef.current(res.data)) {
             const completedVersion = res.version_id ?? pollingVersion;
             if (completedVersion) setDataByVersion((cache) => ({ ...cache, [completedVersion]: res.data as T }));
-            if (!viewedVersionRef.current || viewedVersionRef.current === completedVersion) {
-              setData(res.data);
-              setHasFetched(true);
-              onReadyRef.current?.(res.data);
-            }
+            // A generation the user kicked off always surfaces when it finishes, even if
+            // they switched to look at a different existing version meanwhile — like
+            // NotebookLM notifying "your new version is ready" instead of silently caching
+            // it until the user happens to click back.
+            if (completedVersion) setViewedVersion(completedVersion);
+            setData(res.data);
+            setHasFetched(true);
+            onReadyRef.current?.(res.data);
             setGenerating(false);
             setProgress(100);
             pollingVersionRef.current = null;

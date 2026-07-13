@@ -14,12 +14,12 @@ jobs:
         working-directory: src/backend
     env:
       # Dummy values — enough for Settings' required-field validation to pass.
-      # Tests run fully offline (PYTEST_CURRENT_TEST short-circuits the Gemini/TTS
+      # Tests run fully offline (PYTEST_CURRENT_TEST short-circuits the OpenRouter/TTS
       # clients in llm.py/video_render.py) and use an in-memory SQLite DB
       # (see tests/conftest.py), so no real secrets are needed here.
       DATABASE_URL: "sqlite:///./data/app.db"
       JWT_SECRET: "ci-test-secret-not-for-production"
-      GEMINI_API_KEY: "test_gemini_key"
+      OPENROUTER_API_KEY: "test_openrouter_key"
     steps:
       - uses: actions/checkout@v4
 
