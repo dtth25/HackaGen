@@ -1,8 +1,8 @@
-"""LLM Service using Google GenAI SDK (Gemini) with structured outputs and fallback support."""
+"""OpenRouter LLM service with free-first structured-output routing."""
 
 import logging
 import os
-import time
+import base64
 from typing import Any, Callable, List, Optional
 from pydantic import ValidationError
 from app.core.config import settings
@@ -42,57 +42,50 @@ def _slides_max_tokens(num_slides: int) -> int:
     return max(SLIDES_MAX_TOKENS, min(2048 + num_slides * 500, 24576))
 
 class LLMGenerationError(Exception):
-    """Raised when a strict (no-silent-fallback) Gemini call fails after all retries."""
+    """Raised when both OpenRouter routing attempts fail."""
 
 
-class _OpenRouterNotConfigured(Exception):
-    """Internal signal: OPENROUTER_API_KEY isn't set, so there's no fallback to try."""
-
-
-def _friendly_gemini_error(exc: Exception) -> str:
-    """Map raw Gemini SDK errors to a clean Vietnamese message safe to show in the UI."""
+def _friendly_openrouter_error(exc: Exception) -> str:
+    """Map provider failures to a clean Vietnamese message safe to show in the UI."""
     text = str(exc)
     if "ACCESS_TOKEN_TYPE_UNSUPPORTED" in text or "UNAUTHENTICATED" in text or "401" in text:
         return (
-            "API key Gemini không hợp lệ hoặc đã hết hạn. Vui lòng kiểm tra lại "
-            "GEMINI_API_KEY (lấy key mới tại https://aistudio.google.com/apikey)."
+            "OpenRouter API key không hợp lệ hoặc đã hết hạn."
         )
     if "PERMISSION_DENIED" in text or "403" in text:
-        return "API key Gemini không có quyền truy cập mô hình này."
+        return "OpenRouter API key không có quyền truy cập mô hình này."
     if "RESOURCE_EXHAUSTED" in text or "429" in text:
-        return "Đã vượt quá hạn mức (quota) sử dụng Gemini API. Vui lòng thử lại sau."
+        return "Các mô hình AI hiện đang hết hạn mức hoặc quá tải. Vui lòng thử lại sau."
     if "UNAVAILABLE" in text or "503" in text:
-        return "Dịch vụ Gemini đang quá tải tạm thời. Vui lòng thử lại sau ít phút."
+        return "Dịch vụ AI đang quá tải tạm thời. Vui lòng thử lại sau ít phút."
     if "json_invalid" in text or "EOF while parsing" in text or "Invalid JSON" in text:
         return "Nội dung sinh ra bị cắt do quá dài. Vui lòng thử tạo lại (hoặc giảm số lượng yêu cầu)."
-    return f"Gemini API gặp lỗi: {text[:300]}"
+    return f"Dịch vụ AI gặp lỗi: {text[:300]}"
 
 
 class LLMService:
-    """Service wrapper for Google Gemini API."""
+    """Service wrapper for OpenRouter's free-first, paid-fallback routing."""
 
-    def __init__(self, model: Optional[str] = None, api_key: Optional[str] = None):
-        self.model_name = model or settings.GEMINI_DEFAULT_MODEL
+    def __init__(self):
         self.client = None
-        self._openrouter_client = None
-        self._init_client(api_key)
+        self._init_client()
         self.prompts_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "prompts")
 
-    def _init_client(self, api_key: Optional[str] = None):
-        """Initialize Google GenAI client if valid API key is present."""
+    def _init_client(self):
+        """Initialize the single OpenRouter client outside offline/test mode."""
         if "PYTEST_CURRENT_TEST" in os.environ:
-            logger.info("PYTEST_CURRENT_TEST detected: using mock/fallback mode for LLMService.")
+            logger.info("PYTEST_CURRENT_TEST detected: using mock mode for LLMService.")
             return
-        api_key = api_key or getattr(settings, "GEMINI_API_KEY", "")
-        if api_key and api_key not in ["test_gemini_key", "mock_key", ""] and not api_key.startswith("test_"):
+        api_key = settings.OPENROUTER_API_KEY
+        if api_key and api_key not in ["mock_key", ""] and not api_key.startswith("test_"):
             try:
-                from google import genai
-                self.client = genai.Client(api_key=api_key)
-                logger.info(f"Initialized Google GenAI client with model {self.model_name}")
+                from openai import OpenAI
+                self.client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=api_key)
+                logger.info("Initialized OpenRouter client")
             except Exception as e:
-                logger.warning(f"Failed to initialize Google GenAI client: {e}. Will use fallback mode.")
+                logger.warning(f"Failed to initialize OpenRouter client: {e}. Will use mock mode.")
         else:
-            logger.info("Using fallback/mock mode for LLMService (test or mock API key).")
+            logger.info("Using mock mode for LLMService (test or mock API key).")
 
     def _load_prompt(self, template_name: str, **kwargs) -> str:
         """Load and format prompt template from app/prompts directory."""
@@ -105,125 +98,76 @@ class LLMService:
             logger.error(f"Error loading prompt template {template_name}: {e}")
             return f"Generate {template_name} with context: {kwargs.get('context', '')}"
 
-    def _call_gemini_strict(
+    def _call_openrouter_strict(
         self,
         prompt: str,
         schema_model: Any,
         fallback_fn: Callable[[], Any],
         max_output_tokens: int,
-        attempts: int = 2,
-        thinking_budget: int = 0,
     ) -> Any:
-        """Call Gemini with structured output; raise LLMGenerationError instead of silently
-        falling back once a real client is configured. Still uses the fallback in offline/mock
-        mode (self.client is None) so tests stay green.
+        """Call the free router once, validate locally, then retry once on the paid model.
 
-        thinking_budget=0 disables reasoning (fast, default for most calls); -1 enables
-        dynamic thinking (Gemini decides how much to reason) for higher-stakes, longer-form
-        calls like Book outline/chapter generation, at the cost of extra output tokens/latency."""
+        Local Pydantic parsing deliberately remains part of the fallback condition: a provider
+        can return HTTP 200 while still emitting an incomplete or schema-invalid payload.
+        """
         if not self.client:
             return fallback_fn()
 
-        from google.genai import types
-
         last_error: Optional[Exception] = None
-        for attempt in range(1, attempts + 1):
+        for model in (settings.OPENROUTER_FREE_MODEL, settings.OPENROUTER_PAID_MODEL):
             try:
-                response = self.client.models.generate_content(
-                    model=self.model_name,
-                    contents=prompt,
-                    config=types.GenerateContentConfig(
-                        response_mime_type="application/json",
-                        response_schema=schema_model,
-                        temperature=0.2,
-                        max_output_tokens=max_output_tokens,
-                        thinking_config=types.ThinkingConfig(thinking_budget=thinking_budget),
-                    ),
+                response = self.client.chat.completions.create(
+                    model=model,
+                    messages=[{"role": "user", "content": prompt}],
+                    max_tokens=max_output_tokens,
+                    temperature=0.2,
+                    response_format={
+                        "type": "json_schema",
+                        "json_schema": {
+                            "name": schema_model.__name__,
+                            "schema": schema_model.model_json_schema(),
+                            "strict": True,
+                        },
+                    },
+                    extra_body={"provider": {"require_parameters": True}},
                 )
-                if not response or not response.text:
-                    raise LLMGenerationError("Gemini returned an empty response")
-                return schema_model.model_validate_json(response.text)
+                content = response.choices[0].message.content if response.choices else None
+                if not content:
+                    raise LLMGenerationError("OpenRouter returned an empty response")
+                return schema_model.model_validate_json(content)
             except (ValidationError, LLMGenerationError) as e:
                 last_error = e
-                logger.warning(f"Gemini strict call attempt {attempt}/{attempts} produced invalid output: {e}")
+                logger.warning("OpenRouter model %s produced invalid output: %s", model, e)
             except Exception as e:
                 last_error = e
-                logger.warning(f"Gemini strict call attempt {attempt}/{attempts} failed: {e}")
-            if attempt < attempts:
-                time.sleep(2)
+                logger.warning("OpenRouter model %s failed: %s", model, e)
 
-        # Gemini (the free, primary provider) is exhausted — try OpenRouter once as a
-        # last-resort fallback before giving up, if the caller has configured a key.
-        try:
-            return self._call_openrouter_fallback(prompt, schema_model, max_output_tokens)
-        except _OpenRouterNotConfigured:
-            pass
-        except Exception as e:
-            logger.warning(f"OpenRouter fallback also failed: {e}")
-
-        raise LLMGenerationError(_friendly_gemini_error(last_error) if last_error else "Gemini generation failed.")
-
-    def _call_openrouter_fallback(self, prompt: str, schema_model: Any, max_output_tokens: int) -> Any:
-        """Last-resort fallback used only after Gemini's own retries are exhausted. Reuses
-        the same schema_model for both the request (as a JSON Schema) and response parsing
-        (schema_model.model_validate_json) so callers of _call_gemini_strict don't need to
-        know which provider actually answered."""
-        if not settings.OPENROUTER_API_KEY:
-            raise _OpenRouterNotConfigured()
-
-        if self._openrouter_client is None:
-            from openai import OpenAI
-
-            self._openrouter_client = OpenAI(
-                base_url="https://openrouter.ai/api/v1", api_key=settings.OPENROUTER_API_KEY
-            )
-
-        response = self._openrouter_client.chat.completions.create(
-            model=settings.OPENROUTER_MODEL,
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=max_output_tokens,
-            temperature=0.2,
-            response_format={
-                "type": "json_schema",
-                "json_schema": {
-                    "name": schema_model.__name__,
-                    "schema": schema_model.model_json_schema(),
-                    "strict": True,
-                },
-            },
+        raise LLMGenerationError(
+            _friendly_openrouter_error(last_error) if last_error else "AI generation failed."
         )
-        content = response.choices[0].message.content if response.choices else None
-        if not content:
-            raise LLMGenerationError("OpenRouter returned an empty response")
-        logger.info(f"Gemini exhausted attempts — recovered via OpenRouter fallback ({settings.OPENROUTER_MODEL}).")
-        return schema_model.model_validate_json(content)
 
     def ocr_page_image(self, image_bytes: bytes) -> str:
-        """Best-effort OCR: send a rendered PDF page image to Gemini vision and return the
+        """Best-effort OCR: send a rendered PDF page image to OpenRouter vision and return the
         transcribed plain text. Returns '' in offline/mock mode or on any failure — callers
         fall back to whatever text extraction already produced."""
         if not self.client:
             return ""
-        try:
-            from google.genai import types
-
-            response = self.client.models.generate_content(
-                model=self.model_name,
-                contents=[
-                    types.Part.from_bytes(data=image_bytes, mime_type="image/png"),
-                    "Trích xuất toàn bộ văn bản có thể đọc được trong ảnh này, giữ nguyên thứ tự đọc tự nhiên. "
-                    "Chỉ trả về văn bản thuần, không thêm giải thích hay định dạng markdown.",
-                ],
-                config=types.GenerateContentConfig(
+        content = [{"type": "text", "text": "Trích xuất toàn bộ văn bản có thể đọc được trong ảnh này, giữ nguyên thứ tự đọc tự nhiên. Chỉ trả về văn bản thuần, không thêm giải thích hay định dạng markdown."}, {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{base64.b64encode(image_bytes).decode('ascii')}"}}]
+        for model in (settings.OPENROUTER_FREE_MODEL, settings.OPENROUTER_PAID_MODEL):
+            try:
+                response = self.client.chat.completions.create(
+                    model=model,
+                    messages=[{"role": "user", "content": content}],
+                    max_tokens=4096,
                     temperature=0.0,
-                    max_output_tokens=4096,
-                    thinking_config=types.ThinkingConfig(thinking_budget=0),
-                ),
-            )
-            return (response.text or "").strip() if response else ""
-        except Exception as e:
-            logger.warning(f"OCR page image call failed: {e}")
-            return ""
+                    extra_body={"provider": {"require_parameters": True}},
+                )
+                text = response.choices[0].message.content if response.choices else None
+                if text and text.strip():
+                    return text.strip()
+            except Exception as exc:
+                logger.warning("OCR via OpenRouter model %s failed: %s", model, exc)
+        return ""
 
     def generate_course_title(self, context: str) -> CourseTitleOutput:
         """Generate a short, human-friendly course title from a sample of extracted document text."""
@@ -232,7 +176,7 @@ class LLMService:
         def _fallback():
             return CourseTitleOutput(title="")
 
-        return self._call_gemini_strict(prompt, CourseTitleOutput, _fallback, COURSE_TITLE_MAX_TOKENS)
+        return self._call_openrouter_strict(prompt, CourseTitleOutput, _fallback, COURSE_TITLE_MAX_TOKENS)
 
     def generate_book_outline(
         self,
@@ -282,7 +226,7 @@ class LLMService:
                 chapters=chapters,
             )
 
-        return self._call_gemini_strict(prompt, BookOutline, _fallback, BOOK_OUTLINE_MAX_TOKENS, thinking_budget=-1)
+        return self._call_openrouter_strict(prompt, BookOutline, _fallback, BOOK_OUTLINE_MAX_TOKENS)
 
     def generate_book_chapter(
         self,
@@ -345,7 +289,7 @@ class LLMService:
                 source_chunk_ids=cids[:2],
             )
 
-        return self._call_gemini_strict(prompt, BookChapterContent, _fallback, BOOK_CHAPTER_MAX_TOKENS, thinking_budget=-1)
+        return self._call_openrouter_strict(prompt, BookChapterContent, _fallback, BOOK_CHAPTER_MAX_TOKENS)
 
     def generate_slides(
         self, context: str, topic: str = "AI Overview", num_slides: int = 15, valid_chunk_ids: List[str] = None
@@ -375,7 +319,7 @@ class LLMService:
                 slides=slides,
             )
 
-        return self._call_gemini_strict(prompt, SlidesOutput, _fallback, _slides_max_tokens(num_slides))
+        return self._call_openrouter_strict(prompt, SlidesOutput, _fallback, _slides_max_tokens(num_slides))
 
     _QUIZ_DIFFICULTY_DIRECTIVES = {
         "easy": "Tất cả câu hỏi ở mức DỄ (Bloom: Easy) — kiểm tra ghi nhớ và nhận biết khái niệm cơ bản.",
@@ -426,7 +370,7 @@ class LLMService:
                 questions=questions,
             )
 
-        return self._call_gemini_strict(prompt, QuizOutput, _fallback, _quiz_max_tokens(quantity))
+        return self._call_openrouter_strict(prompt, QuizOutput, _fallback, _quiz_max_tokens(quantity))
 
     def generate_vid(
         self,
@@ -482,6 +426,6 @@ class LLMService:
                 ],
             )
 
-        return self._call_gemini_strict(prompt, VidOutput, _fallback, VID_MAX_TOKENS)
+        return self._call_openrouter_strict(prompt, VidOutput, _fallback, VID_MAX_TOKENS)
 
 

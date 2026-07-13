@@ -35,34 +35,9 @@ class Settings(BaseSettings):
     JWT_SECRET: str = Field(
         ..., description="Secret key for JWT encoding and decoding"
     )
-    GEMINI_API_KEY: str = Field(..., description="Google Gemini API key")
-
-    # Optional per-feature API keys — each generation feature (Book/Slide/Quiz/Vid) can use
-    # its own Gemini key (e.g. to spread usage across separate free-tier quotas). Falls back
-    # to GEMINI_API_KEY when left empty.
-    GEMINI_BOOK_API_KEY: str = Field(default="", description="Gemini API key for Book generation (falls back to GEMINI_API_KEY)")
-    GEMINI_SLIDE_API_KEY: str = Field(default="", description="Gemini API key for Slide generation (falls back to GEMINI_API_KEY)")
-    GEMINI_QUIZ_API_KEY: str = Field(default="", description="Gemini API key for Quiz generation (falls back to GEMINI_API_KEY)")
-    GEMINI_VID_API_KEY: str = Field(default="", description="Gemini API key for Video generation (falls back to GEMINI_API_KEY)")
-
-    # Optional automatic fallback when Gemini fails/hits quota — Gemini stays the primary
-    # (free) provider for every feature; OpenRouter only kicks in as a last resort inside
-    # LLMService._call_gemini_strict. Blank = no-op, behavior unchanged.
-    OPENROUTER_API_KEY: str = Field(default="", description="OpenRouter API key, used only as a Gemini fallback")
-    # Same model family as the Gemini primary (paid, via OpenRouter) — keeps fallback output
-    # style/JSON discipline consistent with Gemini-direct output instead of switching voice
-    # mid-course when quota is exhausted.
-    OPENROUTER_MODEL: str = Field(default="google/gemini-2.5-flash", description="OpenRouter model slug for the fallback")
-
-    # Model routing — mirrors the GEMINI_{FEATURE}_API_KEY pattern above. Each feature
-    # falls back to GEMINI_DEFAULT_MODEL when left blank (see LLMService.__init__ and
-    # generation.py::get_generator / document_processor.py::_generate_course_title).
-    GEMINI_DEFAULT_MODEL: str = Field(default="gemini-flash-latest", description="Model used when a feature has no override. Use a currently-supported alias — bare 'gemini-2.5-flash' now 404s 'no longer available to new users' on newer API projects/keys.")
-    GEMINI_BOOK_MODEL: str = Field(default="", description="Model for Book generation (falls back to GEMINI_DEFAULT_MODEL)")
-    GEMINI_SLIDE_MODEL: str = Field(default="", description="Model for Slide generation (falls back to GEMINI_DEFAULT_MODEL)")
-    GEMINI_QUIZ_MODEL: str = Field(default="", description="Model for Quiz generation (falls back to GEMINI_DEFAULT_MODEL)")
-    GEMINI_VIDEO_MODEL: str = Field(default="", description="Model for Vid generation (falls back to GEMINI_DEFAULT_MODEL)")
-    GEMINI_COURSE_MODEL: str = Field(default="", description="Model for course-title generation (falls back to GEMINI_DEFAULT_MODEL)")
+    OPENROUTER_API_KEY: str = Field(..., description="OpenRouter API key")
+    OPENROUTER_FREE_MODEL: str = Field(default="openrouter/free", description="OpenRouter free-model router")
+    OPENROUTER_PAID_MODEL: str = Field(default="google/gemini-2.5-flash", description="OpenRouter paid fallback model")
 
     # Optional variables
     ALLOWED_ORIGINS: Union[List[str], str] = Field(
@@ -87,8 +62,8 @@ class Settings(BaseSettings):
     )
 
     # Email verification / password reset — sent via SMTP (Gmail: smtp.gmail.com + an
-    # App Password, not the account password). Left blank by default (unlike
-    # GEMINI_API_KEY) so a fresh checkout without SMTP set up still boots; attempting to
+    # App Password, not the account password). Left blank by default so a fresh checkout
+    # without SMTP set up still boots; attempting to
     # actually send an email with these unset fails loudly at call time instead of
     # crashing the whole app over a feature not yet configured.
     SMTP_HOST: str = Field(default="smtp.gmail.com", description="SMTP server host for transactional email")
@@ -132,10 +107,6 @@ class Settings(BaseSettings):
         default="ai_course_chunks", description="ChromaDB collection name"
     )
 
-    # Embedding provider — routes chunk/query embedding through Gemini instead of Chroma's
-    # default English-centric local model, since content/queries here are Vietnamese.
-    EMBEDDING_PROVIDER: str = Field(default="gemini", description="Embedding provider: 'gemini' or 'default' (Chroma's bundled MiniLM)")
-    GEMINI_EMBEDDING_MODEL: str = Field(default="gemini-embedding-001", description="Gemini embedding model name")
     EMBEDDING_BATCH_SIZE: int = Field(default=32, description="Chunks per embed_content batch call")
     EMBEDDING_BATCH_DELAY: float = Field(default=0, description="Seconds to sleep between embedding batches")
     EMBEDDING_MAX_RETRIES: int = Field(default=3, description="Max retries per embedding batch on failure")
@@ -143,18 +114,13 @@ class Settings(BaseSettings):
     EMBEDDING_REQUESTS_PER_MINUTE: int = Field(default=72, description="Client-side rate limit for embedding API calls")
     EMBEDDING_CACHE_DIR: str = Field(default="cache/chunk_embeddings", description="Directory for content-hash embedding cache")
 
-    # Silent last-resort fallback when Gemini's embedding quota is exhausted mid-ingestion
-    # (mirrors the generation-time OPENROUTER_API_KEY fallback in LLMService._call_gemini_strict).
-    # Stored in a SEPARATE Chroma collection (see VectorStore._collection_for) since vectors from
-    # a different embedding model aren't comparable to Gemini's — mixing them in one collection
-    # would silently corrupt similarity search for every course, not just the exhausted one.
-    OPENROUTER_EMBEDDING_MODEL: str = Field(default="openai/text-embedding-3-small", description="OpenRouter embedding model slug, used only when Gemini embedding quota is exhausted")
+    OPENROUTER_EMBEDDING_MODEL: str = Field(default="openai/text-embedding-3-small", description="OpenRouter embedding model slug")
 
     # Document chunking tuning
     DOCUMENT_CHUNK_SIZE: int = Field(default=1800, description="Target chunk size in characters")
     DOCUMENT_CHUNK_OVERLAP: int = Field(default=120, description="Overlap in characters between consecutive chunks")
 
-    # OCR fallback for scanned PDF pages (rendered page image -> Gemini vision text extraction)
+    # OCR fallback for scanned PDF pages (rendered page image -> OpenRouter vision text extraction)
     PDF_ENABLE_OCR: bool = Field(default=True, description="Enable OCR fallback for low-text (scanned) PDF pages")
     PDF_OCR_MAX_PAGES: int = Field(default=12, description="Hard cap on number of pages OCR'd per document")
     PDF_OCR_DPI: int = Field(default=120, description="DPI used when rendering a scanned page to an image for OCR")
@@ -162,7 +128,7 @@ class Settings(BaseSettings):
     PDF_SCAN_SAMPLE_PAGES: int = Field(default=12, description="Number of pages sampled to decide whether a document is scanned")
 
 
-    @field_validator("DATABASE_URL", "JWT_SECRET", "GEMINI_API_KEY", mode="before")
+    @field_validator("DATABASE_URL", "JWT_SECRET", "OPENROUTER_API_KEY", mode="before")
     @classmethod
     def validate_required_not_empty(cls, value: str, info) -> str:
         if value is None or not str(value).strip():

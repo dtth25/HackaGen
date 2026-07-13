@@ -44,9 +44,6 @@ from app.services.versioning import (
 
 logger = logging.getLogger(__name__)
 
-# Extra regenerations allowed per artifact type, per course, after the first generation.
-# The first generation of an artifact is always free — this only caps deliberate "I'm
-# not happy with the quality, try again" re-triggers, to protect the scarce Gemini quota.
 MAX_REGENERATIONS = 3
 
 
@@ -103,8 +100,7 @@ class Generator:
     def __init__(self, vector_store: VectorStore, llm: LLMService, feature_llms: Optional[Dict[str, LLMService]] = None):
         self.vector_store = vector_store
         self.llm = llm
-        # Per-feature LLM instances (book/slides/quiz/vid), each optionally configured with
-        # its own Gemini API key. Falls back to `self.llm` for any feature not provided.
+        # Kept injectable for tests; production uses a single OpenRouter service.
         self.feature_llms = feature_llms or {}
         self._generation_versions: Dict[tuple[str, str], str] = {}
 
@@ -118,14 +114,25 @@ class Generator:
         return db_session_factory()
 
     def _get_embedding_provider(self, course_id: str, db_session_factory=None) -> str:
-        """Which Chroma collection this course's chunks actually live in — "gemini" (default)
-        or "openrouter" if document_processor fell back to it on Gemini quota exhaustion.
-        Retrieval must route to the same collection a course was embedded into, since vectors
-        from different embedding models aren't comparable (see VectorStore._collection_for)."""
+        """Lazy-migrate legacy embeddings before a retrieval operation."""
         db = self._get_db(db_session_factory)
         try:
             course = db.query(Course).filter(Course.id == course_id).first()
-            return (course.embedding_provider if course and course.embedding_provider else "gemini")
+            provider = course.embedding_provider if course else "openrouter"
+            if provider != "gemini":
+                return "openrouter"
+
+            legacy_chunks = self.vector_store.get_legacy_course_chunks(course_id)
+            if not legacy_chunks:
+                raise ValueError("Không tìm thấy dữ liệu lập chỉ mục cũ để nâng cấp khóa học này.")
+            self.vector_store.add_documents(legacy_chunks, course_id=course_id, provider="openrouter")
+            migrated_count = self.vector_store.get_course_stats(course_id, provider="openrouter").get("chunk_count", 0)
+            if migrated_count < len(legacy_chunks):
+                raise RuntimeError("Không thể xác nhận đầy đủ dữ liệu lập chỉ mục sau khi nâng cấp.")
+            course.embedding_provider = "openrouter"
+            db.commit()
+            logger.info("Migrated %s legacy embeddings to OpenRouter", course_id)
+            return "openrouter"
         finally:
             db.close()
 
@@ -192,8 +199,7 @@ class Generator:
         embedding finishes writing chunk_count — hits the exact same "no chunks found" path
         as a genuinely broken document, and `_require_context`'s scan/OCR-focused message is
         actively misleading here since the document is fine, just not indexed yet. Ingestion
-        legitimately takes 10-30+s for large real documents (retries, OpenRouter fallback on
-        Gemini quota exhaustion — see document_processor.process_course), long enough for a
+        legitimately takes 10-30+s for large real documents, long enough for a
         user clicking into a tab right after upload to reliably hit this race."""
         db = self._get_db(db_session_factory)
         try:

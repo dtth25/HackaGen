@@ -38,31 +38,11 @@ _generator_instance = None
 
 
 def get_generator() -> Generator:
-    """Singleton helper to get Generator instance.
-
-    Each of the 4 generation features (Book/Slide/Quiz/Vid) can be configured with its own
-    Gemini API key (GEMINI_{BOOK,SLIDE,QUIZ,VID}_API_KEY) and/or its own model
-    (GEMINI_{BOOK,SLIDE,QUIZ,VIDEO}_MODEL), each falling back independently to the shared
-    GEMINI_API_KEY / GEMINI_DEFAULT_MODEL when left unset.
-    """
+    """Singleton helper using the shared OpenRouter LLM service."""
     global _generator_instance
     if _generator_instance is None:
         vs = get_vector_store()
-        llm = LLMService()
-        # Only spin up a separate client for a feature that actually overrides the key
-        # and/or model — otherwise reuse the shared `llm` instance instead of creating
-        # redundant genai.Client objects that would end up identically configured.
-        feature_overrides = {
-            "book": (settings.GEMINI_BOOK_API_KEY, settings.GEMINI_BOOK_MODEL),
-            "slides": (settings.GEMINI_SLIDE_API_KEY, settings.GEMINI_SLIDE_MODEL),
-            "quiz": (settings.GEMINI_QUIZ_API_KEY, settings.GEMINI_QUIZ_MODEL),
-            "vid": (settings.GEMINI_VID_API_KEY, settings.GEMINI_VIDEO_MODEL),
-        }
-        feature_llms = {
-            feature: LLMService(api_key=key or None, model=model or None) if (key or model) else llm
-            for feature, (key, model) in feature_overrides.items()
-        }
-        _generator_instance = Generator(vs, llm, feature_llms)
+        _generator_instance = Generator(vs, LLMService())
     return _generator_instance
 
 
@@ -612,8 +592,8 @@ def get_sources(
     db: Session = Depends(get_db),
 ) -> Any:
     """Stable source-grounding endpoint for UI panels."""
-    course = get_valid_course(document_id, current_user, db)
-    provider = course.embedding_provider or "gemini"
+    get_valid_course(document_id, current_user, db)
+    provider = get_generator()._get_embedding_provider(document_id)
     vs = get_vector_store()
     stats = vs.get_course_stats(document_id, provider=provider)
     total_chunks = stats.get("chunk_count", 0)

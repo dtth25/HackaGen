@@ -1,8 +1,6 @@
 """Tests for resend-verification cooldown, admin bootstrap, the simplified (single-attempt)
 course auto-naming behavior, and the OpenRouter fallback in LLMService."""
 
-import time
-
 from app.core.config import settings
 from app.models.course import Course
 from app.models.user import User
@@ -64,7 +62,6 @@ def test_admin_bootstrap_is_idempotent(monkeypatch):
     finally:
         db.close()
 
-
 def test_filename_fallback_title_strips_timestamp_and_extension():
     assert DocumentProcessor._filename_fallback_title("1730000000_Virtual Tree.pdf") == "Virtual Tree"
     assert DocumentProcessor._filename_fallback_title("notes.docx") == "notes"
@@ -92,86 +89,3 @@ def test_course_naming_falls_back_to_filename_when_ai_unavailable(client, test_u
         db.close()
 
 
-def test_openrouter_fallback_used_when_gemini_exhausted(monkeypatch):
-    """When Gemini's own retries are exhausted, _call_gemini_strict must try OpenRouter
-    once (if configured) before giving up — transparent to callers."""
-    from app.services.llm import LLMService
-    from app.schemas.generator_output import CourseTitleOutput
-
-    monkeypatch.setattr(settings, "OPENROUTER_API_KEY", "test-openrouter-key")
-    monkeypatch.setattr(settings, "OPENROUTER_MODEL", "google/gemini-2.5-flash")
-
-    service = LLMService()
-
-    class _FakeModels:
-        def generate_content(self, **kwargs):
-            raise RuntimeError("Gemini quota exhausted")
-
-    class _FakeGeminiClient:
-        models = _FakeModels()
-
-    service.client = _FakeGeminiClient()
-
-    class _FakeMessage:
-        content = CourseTitleOutput(title="Đại Số Tuyến Tính").model_dump_json()
-
-    class _FakeChoice:
-        message = _FakeMessage()
-
-    class _FakeCompletion:
-        choices = [_FakeChoice()]
-
-    class _FakeCompletions:
-        def create(self, **kwargs):
-            assert kwargs["model"] == "google/gemini-2.5-flash"
-            return _FakeCompletion()
-
-    class _FakeChat:
-        completions = _FakeCompletions()
-
-    class _FakeOpenRouterClient:
-        chat = _FakeChat()
-
-    monkeypatch.setattr(service, "_openrouter_client", _FakeOpenRouterClient())
-    monkeypatch.setattr(time, "sleep", lambda *_: None)
-
-    result = service._call_gemini_strict(
-        prompt="test prompt",
-        schema_model=CourseTitleOutput,
-        fallback_fn=lambda: CourseTitleOutput(title=""),
-        max_output_tokens=100,
-        attempts=1,
-    )
-    assert result.title == "Đại Số Tuyến Tính"
-
-
-def test_openrouter_not_configured_still_raises(monkeypatch):
-    """Without OPENROUTER_API_KEY, behavior is unchanged — Gemini failure still raises."""
-    from app.services.llm import LLMService, LLMGenerationError
-    from app.schemas.generator_output import CourseTitleOutput
-
-    monkeypatch.setattr(settings, "OPENROUTER_API_KEY", "")
-
-    service = LLMService()
-
-    class _FakeModels:
-        def generate_content(self, **kwargs):
-            raise RuntimeError("Gemini quota exhausted")
-
-    class _FakeGeminiClient:
-        models = _FakeModels()
-
-    service.client = _FakeGeminiClient()
-    monkeypatch.setattr(time, "sleep", lambda *_: None)
-
-    try:
-        service._call_gemini_strict(
-            prompt="test prompt",
-            schema_model=CourseTitleOutput,
-            fallback_fn=lambda: CourseTitleOutput(title=""),
-            max_output_tokens=100,
-            attempts=1,
-        )
-        assert False, "expected LLMGenerationError"
-    except LLMGenerationError:
-        pass
