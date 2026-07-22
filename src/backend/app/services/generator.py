@@ -6,6 +6,7 @@ import logging
 import os
 import re
 import random
+import threading
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 from app.core.config import settings
@@ -43,6 +44,29 @@ from app.services.versioning import (
 )
 
 logger = logging.getLogger(__name__)
+
+_version_reservation_locks: Dict[Tuple[str, str], threading.Lock] = {}
+_version_reservation_locks_guard = threading.Lock()
+
+
+def _get_version_reservation_lock(course_id: str, artifact: str) -> threading.Lock:
+    """One lock per (course, artifact), created on demand. Guards the read-check-write
+    critical section in `prepare_artifact_version` against two near-simultaneous requests
+    (a double-click, or a retry landing right as the stale-reaper flips an old job) both
+    reading "no in-flight job" and both reserving the same slot — otherwise a plain
+    SQLAlchemy read-modify-write on Course.metadata_json with no row locking (and SQLite
+    has no real SELECT...FOR UPDATE to lean on). Safe as a complete fix for the reservation
+    step specifically because this app runs as a single Python process (uvicorn without
+    --workers) with sync background tasks executing in that process's threadpool. Does NOT
+    protect against a still-alive generation continuing to write files after its slot was
+    reaped as stale — closing that fully needs a fencing token threaded through
+    _start_version_write/_finish_version_write, which is a larger change than this lock."""
+    with _version_reservation_locks_guard:
+        lock = _version_reservation_locks.get((course_id, artifact))
+        if lock is None:
+            lock = threading.Lock()
+            _version_reservation_locks[(course_id, artifact)] = lock
+        return lock
 
 _LEADING_ID_TOKEN_RE = re.compile(r"^([A-Za-z0-9-]+)[_\s]+")
 _ARRAY_INDEX_RE = re.compile(r"\b([A-Za-z][A-Za-z0-9]*)(\[[A-Za-z0-9, ]+\](?:\[[A-Za-z0-9, ]+\])*)")
@@ -171,13 +195,15 @@ class Generator:
         return db_session_factory()
 
     def _get_embedding_provider(self, course_id: str, db_session_factory=None) -> str:
-        """Lazy-migrate legacy embeddings before a retrieval operation."""
+        """Lazy-migrate legacy Gemini embeddings before a retrieval operation; otherwise honor
+        whatever provider is actually recorded on the course ("openrouter" or "local")
+        instead of collapsing every non-legacy value to "openrouter"."""
         db = self._get_db(db_session_factory)
         try:
             course = db.query(Course).filter(Course.id == course_id).first()
             provider = course.embedding_provider if course else "openrouter"
             if provider != "gemini":
-                return "openrouter"
+                return provider
 
             legacy_chunks = self.vector_store.get_legacy_course_chunks(course_id)
             if not legacy_chunks:
@@ -746,70 +772,84 @@ class Generator:
         self, course_id: str, artifact: str, options: Dict[str, Any], topic: Optional[str] = None,
         user_prompt: str = "", retry_version_id: Optional[str] = None, reserve: bool = True, db_session_factory=None,
     ) -> str:
-        """Reserve a version slot and enforce per-artifact concurrency/caps."""
-        db = self._get_db(db_session_factory)
-        try:
-            course = db.query(Course).filter(Course.id == course_id).first()
-            if not course:
-                raise ValueError("Course not found")
-            meta, _ = migrate_legacy_artifact_metadata(self._metadata_dict(course))
-            study_pack = dict(meta.get("study_pack", {}))
-            artifacts = dict(study_pack.get("artifacts", {}))
-            entry = dict(artifacts.get(artifact, {}))
-            versions = dict(entry.get("versions", {}))
-            now = datetime.utcnow().isoformat()
-            stale_minutes = {"book": 10, "vid": 20, "slides": 8, "quiz": 8}[artifact]
-            for value in versions.values():
-                if not isinstance(value, dict) or value.get("status") != "processing":
-                    continue
-                try:
-                    age = datetime.utcnow() - datetime.fromisoformat(value.get("updated_at", ""))
-                except (TypeError, ValueError):
-                    age = None
-                if age is None or age.total_seconds() <= stale_minutes * 60:
-                    raise GenerationInFlightError()
-                value.update({"status": "error", "error": "Tác vụ tạo đã hết thời gian chờ.", "finished_at": now, "updated_at": now})
+        """Reserve a version slot and enforce per-artifact concurrency/caps.
 
-            if retry_version_id:
-                version_id = retry_version_id
-                current = dict(versions.get(version_id, {}))
-                if not current or current.get("status") != "error":
-                    raise ValueError("Only an error version can be retried")
-                options = dict(current.get("options", options))
-                topic = current.get("topic", topic)
-                user_prompt = current.get("user_prompt", user_prompt)
-            else:
-                version_id = version_slug(artifact, options)
-                current = {}
-            is_new = version_id not in versions
-            if is_new and len(versions) >= VERSION_CAPS[artifact]:
-                raise VersionCapReachedError(self._version_summaries(versions))
-            label = current.get("label") or version_label(artifact, options)
-            if is_new:
-                existing_labels = {str(value.get("label", "")).casefold() for value in versions.values() if isinstance(value, dict)}
-                base_label = label
-                suffix = 2
-                while label.casefold() in existing_labels:
-                    label = f"{base_label} ({suffix})"
-                    suffix += 1
-            current.update({
-                "options": dict(options), "label": label, "topic": topic,
-                "user_prompt": user_prompt, "path": version_id, "status": "processing", "error": None,
-                "progress": 0, "created_at": current.get("created_at", now), "started_at": now, "updated_at": now,
-            })
-            versions[version_id] = current
-            artifacts[artifact] = {"active": entry.get("active"), "versions": versions}
-            study_pack["artifacts"] = artifacts
-            meta["study_pack"] = study_pack
-            if reserve:
-                course.metadata_json = json.dumps(meta, ensure_ascii=False)
-                db.commit()
-            return version_id
-        except Exception:
-            db.rollback()
-            raise
-        finally:
-            db.close()
+        Locked per (course_id, artifact) — see `_get_version_reservation_lock` — so two
+        near-simultaneous calls (double-click, or a retry landing right as the stale-reaper
+        below flips an old job) can't both read "no in-flight job" and both reserve the same
+        slot; the whole read-check-write below is otherwise an unprotected SQLAlchemy
+        read-modify-write with no DB-level row locking to fall back on."""
+        with _get_version_reservation_lock(course_id, artifact):
+            db = self._get_db(db_session_factory)
+            try:
+                course = db.query(Course).filter(Course.id == course_id).first()
+                if not course:
+                    raise ValueError("Course not found")
+                meta, _ = migrate_legacy_artifact_metadata(self._metadata_dict(course))
+                study_pack = dict(meta.get("study_pack", {}))
+                artifacts = dict(study_pack.get("artifacts", {}))
+                entry = dict(artifacts.get(artifact, {}))
+                versions = dict(entry.get("versions", {}))
+                now = datetime.utcnow().isoformat()
+                stale_minutes = {"book": 10, "vid": 20, "slides": 8, "quiz": 8}[artifact]
+                for value in versions.values():
+                    if not isinstance(value, dict) or value.get("status") != "processing":
+                        continue
+                    try:
+                        age = datetime.utcnow() - datetime.fromisoformat(value.get("updated_at", ""))
+                    except (TypeError, ValueError):
+                        age = None
+                    if age is None or age.total_seconds() <= stale_minutes * 60:
+                        raise GenerationInFlightError()
+                    # NOTE: this only flips the DB flag — it does not (and, short of a
+                    # fencing-token redesign, cannot cheaply) cancel the original background
+                    # task if it's actually still alive past this threshold. A genuinely
+                    # slower-than-usual-but-healthy generation that finishes after being
+                    # reaped here can still race a newly-admitted retry over the same on-disk
+                    # staging directory. The per-tab FE poll timeouts are kept >= these
+                    # thresholds specifically to make hitting this window rare in practice.
+                    value.update({"status": "error", "error": "Tác vụ tạo đã hết thời gian chờ.", "finished_at": now, "updated_at": now})
+
+                if retry_version_id:
+                    version_id = retry_version_id
+                    current = dict(versions.get(version_id, {}))
+                    if not current or current.get("status") != "error":
+                        raise ValueError("Only an error version can be retried")
+                    options = dict(current.get("options", options))
+                    topic = current.get("topic", topic)
+                    user_prompt = current.get("user_prompt", user_prompt)
+                else:
+                    version_id = version_slug(artifact, options)
+                    current = {}
+                is_new = version_id not in versions
+                if is_new and len(versions) >= VERSION_CAPS[artifact]:
+                    raise VersionCapReachedError(self._version_summaries(versions))
+                label = current.get("label") or version_label(artifact, options)
+                if is_new:
+                    existing_labels = {str(value.get("label", "")).casefold() for value in versions.values() if isinstance(value, dict)}
+                    base_label = label
+                    suffix = 2
+                    while label.casefold() in existing_labels:
+                        label = f"{base_label} ({suffix})"
+                        suffix += 1
+                current.update({
+                    "options": dict(options), "label": label, "topic": topic,
+                    "user_prompt": user_prompt, "path": version_id, "status": "processing", "error": None,
+                    "progress": 0, "created_at": current.get("created_at", now), "started_at": now, "updated_at": now,
+                })
+                versions[version_id] = current
+                artifacts[artifact] = {"active": entry.get("active"), "versions": versions}
+                study_pack["artifacts"] = artifacts
+                meta["study_pack"] = study_pack
+                if reserve:
+                    course.metadata_json = json.dumps(meta, ensure_ascii=False)
+                    db.commit()
+                return version_id
+            except Exception:
+                db.rollback()
+                raise
+            finally:
+                db.close()
 
     @staticmethod
     def _version_summaries(versions: Dict[str, Any]) -> list[Dict[str, Any]]:

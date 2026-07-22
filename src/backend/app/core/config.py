@@ -125,17 +125,25 @@ class Settings(BaseSettings):
     EMBEDDING_CACHE_DIR: str = Field(default="cache/chunk_embeddings", description="Directory for content-hash embedding cache")
 
     OPENROUTER_EMBEDDING_MODEL: str = Field(default="openai/text-embedding-3-small", description="OpenRouter embedding model slug")
+    EMBEDDING_PROVIDER: str = Field(
+        default="openrouter",
+        description="'openrouter' (paid, default) or 'local' (free, CPU, bge-m3 — see services/vector_store.py:LocalEmbeddingFunction). Governs NEW courses only — existing courses keep whatever Course.embedding_provider they already have.",
+    )
 
     # Document chunking tuning
     DOCUMENT_CHUNK_SIZE: int = Field(default=1800, description="Target chunk size in characters")
     DOCUMENT_CHUNK_OVERLAP: int = Field(default=120, description="Overlap in characters between consecutive chunks")
 
-    # OCR fallback for scanned PDF pages (rendered page image -> OpenRouter vision text extraction)
+    # OCR fallback for scanned PDF pages (rendered page image -> text extraction)
     PDF_ENABLE_OCR: bool = Field(default=True, description="Enable OCR fallback for low-text (scanned) PDF pages")
     PDF_OCR_MAX_PAGES: int = Field(default=12, description="Hard cap on number of pages OCR'd per document")
     PDF_OCR_DPI: int = Field(default=120, description="DPI used when rendering a scanned page to an image for OCR")
     PDF_TEXT_MIN_CHARS_PER_PAGE: int = Field(default=50, description="Below this many extracted chars, a page is considered a scan candidate")
     PDF_SCAN_SAMPLE_PAGES: int = Field(default=12, description="Number of pages sampled to decide whether a document is scanned")
+    OCR_PROVIDER: str = Field(
+        default="openrouter",
+        description="'openrouter' (paid, default) or 'paddleocr' (local, free, CPU-only, no fallback on failure — see services/ocr.py)",
+    )
 
 
     @field_validator("DATABASE_URL", "JWT_SECRET", "OPENROUTER_API_KEY", mode="before")

@@ -51,7 +51,40 @@ class OpenRouterEmbeddingFunction:
         raise RuntimeError(f"OpenRouter embedding failed after {self._max_retries} attempts: {last_exc}")
 
 
-def _build_embedding_function() -> Optional[OpenRouterEmbeddingFunction]:
+class LocalEmbeddingFunction:
+    """Chroma embedding function backed by a local, free, CPU-only sentence-transformers
+    model (bge-m3 by default — verified 2026-07-19: ~2.2GB one-time download, ~260s cold
+    load, ~1.1GB resident / ~2.3GB peak during a small batch encode, genuinely correct
+    cross-lingual similarity on Vietnamese/Chinese text). The model is loaded once per
+    process (class-level singleton) — constructing it is expensive, must never happen per
+    call or per VectorStore instance."""
+
+    _model = None
+
+    def __init__(self, model_name: str = "BAAI/bge-m3"):
+        self._model_name = model_name
+
+    def _get_model(self):
+        if LocalEmbeddingFunction._model is None:
+            from sentence_transformers import SentenceTransformer
+
+            LocalEmbeddingFunction._model = SentenceTransformer(self._model_name, device="cpu")
+        return LocalEmbeddingFunction._model
+
+    def name(self) -> str:
+        return "local"
+
+    def __call__(self, input: List[str]) -> List[List[float]]:
+        return self._embed(list(input))
+
+    def embed_query(self, input: List[str]) -> List[List[float]]:
+        return self._embed(list(input))
+
+    def _embed(self, texts: List[str]) -> List[List[float]]:
+        return self._get_model().encode(texts).tolist()
+
+
+def _build_openrouter_embedding_function() -> Optional[OpenRouterEmbeddingFunction]:
     """Build the OpenRouter embedding function, or use Chroma's test-only default."""
     if "PYTEST_CURRENT_TEST" in os.environ:
         return None
@@ -67,11 +100,28 @@ def _build_embedding_function() -> Optional[OpenRouterEmbeddingFunction]:
         return None
 
 
+def _build_local_embedding_function() -> Optional[LocalEmbeddingFunction]:
+    """Build the local embedding function, or use Chroma's test-only default. Construction
+    itself is cheap (the expensive model load is deferred to first actual use in
+    LocalEmbeddingFunction._get_model) — this only fails if sentence-transformers isn't
+    installed at all."""
+    if "PYTEST_CURRENT_TEST" in os.environ:
+        return None
+    try:
+        return LocalEmbeddingFunction()
+    except Exception as e:
+        logger.warning(f"Failed to initialize local embedding function: {e}")
+        return None
+
+
 class VectorStore:
     """Wrapper around ChromaDB for storing and retrieving course document chunks.
 
-    The OpenRouter collection is primary. The original collection is retained read-only as a
-    legacy source while old courses are re-embedded lazily.
+    Supports two live, permanently-coexisting embedding providers — "openrouter" (paid,
+    default) and "local" (free, CPU, bge-m3) — each in its own Chroma collection
+    (`{base}_openrouter` / `{base}_local`), selected per-course via `Course.embedding_provider`.
+    The original (pre-provider-split) collection is retained read-only as a legacy source
+    while old courses are re-embedded lazily.
     """
 
     def __init__(self, collection_name: str, persist_directory: str, embedding_function: Optional[Any] = None):
@@ -81,17 +131,30 @@ class VectorStore:
 
         os.makedirs(persist_directory, exist_ok=True)
         self.client = chromadb.PersistentClient(path=persist_directory)
-        ef = embedding_function if embedding_function is not None else _build_embedding_function()
+        ef = embedding_function if embedding_function is not None else _build_openrouter_embedding_function()
         if ef is not None:
             self.collection = self.client.get_or_create_collection(name=self.collection_name, embedding_function=ef)
         else:
             self.collection = self.client.get_or_create_collection(name=self.collection_name)
+        # The local collection is expensive to bind (loads bge-m3 on first real use) so it's
+        # built lazily on first request, not eagerly here — most VectorStore instances never
+        # touch a "local"-provider course.
+        self._local_collection: Optional[Any] = None
 
     def _collection_for(self, provider: str) -> Any:
-        """Return the sole active embedding collection."""
-        if provider != "openrouter":
-            raise ValueError(f"Unsupported active embedding provider: {provider}")
-        return self.collection
+        """Return the active embedding collection for a provider."""
+        if provider == "openrouter":
+            return self.collection
+        if provider == "local":
+            if self._local_collection is None:
+                ef = _build_local_embedding_function()
+                name = f"{self.legacy_collection_name}_local"
+                if ef is not None:
+                    self._local_collection = self.client.get_or_create_collection(name=name, embedding_function=ef)
+                else:
+                    self._local_collection = self.client.get_or_create_collection(name=name)
+            return self._local_collection
+        raise ValueError(f"Unsupported active embedding provider: {provider}")
 
     def add_documents(self, documents: List[Document], course_id: str, provider: str = "openrouter") -> None:
         """Add document chunks to ChromaDB collection with course_id metadata."""
@@ -122,14 +185,15 @@ class VectorStore:
             metadatas.append(clean_meta)
 
         # Use upsert to prevent duplicate ID errors on re-processing
-        self._collection_for(provider).upsert(
+        collection = self._collection_for(provider)
+        collection.upsert(
             ids=ids,
             documents=contents,
             metadatas=metadatas
         )
         logger.info(
             f"Added {len(documents)} chunks for course {course_id} to collection "
-            f"{self.collection_name}"
+            f"{collection.name}"
         )
 
     def search(

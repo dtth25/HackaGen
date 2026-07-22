@@ -73,7 +73,11 @@ export function BookTab({ courseId, documentProcessing = false }: BookTabProps) 
     courseId,
     fetchFn: apiGetBook,
     isReady: (data) => (data.chapters?.length ?? 0) > 0,
-    timeoutMs: 6 * 60 * 1000,
+    // Must stay >= the backend's own stale-processing threshold for book (10 min, see
+    // generator.py::prepare_artifact_version) — otherwise the FE gives up and shows a
+    // false "failed" error while the backend still considers the job legitimately
+    // in-flight, which just confuses a genuinely-slow-but-healthy generation with a dead one.
+    timeoutMs: 11 * 60 * 1000,
     timeoutMessage: "Quá trình tạo sách ôn tập mất nhiều thời gian hơn dự kiến. Vui lòng thử làm mới lại sau.",
     defaultErrorMessage: "Tạo sách ôn tập thất bại.",
     onReady: () => setActiveIdx(-1),

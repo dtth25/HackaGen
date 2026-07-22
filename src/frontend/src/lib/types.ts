@@ -67,6 +67,7 @@ export interface CourseStatusResponse {
   course_id: string;
   name?: string;
   status: string;
+  stage?: string;
   progress?: number;
   filename?: string;
   filenames?: string[];

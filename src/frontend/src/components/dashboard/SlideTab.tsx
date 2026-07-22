@@ -80,7 +80,9 @@ export function SlideTab({ courseId, documentProcessing = false }: SlideTabProps
     courseId,
     fetchFn: apiGetSlide,
     isReady: (data) => (data.slides?.length ?? 0) > 0,
-    timeoutMs: 3 * 60 * 1000,
+    // Must stay >= the backend's own stale-processing threshold for slides (8 min, see
+    // generator.py::prepare_artifact_version) — see BookTab.tsx for why.
+    timeoutMs: 9 * 60 * 1000,
     timeoutMessage: "Quá trình tạo slide mất nhiều thời gian hơn dự kiến. Vui lòng thử lại sau.",
     defaultErrorMessage: "Tạo slide thất bại.",
     onReady: () => setCurrentIndex(0),

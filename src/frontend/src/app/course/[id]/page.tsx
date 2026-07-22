@@ -188,6 +188,12 @@ function DashboardContent() {
     course.filenames?.[0] ||
     course.filename ||
     `Khóa học ${course.course_id.slice(0, 8)}`;
+  const stageLabels: Record<string, string> = {
+    extracting: "trích xuất nội dung tài liệu",
+    chunking: "chia nhỏ tài liệu",
+    embedding: "tạo vector tìm kiếm (AI)",
+  };
+  const stageLabel = course.stage ? stageLabels[course.stage] ?? course.stage : null;
 
   return (
     <div className={cn(CONTAINER_NARROW, "py-8 sm:py-12")}>
@@ -232,6 +238,18 @@ function DashboardContent() {
             {cfg.label}
           </Badge>
         </div>
+
+        {status === "error" && course.error && (
+          <div className="mt-4 flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            <div>
+              <p className="font-medium">
+                Xử lý tài liệu thất bại{stageLabel ? ` ở bước ${stageLabel}` : ""}.
+              </p>
+              <p className="mt-1 text-destructive/90">{course.error}</p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Tabs */}

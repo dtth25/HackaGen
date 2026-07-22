@@ -77,7 +77,9 @@ export function VidTab({ courseId, documentProcessing = false }: VidTabProps) {
     courseId,
     fetchFn: apiGetVid,
     isReady: (data) => (data.scenes?.length ?? 0) > 0,
-    timeoutMs: 8 * 60 * 1000,
+    // Must stay >= the backend's own stale-processing threshold for vid (20 min, see
+    // generator.py::prepare_artifact_version) — see BookTab.tsx for why.
+    timeoutMs: 21 * 60 * 1000,
     timeoutMessage: "Quá trình tạo video mất nhiều thời gian hơn dự kiến. Vui lòng thử lại sau.",
     defaultErrorMessage: "Tạo video thất bại.",
   });

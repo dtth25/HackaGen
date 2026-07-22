@@ -117,7 +117,9 @@ export function QuizTab({ courseId, documentProcessing = false }: QuizTabProps) 
     courseId,
     fetchFn: apiGetQuiz,
     isReady: (data) => data.length > 0,
-    timeoutMs: 3 * 60 * 1000,
+    // Must stay >= the backend's own stale-processing threshold for quiz (8 min, see
+    // generator.py::prepare_artifact_version) — see BookTab.tsx for why.
+    timeoutMs: 9 * 60 * 1000,
     timeoutMessage: "Quá trình tạo trắc nghiệm mất nhiều thời gian hơn dự kiến. Vui lòng thử lại sau.",
     defaultErrorMessage: "Tạo trắc nghiệm thất bại.",
     onReady: resetTaking,

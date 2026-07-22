@@ -3,15 +3,62 @@
 import logging
 import os
 import re
+import time
 from collections import Counter
 from typing import List, Optional, Tuple
 from pydantic import BaseModel
+from sqlalchemy.exc import OperationalError
 import fitz  # PyMuPDF
 import docx
 from app.models.course import Course
 from app.services.vector_store import Document, VectorStore
 
 logger = logging.getLogger(__name__)
+
+
+def _classify_pipeline_error(exc: Exception, *, stage: str) -> str:
+    """Turn a pipeline exception into a Vietnamese message that names the layer that broke —
+    AI-provider network/connectivity, AI-provider auth/quota, bad source content, or an
+    internal bug — so `error_message` alone (no server logs) tells you whether this is a code
+    bug or a server/network problem. `stage` only picks the fallback bucket when no strong
+    signal is found in the exception: "extracting" defaults to a content-shaped message,
+    anything else (currently only "embedding") defaults to a provider-shaped one."""
+    text = str(exc)
+    lowered = text.lower()
+    type_name = type(exc).__name__.lower()
+
+    def _has(*markers: str) -> bool:
+        return any(m in lowered or m in type_name for m in markers)
+
+    if stage == "extracting" and isinstance(exc, ValueError):
+        return (
+            "Không trích xuất được nội dung văn bản từ tệp đã tải lên — tệp có thể trống, "
+            f"bị hỏng, hoặc là ảnh scan chưa đọc được. Chi tiết: {text[:200]}"
+        )
+
+    if _has(
+        "connectionerror", "connect timeout", "timed out", "timeout",
+        "name or service not known", "getaddrinfo failed", "network is unreachable",
+        "connection refused", "apiconnectionerror", "remote end closed", "dns",
+    ):
+        return (
+            "Không thể kết nối tới dịch vụ AI (OpenRouter) — nhiều khả năng do mạng máy chủ "
+            f"chặn kết nối ra ngoài, không phải lỗi trong tài liệu. Chi tiết kỹ thuật: {text[:200]}"
+        )
+    if _has(
+        "401", "unauthorized", "authenticationerror", "invalid_api_key",
+        "invalid api key", "access_token_type_unsupported",
+    ):
+        return f"API key dịch vụ AI không hợp lệ hoặc đã hết hạn. Chi tiết kỹ thuật: {text[:200]}"
+    if _has("429", "rate limit", "ratelimiterror", "resource_exhausted", "quota"):
+        return (
+            "Dịch vụ AI đang hết hạn mức hoặc quá tải. Vui lòng thử lại sau. "
+            f"Chi tiết kỹ thuật: {text[:200]}"
+        )
+
+    if stage == "extracting":
+        return f"Không xử lý được tệp đã tải lên (lỗi định dạng hoặc file hỏng). Chi tiết: {text[:300]}"
+    return f"Dịch vụ AI (OpenRouter) gặp lỗi khi tạo embedding. Chi tiết kỹ thuật: {text[:300]}"
 
 _SENTENCE_BOUNDARY_RE = re.compile(r"[.?!][ \n]")
 _FRONT_MATTER_MARKERS = (
@@ -104,37 +151,53 @@ class DocumentProcessor:
         embedding_provider: Optional[str] = None,
         db_session_factory=None,
     ):
-        """Helper to update course status in database."""
+        """Helper to update course status in database. Retries a few times on sqlite lock
+        contention (OperationalError) instead of silently dropping the write — a lost write
+        on the terminal ready/failed update is exactly what leaves a course wedged in
+        "processing" forever with nothing left to ever retry it."""
         if db_session_factory is None:
             from app.services.database import SessionLocal as factory
         else:
             factory = db_session_factory
-        try:
-            with factory() as db:
-                course = (
-                    db.query(Course)
-                    .filter(Course.id == course_id, Course.is_deleted == False)  # noqa: E712
-                    .first()
-                )
-                if course:
-                    course.status = status
-                    course.stage = stage
-                    course.progress = progress
-                    if chunk_count > 0:
-                        course.chunk_count = chunk_count
-                    if quality_score > 0:
-                        course.quality_score = quality_score
-                    if name:
-                        course.name = name
-                    if embedding_provider:
-                        course.embedding_provider = embedding_provider
-                    course.embedding_status = embedding_status
-                    # Clears any stale error from a prior attempt on success, persists the
-                    # real reason on failure — always set explicitly, not just on failure.
-                    course.error_message = error_message
-                    db.commit()
-        except Exception as e:
-            logger.error(f"Failed to update course {course_id} in DB: {e}")
+
+        max_attempts = 3
+        for attempt in range(1, max_attempts + 1):
+            try:
+                with factory() as db:
+                    course = (
+                        db.query(Course)
+                        .filter(Course.id == course_id, Course.is_deleted == False)  # noqa: E712
+                        .first()
+                    )
+                    if course:
+                        course.status = status
+                        course.stage = stage
+                        course.progress = progress
+                        if chunk_count > 0:
+                            course.chunk_count = chunk_count
+                        if quality_score > 0:
+                            course.quality_score = quality_score
+                        if name:
+                            course.name = name
+                        if embedding_provider:
+                            course.embedding_provider = embedding_provider
+                        course.embedding_status = embedding_status
+                        # Clears any stale error from a prior attempt on success, persists the
+                        # real reason on failure — always set explicitly, not just on failure.
+                        course.error_message = error_message
+                        db.commit()
+                return
+            except OperationalError as e:
+                if attempt == max_attempts:
+                    logger.error(
+                        f"Failed to update course {course_id} in DB after {max_attempts} attempts "
+                        f"(status={status}, stage={stage}): {e}"
+                    )
+                    return
+                time.sleep(0.2 * attempt)
+            except Exception as e:
+                logger.error(f"Failed to update course {course_id} in DB: {e}")
+                return
 
     def _generate_course_title(self, all_documents: List[Document]) -> Optional[str]:
         """Best-effort AI-generated short course title from a sample of extracted text.
@@ -310,18 +373,19 @@ class DocumentProcessor:
         return pages
 
     def _ocr_page(self, doc: "fitz.Document", page_index: int, dpi: int) -> Optional[str]:
-        """Render a PDF page to an image and ask OpenRouter vision to transcribe its text.
-        Best-effort: returns None on any failure so the caller keeps whatever text
-        extraction already produced (possibly empty/short)."""
+        """Render a PDF page to an image and transcribe its text via the configured OCR
+        provider (OPENROUTER_MODEL vision by default, or local PaddleOCR — see
+        app/services/ocr.py::get_ocr_provider). Best-effort: returns None on any failure so
+        the caller keeps whatever text extraction already produced (possibly empty/short)."""
         try:
             page = doc[page_index]
             zoom = dpi / 72.0
             pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom))
             image_bytes = pix.tobytes("png")
 
-            from app.services.llm import LLMService
+            from app.services.ocr import get_ocr_provider
 
-            return LLMService().ocr_page_image(image_bytes) or None
+            return get_ocr_provider().recognize(image_bytes) or None
         except Exception as e:
             logger.warning(f"OCR fallback failed for page {page_index + 1}: {e}")
             return None
@@ -509,92 +573,105 @@ class DocumentProcessor:
             db_session_factory=db_session_factory,
         )
 
+        # Each stage keeps its own try/except so a failure preserves the stage it actually
+        # died in (extracting/embedding) in the DB, instead of the previous single catch-all
+        # that overwrote stage to the literal string "failed" and destroyed that information —
+        # the very thing needed to tell a code bug (extraction) apart from a network/provider
+        # problem (embedding) without reading server logs.
         all_documents: List[Document] = []
         try:
-            # 1. Extract, 2. Clean, 3. Chunk
             for path in file_paths:
                 all_documents.extend(self.extract_and_chunk_file(path, course_id))
-
-            self._update_course_db(
-                course_id,
-                status="processing",
-                stage="chunking",
-                progress=50,
-                db_session_factory=db_session_factory,
-            )
-
             if not all_documents:
-                raise ValueError(
-                    "No valid text could be extracted from uploaded files."
-                )
-
-            self._update_course_db(
-                course_id,
-                status="processing",
-                stage="embedding",
-                progress=75,
-                db_session_factory=db_session_factory,
-            )
-
-            # All newly indexed chunks use the single OpenRouter embedding space.
-            embedding_provider = "openrouter"
-            self.vector_store.add_documents(all_documents, course_id=course_id, provider=embedding_provider)
-
-            # Calculate quality score (e.g., based on average chunk length and total chunks)
-            quality_score = min(100, max(50, len(all_documents) * 5 + 60))
-
-            # One AI-naming attempt per course, like a chat UI naming a new conversation —
-            # no retries. Falls back to the (cleaned) uploaded filename so `name` is always
-            # set once a course is ready; after this, naming is purely manual (rename).
-            course_title = self._generate_course_title(all_documents) or self._filename_fallback_title(
-                file_paths[0]
-            )
-
-            # Completed!
-            self._update_course_db(
-                course_id,
-                status="ready",
-                stage="completed",
-                progress=100,
-                chunk_count=len(all_documents),
-                quality_score=quality_score,
-                embedding_status="completed",
-                name=course_title,
-                embedding_provider=embedding_provider,
-                db_session_factory=db_session_factory,
-            )
-
-            logger.info(
-                f"Successfully processed course {course_id}: {len(all_documents)} chunks created."
-            )
-            return ProcessingResult(
-                course_id=course_id,
-                status="ready",
-                chunk_count=len(all_documents),
-                quality_score=quality_score,
-            )
-
+                raise ValueError("No valid text could be extracted from uploaded files.")
         except Exception as e:
-            error_msg = str(e)
-            logger.error(
-                f"Document processing failed for course {course_id}: {error_msg}"
-            )
-            self._update_course_db(
-                course_id,
-                status="failed",
-                stage="failed",
-                progress=0,
-                embedding_status="failed",
-                error_message=error_msg[:500],
-                db_session_factory=db_session_factory,
-            )
-            return ProcessingResult(
-                course_id=course_id,
-                status="failed",
-                chunk_count=0,
-                quality_score=0,
-                error=error_msg,
-            )
+            return self._fail_course(course_id, "extracting", e, db_session_factory)
+
+        self._update_course_db(
+            course_id,
+            status="processing",
+            stage="chunking",
+            progress=50,
+            db_session_factory=db_session_factory,
+        )
+        self._update_course_db(
+            course_id,
+            status="processing",
+            stage="embedding",
+            progress=75,
+            db_session_factory=db_session_factory,
+        )
+
+        try:
+            from app.core.config import settings
+
+            embedding_provider = settings.EMBEDDING_PROVIDER
+            self.vector_store.add_documents(all_documents, course_id=course_id, provider=embedding_provider)
+        except Exception as e:
+            return self._fail_course(course_id, "embedding", e, db_session_factory)
+
+        # Calculate quality score (e.g., based on average chunk length and total chunks)
+        quality_score = min(100, max(50, len(all_documents) * 5 + 60))
+
+        # One AI-naming attempt per course, like a chat UI naming a new conversation — no
+        # retries. Falls back to the (cleaned) uploaded filename so `name` is always set once
+        # a course is ready; after this, naming is purely manual (rename). Already fails soft
+        # internally (logs + returns None), so it never needs its own try/except here.
+        course_title = self._generate_course_title(all_documents) or self._filename_fallback_title(
+            file_paths[0]
+        )
+
+        # Completed!
+        self._update_course_db(
+            course_id,
+            status="ready",
+            stage="completed",
+            progress=100,
+            chunk_count=len(all_documents),
+            quality_score=quality_score,
+            embedding_status="completed",
+            name=course_title,
+            embedding_provider=embedding_provider,
+            db_session_factory=db_session_factory,
+        )
+
+        logger.info(
+            f"Successfully processed course {course_id}: {len(all_documents)} chunks created."
+        )
+        return ProcessingResult(
+            course_id=course_id,
+            status="ready",
+            chunk_count=len(all_documents),
+            quality_score=quality_score,
+        )
+
+    def _fail_course(
+        self,
+        course_id: str,
+        stage: str,
+        exc: Exception,
+        db_session_factory=None,
+    ) -> ProcessingResult:
+        """Mark a course failed at the stage it actually died in, with a classified,
+        self-explanatory error message (see `_classify_pipeline_error`)."""
+        classified = _classify_pipeline_error(exc, stage=stage)
+        logger.error(f"Document processing failed for course {course_id} at stage={stage}: {exc}")
+        self._update_course_db(
+            course_id,
+            status="failed",
+            stage=stage,
+            progress=0,
+            embedding_status="failed",
+            error_message=classified[:500],
+            db_session_factory=db_session_factory,
+        )
+        return ProcessingResult(
+            course_id=course_id,
+            status="failed",
+            chunk_count=0,
+            quality_score=0,
+            error=classified,
+        )
 
 
 def get_document_processor() -> DocumentProcessor:

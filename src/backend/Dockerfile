@@ -8,8 +8,11 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 # as tofu boxes in the container (worked locally only because Windows has Arial). Install
 # DejaVu, which has full Vietnamese coverage and lands at exactly the path already listed
 # in pdf_utils._FONT_CANDIDATES (/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf).
+# libgl1/libglib2.0-0: opencv-contrib-python (a paddleocr dependency, used when
+# OCR_PROVIDER=paddleocr) is built expecting a full libGL/GTK stack even in headless use —
+# python:3.11-slim has neither, and opencv fails to import without them.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends fonts-dejavu-core fonts-noto-cjk fonts-wqy-zenhei \
+    && apt-get install -y --no-install-recommends fonts-dejavu-core fonts-noto-cjk fonts-wqy-zenhei libgl1 libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

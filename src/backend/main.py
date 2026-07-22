@@ -3,6 +3,7 @@
 import os
 import time
 from contextlib import asynccontextmanager
+from datetime import datetime, timedelta
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -16,10 +17,50 @@ from app.services.vector_store import get_vector_store
 
 START_TIME = time.time()
 
+# A course stuck in status="processing" past this threshold means its background task died
+# with the process (e.g. a server restart mid-upload) — nothing else ever re-triggers it, so
+# without this sweep it stays "processing" forever and the user just sees a stuck progress bar.
+STALE_PROCESSING_MINUTES = 15
+
+
+def fail_stale_processing_courses(db_session_factory=None) -> int:
+    """Runs once at startup: fail any course still "processing" from before this boot.
+    Returns the number of courses swept, for logging."""
+    factory = db_session_factory or SessionLocal
+    threshold = datetime.utcnow() - timedelta(minutes=STALE_PROCESSING_MINUTES)
+    db = factory()
+    try:
+        stale = (
+            db.query(Course)
+            .filter(
+                Course.status == "processing",
+                Course.created_at < threshold,
+                Course.is_deleted == False,  # noqa: E712
+            )
+            .all()
+        )
+        for course in stale:
+            course.status = "failed"
+            course.error_message = (
+                "Xử lý bị gián đoạn — có thể server đã khởi động lại giữa chừng. "
+                "Vui lòng thử tải lại tài liệu."
+            )
+        if stale:
+            db.commit()
+        return len(stale)
+    except Exception as e:
+        logger.error(f"Failed to sweep stale processing courses: {e}")
+        return 0
+    finally:
+        db.close()
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     seed_default_admin()
+    swept = fail_stale_processing_courses()
+    if swept:
+        logger.info(f"Marked {swept} stale 'processing' course(s) as failed on startup.")
     yield
 
 
